@@ -315,7 +315,8 @@ add_action( 'plugins_loaded', function () {
         'https://licencas.v3rtech.com.br/wp-json/v3r-license/v1',
         'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR',            // não é segredo — docs/api-contract.md §4
         '1.0.0',                                                // versão instalada do plugin (semver)
-        'manage_meuplugin_licenses'                             // capability — ver nota abaixo
+        'meuplugin_settings_view',                              // capability de leitura — ver nota abaixo
+        'meuplugin_settings_manage'                             // capability de gestão — ver nota abaixo
     );
 
     $v3rCore->boot(); // updater + 4 endpoints REST internos (docs/api-contract.md §8)
@@ -323,11 +324,25 @@ add_action( 'plugins_loaded', function () {
 ```
 
 `Bootstrap::__construct(string $productSlug, string $pluginFile, string
-$apiBaseUrl, string $publicKey, string $pluginVersion, string $capability =
-Bootstrap::DEFAULT_CAPABILITY)` — o sexto argumento (`$capability`) é
-opcional, default `manage_options`. **Quando o plugin já tiver um RBAC
-próprio** (papéis/capabilities data-driven do próprio produto), a
-capability passada aqui deve ser a capability equivalente do RBAC do
-plugin — nunca fixe `manage_options` nem invente uma capability nova só
-para o v3r-core; use a que já existe no plugin para a mesma responsabilidade
-(gestão de licença/configuração administrativa).
+$apiBaseUrl, string $publicKey, string $pluginVersion, string $readCapability
+= Bootstrap::DEFAULT_CAPABILITY, ?string $manageCapability = null)` — capability
+**por operação** desde a issue #9 (docs/api-contract.md §8.2): o sexto
+argumento (`$readCapability`) autoriza `GET .../license` e
+`POST .../license/refresh`; o sétimo, opcional (`$manageCapability`),
+autoriza `POST .../license/activate` e `POST .../license/deactivate` — a
+dupla que mexe no estado da licença e libera a cota do domínio no
+servidor. Omitindo o sétimo, ele cai para o valor do sexto (mesmo
+comportamento de antes da issue #9, com uma capability só).
+
+**Quando o plugin já tiver um RBAC próprio** (papéis/capabilities
+data-driven do próprio produto), as duas capabilities aqui costumam ser
+**sintéticas** — pontes criadas pelo próprio plugin via filtro
+`user_has_cap`, uma por nível de permissão que já existe no RBAC (ex.:
+`settings.view`/`settings.manage`), não capabilities nativas do
+WordPress. Nunca fixe `manage_options` nas duas nem invente uma
+capability nova só para o v3r-core; use as que já existem no plugin para
+a mesma responsabilidade (consultar licença / gerir licença).
+`manage_options` continua sendo aceitável só para o plugin que não tem
+RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de errar:
+estreita demais exclui quem administra o plugin sem ser administrador do
+site.

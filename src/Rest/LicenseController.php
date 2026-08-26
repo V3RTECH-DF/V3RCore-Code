@@ -16,7 +16,9 @@ use V3R\Core\Updater\UpdateGate;
  * cliente↔servidor (§§1–7), que autentica pela chave de licença e nunca
  * passa por aqui.
  *
- * Autenticação: nonce `wp_rest` + capability configurável (§8.2). Nunca
+ * Autenticação: nonce `wp_rest` + capability configurável **por operação**
+ * (§8.2, issue #9) — leitura (`get_state`/`refresh`) e gestão
+ * (`activate`/`deactivate`), nunca a mesma para as quatro. Nunca
  * `is_admin()` — não é autorização. Lógica de negócio não mora aqui: só
  * extração de parâmetros e tradução de exceções para o formato REST do
  * WordPress; quem decide é sempre LicenseManager/UpdateGate.
@@ -26,8 +28,20 @@ final class LicenseController {
 	/** @var LicenseManager */
 	private $manager;
 
-	/** @var string */
-	private $capability;
+	/**
+	 * Capability exigida para GET .../license e POST .../license/refresh.
+	 *
+	 * @var string
+	 */
+	private $readCapability;
+
+	/**
+	 * Capability exigida para POST .../license/activate e
+	 * POST .../license/deactivate.
+	 *
+	 * @var string
+	 */
+	private $manageCapability;
 
 	/** @var LicenseStatePresenter */
 	private $presenter;
@@ -38,26 +52,51 @@ final class LicenseController {
 	public function __construct(
 		LicenseManager $manager,
 		UpdateGate $gate,
-		string $capability,
+		string $readCapability,
+		string $manageCapability,
 		?RefreshThrottle $throttle = null
 	) {
-		$this->manager    = $manager;
-		$this->capability = $capability;
-		$this->presenter  = new LicenseStatePresenter( $gate );
-		$this->throttle   = $throttle ?? new RefreshThrottle( $manager->getProductSlug() );
+		$this->manager          = $manager;
+		$this->readCapability   = $readCapability;
+		$this->manageCapability = $manageCapability;
+		$this->presenter        = new LicenseStatePresenter( $gate );
+		$this->throttle         = $throttle ?? new RefreshThrottle( $manager->getProductSlug() );
 	}
 
 	/**
-	 * §8.2: nonce `wp_rest` válido no cabeçalho `X-WP-Nonce` **e** a
-	 * capability configurada — os dois, nunca `is_admin()`. Nonce ausente
-	 * responde antes mesmo de chegar aqui (rest_cookie_invalid_nonce, erro
-	 * padrão do próprio WordPress); esta checagem é defesa em profundidade
-	 * e o que torna o requisito testável em unidade.
+	 * §8.2 — `permission_callback` de GET .../license e
+	 * POST .../license/refresh: nonce `wp_rest` válido no cabeçalho
+	 * `X-WP-Nonce` **e** a capability de leitura, nunca `is_admin()`.
 	 *
 	 * @param \WP_REST_Request $request
 	 */
-	public function permission_callback( $request ): bool {
-		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( $this->capability ) ) {
+	public function permission_callback_read( $request ): bool {
+		return $this->checkCapabilityAndNonce( $request, $this->readCapability );
+	}
+
+	/**
+	 * §8.2 — `permission_callback` de POST .../license/activate e
+	 * POST .../license/deactivate: nonce `wp_rest` válido no cabeçalho
+	 * `X-WP-Nonce` **e** a capability de gestão, nunca `is_admin()`. Quem
+	 * só tem a capability de leitura recebe `403` aqui mesmo tendo nonce
+	 * válido — é a checagem que fecha a issue #9.
+	 *
+	 * @param \WP_REST_Request $request
+	 */
+	public function permission_callback_manage( $request ): bool {
+		return $this->checkCapabilityAndNonce( $request, $this->manageCapability );
+	}
+
+	/**
+	 * Nonce ausente ou inválido responde antes mesmo de chegar aqui, na
+	 * maior parte dos casos (rest_cookie_invalid_nonce, erro padrão do
+	 * próprio WordPress); esta checagem é defesa em profundidade e o que
+	 * torna o requisito testável em unidade.
+	 *
+	 * @param \WP_REST_Request $request
+	 */
+	private function checkCapabilityAndNonce( $request, string $capability ): bool {
+		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( $capability ) ) {
 			return false;
 		}
 

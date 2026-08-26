@@ -87,13 +87,26 @@ if ( ! function_exists( 'get_transient' ) ) {
 }
 
 // Stubs mínimos do protocolo REST interno (fatia 2b, docs/api-contract.md
-// §8), só o suficiente para testar Rest\LicenseController::permission_callback()
+// §8), só o suficiente para testar
+// Rest\LicenseController::permission_callback_read()/permission_callback_manage()
 // sem WordPress carregado. Controláveis por globals, mesmo padrão do
 // V3RLicense (tests/Support/WpStubs.php) para não inventar um segundo jeito
 // de simular current_user_can()/wp_verify_nonce() na casa.
+//
+// $GLOBALS['v3r_core_test_current_user_can'] aceita duas formas:
+// - bool: concede/nega todas as capabilities (comportamento original);
+// - array<string>: concede só as capabilities listadas — necessário para
+// testar isolamento por operação (issue #9: usuário com leitura mas sem
+// gestão).
 if ( ! function_exists( 'current_user_can' ) ) {
 	function current_user_can( string $capability ): bool {
-		return (bool) ( $GLOBALS['v3r_core_test_current_user_can'] ?? false );
+		$granted = $GLOBALS['v3r_core_test_current_user_can'] ?? false;
+
+		if ( is_array( $granted ) ) {
+			return in_array( $capability, $granted, true );
+		}
+
+		return (bool) $granted;
 	}
 }
 

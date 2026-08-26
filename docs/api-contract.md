@@ -424,15 +424,36 @@ plugin da casa reintroduz a colisão em produção, sem aviso, silenciosamente.
   SPA. Nonce ausente ou expirado responde `403 rest_cookie_invalid_nonce`
   (erro padrão do próprio WordPress, antes mesmo de chegar ao
   `permission_callback`).
-- `permission_callback` de cada rota checa uma **capability
-  configurável**, informada pelo plugin hospedeiro ao instanciar o
-  `Bootstrap` (parâmetro novo, a acrescentar nesta fatia — hoje o
-  construtor tem `productSlug`, `pluginFile`, `apiBaseUrl`), com padrão
-  `manage_options` quando o plugin hospedeiro não informar nada.
-  **Não fixe `manage_options` no código da biblioteca.** Cada plugin da
-  casa tem sua própria capability de RBAC (`manage_v3r_licenses`,
-  `manage_rit360_premiado` etc.); impor `manage_options` obrigaria quem
-  já construiu papéis próprios a abrir mão deles só para usar esta tela.
+- **Capability por operação, não por camada (issue #9).** As quatro rotas
+  não compartilham o mesmo `permission_callback`:
+
+  | Rota | Capability |
+  |---|---|
+  | `GET .../license` | leitura |
+  | `POST .../license/refresh` | leitura — só reconsulta, e o throttle de 1 min de §8.8.1 já protege o servidor |
+  | `POST .../license/activate` | gestão |
+  | `POST .../license/deactivate` | gestão — mexe na cota do domínio no servidor |
+
+  As duas capabilities são informadas pelo plugin hospedeiro ao instanciar
+  o `Bootstrap` (parâmetros `$readCapability`, sexto, e `$manageCapability`,
+  sétimo e opcional), com padrão `manage_options` para `$readCapability`
+  quando o hospedeiro não informar nada. Quando `$manageCapability` não é
+  informada, ela **cai para `$readCapability`** — nunca o contrário: quem
+  passa uma capability só continua se comportando exatamente como antes,
+  e o fallback nunca fica acidentalmente mais permissivo.
+- **As duas capabilities costumam ser sintéticas, não nativas do
+  WordPress.** O que o plugin hospedeiro tem para oferecer normalmente é
+  resultado de um RBAC próprio — papéis e permissões data-driven,
+  concedidos em runtime por um filtro `user_has_cap` — e não uma
+  capability que o WordPress já entende de fábrica. Quem tem esse RBAC
+  cria a ponte (duas capabilities-ponte, uma por nível, mapeadas para os
+  papéis do próprio motor de permissões); isso é o caminho normal, não uma
+  adaptação de exceção. **Não fixe `manage_options` no código da
+  biblioteca em nenhuma das duas** — e não é só "larga demais" que erra:
+  capability estreita demais exclui justamente quem administra o plugin
+  sem ser administrador do site (o encarregado/DPO, por exemplo).
+  `manage_options` continua como *default* apenas para o plugin que não
+  tem RBAC nenhum.
 - `is_admin() `**não é autorização** — é só um teste de contexto de tela
   (estamos dentro do wp-admin?), verdadeiro inclusive para qualquer
   usuário logado navegando o admin, incluindo AJAX de outros plugins. A
@@ -441,6 +462,14 @@ plugin da casa reintroduz a colisão em produção, sem aviso, silenciosamente.
 - Requisição sem a capability responde `403` com `code: rest_forbidden`
   (o erro padrão que o WordPress já produz quando `permission_callback`
   devolve `false`) — não é um código próprio desta spec.
+- **A capability do `Bootstrap` é o piso do endpoint — a visibilidade da
+  tela não substitui autorização.** Esconder um botão de quem não deve
+  agir evita o clique acidental, não a chamada: o nonce `wp_rest` é gerado
+  para qualquer usuário logado e está disponível em qualquer página do
+  admin que enfileire a REST API, então a chamada direta ao endpoint
+  continua passando se o `permission_callback` não checar a capability
+  certa. A tela pode **espelhar** o endpoint (mostrar o botão só para quem
+  o endpoint aceitaria); ela nunca é o que impede a ação.
 
 ### 8.3 `GET /v3r-core/v1/<product_slug>/license`
 
