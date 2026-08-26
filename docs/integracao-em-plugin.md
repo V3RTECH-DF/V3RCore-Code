@@ -13,14 +13,37 @@ teste descartável, com um zip real aberto e inspecionado. Não é suposição.
 > versões anteriores (`v0.1.0`) embutiam uma auto-prefixação interna que
 > quebra exatamente nesse cenário de reprefixação em dois níveis.
 
+## Três divergências achadas na execução real (V3RLGPD, 26/08/2026)
+
+Esta receita foi escrita e testada contra um plugin de teste descartável.
+A sessão do V3RLGPD a executou pela primeira vez contra um plugin **real**,
+com um `build-zip.sh` de verdade — e achou três divergências que a versão
+anterior deste documento não previa. Todas já estão corrigidas no texto
+abaixo; ficam resumidas aqui para quem só quer saber o que mudou:
+
+1. **`v3rtech/v3r-core` vai em `require-dev`, não em `require`** (§2.1) — em
+   `require`, a lib sobrevive ao `composer install --no-dev` do
+   `build-zip.sh` e é reinstalada **sem prefixo** dentro do próprio pacote.
+2. **Strauss é `.phar` standalone, não dependência do Composer** (§3) —
+   como dependência, `vendor/bin/strauss` falha (`Class "Composer\Factory"
+   not found`); e a mudança tira os hooks `post-install-cmd`/
+   `post-update-cmd` — a prefixação vira passo explícito.
+3. **`delete_vendor_packages` morde no segundo build** (§5) — sem
+   reinstalar antes, o segundo `composer prefix` "sucede" sem copiar nada.
+
+Consequência que atravessa as três: um `composer install` limpo já não
+deixa `vendor-prefixed/` pronto sozinho (§3, §4) — envolver toda chamada ao
+v3r-core em `class_exists()` deixou de ser detalhe de implementação e virou
+requisito da receita (§7).
+
 ## 1. Pré-requisitos
 
 - PHP ≥ 7.4 e Composer 2.x no ambiente que gera o pacote (dev e CI).
 - `GH_TOKEN` da casa (V3RTECH) exportado no ambiente — o repositório
   `V3RTECH-DF/V3RCore-Code` é **privado**. Nunca imprima o token; carregue-o
   via `.envrc` do repositório (`set -a; source .envrc; set +a`).
-- `brianhenryie/strauss` como `require-dev` do **plugin hospedeiro** (não do
-  v3r-core — ele não usa mais Strauss).
+- Strauss **como binário `.phar` standalone** (0.19.5), não como dependência
+  do Composer do plugin hospedeiro — ver §3 para o porquê e como cachear.
 
 ## 2. Declaração da dependência
 
@@ -28,7 +51,7 @@ teste descartável, com um zip real aberto e inspecionado. Não é suposição.
 
 ```json
 {
-    "require": {
+    "require-dev": {
         "v3rtech/v3r-core": "^0.2.0"
     },
     "repositories": [
@@ -39,6 +62,30 @@ teste descartável, com um zip real aberto e inspecionado. Não é suposição.
     ]
 }
 ```
+
+> **`require-dev`, não `require` — achado da execução real (V3RLGPD,
+> 26/08/2026).** A versão anterior desta receita mandava `require`, e isso
+> produz um pacote errado. O `build-zip.sh` da casa tem um passo de
+> "autoloader de produção" que roda `composer install --no-dev` fresco,
+> com `COMPOSER_VENDOR_DIR` apontando para dentro do pacote. `require`
+> **sobrevive** a esse `--no-dev`; `require-dev` não. Com `require`, a lib
+> é reinstalada **sem prefixo** dentro do próprio pacote, e o zip final sai
+> com **as duas** classes — a prefixada e a original —, exatamente o estado
+> que colide entre dois plugins da casa no mesmo WordPress.
+>
+> A biblioteca nunca precisa ser carregada sem prefixo em runtime — ela só
+> existe como matéria-prima para o Strauss. O que vai para produção é
+> `vendor-prefixed/` (§5); a cópia crua em `vendor/v3rtech/v3r-core` não
+> deveria sobreviver ao empacotamento, e com `require-dev` ela não
+> sobrevive.
+>
+> **Foi o guard de duas pontas do §5 que pegou isso.** Na primeira execução
+> real, com `require`, ele falhou reportando "o namespace ORIGINAL do
+> v3r-core ainda resolve" — a ponta que verifica que `V3R\Core\Bootstrap`
+> **não pode** existir sem prefixo. Um guard mais antigo — que só checava
+> se a classe *prefixada* resolvia — teria aprovado esse mesmo pacote
+> quebrado, porque a classe prefixada também estava lá; só que a original
+> estava junto.
 
 Autenticação (uma vez por máquina/CI, não vai no `composer.json`):
 
@@ -83,8 +130,9 @@ container):
    }
    ```
 
-2. Rode `composer require v3rtech/v3r-core:@dev` (ou o nome do branch,
-   `dev-minha-branch`) — com `symlink: true`, o Composer cria um link
+2. Rode `composer require v3rtech/v3r-core:@dev --dev` (ou o nome do
+   branch, `dev-minha-branch` — mantendo a flag `--dev`, ver §2.1) — com
+   `symlink: true`, o Composer cria um link
    simbólico para o checkout local; qualquer alteração no `src/` da lib
    aparece no próximo `composer dump-autoload`/`composer prefix` do plugin,
    sem reinstalar nada.
@@ -93,21 +141,53 @@ container):
    para o estado com só o repositório `vcs`, rode `composer update
    v3rtech/v3r-core` para voltar à versão travada, e confira `git diff`.
 
-## 3. Bloco `extra.strauss` do plugin hospedeiro
+## 3. Bloco `extra.strauss` do plugin hospedeiro, e o Strauss como `.phar`
+
+> **Strauss precisa ser `.phar` standalone, não dependência de Composer —
+> achado da execução real (V3RLGPD, 26/08/2026).** `vendor/bin/strauss`
+> falha com `Class "Composer\Factory" not found`, reproduzível no Composer
+> 2.10.2. **Não é bug do Strauss nem configuração errada:** quando
+> `composer/composer` entra como dependência (transitiva de
+> `brianhenryie/strauss`) de outro projeto, o próprio Composer descarta o
+> `autoload` do pacote — `vendor/composer/installed.json` registra
+> `"autoload": []`. É proteção do Composer contra conflito com o runtime do
+> Composer que está executando o `install`.
+>
+> O contorno é o `.phar` standalone (0.19.5), cacheado fora do controle de
+> versão (o V3RLGPD usou `.tooling/`):
+>
+> ```bash
+> mkdir -p .tooling
+> curl -L -o .tooling/strauss.phar \
+>   https://github.com/BrianHenryIE/strauss/releases/download/0.19.5/strauss.phar
+> echo '.tooling/' >> .gitignore
+> ```
+>
+> Invocado sempre como `php .tooling/strauss.phar compose` — nunca
+> `strauss` nem `vendor/bin/strauss`.
+>
+> **Consequência que muda os `scripts` abaixo: os hooks
+> `post-install-cmd`/`post-update-cmd` saem.** O `.phar` é cacheado fora do
+> Composer — um clone novo não o tem em disco até alguém baixá-lo. Um hook
+> automático chamando `composer run prefix` quebraria o primeiro `composer
+> install` de qualquer desenvolvedor que ainda não tenha
+> `.tooling/strauss.phar`. A prefixação vira passo **explícito** —
+> `composer run prefix`, manual em desenvolvimento e automático dentro do
+> `build-zip.sh` (§5, que já garante o `.phar` em cache antes de chamá-lo).
+>
+> **O resumo rápido do `README.md` da lib também mudou junto com este
+> documento** — ele mostrava só `composer require` + `composer require
+> brianhenryie/strauss --dev`, dando a entender que a prefixação acontecia
+> sozinha (era verdade enquanto existiam os hooks). Agora inclui o
+> `composer run prefix` explícito e a ressalva do `.phar`.
 
 ```json
 {
-    "require-dev": {
-        "brianhenryie/strauss": "^0.19"
-    },
     "autoload": {
         "classmap": ["vendor-prefixed/"]
     },
     "scripts": {
-        "strauss": "strauss",
-        "prefix": ["@strauss", "composer dump-autoload"],
-        "post-install-cmd": ["@prefix"],
-        "post-update-cmd": ["@prefix"]
+        "prefix": ["php .tooling/strauss.phar compose", "composer dump-autoload"]
     },
     "extra": {
         "strauss": {
@@ -137,7 +217,7 @@ Ajuste por plugin: `MeuPlugin\Vendor\`, `MeuPlugin_Vendor_` e
 a colisão entre dois plugins com versões diferentes de v3r-core no mesmo
 WordPress). O resto do bloco é **genérico e idêntico em qualquer plugin**.
 
-**Duas peças não-óbvias, ambas obrigatórias:**
+**Três peças não-óbvias, todas obrigatórias:**
 
 - **`override_autoload` para `yahnis-elsts/plugin-update-checker` é
   obrigatório**, mesmo você não requerendo esse pacote diretamente (ele
@@ -162,12 +242,23 @@ WordPress). O resto do bloco é **genérico e idêntico em qualquer plugin**.
   vendor-prefixed/*
   !vendor-prefixed/.gitkeep
   ```
+- **Sem os hooks (§3), `vendor-prefixed/` fica vazio logo depois de um
+  `composer install` limpo** — a prefixação agora é passo explícito
+  (`composer run prefix`), não mais automática. É estado normal e
+  esperado num clone recém-baixado, não um defeito. É por isso que todo
+  código do plugin que chame o v3r-core precisa estar protegido por
+  `class_exists()` — ver §7.
 
-## 4. Verificação após `composer install`
+## 4. Verificação após instalar e prefixar
+
+**Rode a prefixação explicitamente antes de checar** — sem os hooks (§3),
+um `composer install` sozinho não gera `vendor-prefixed/`:
 
 ```bash
+composer install
+composer run prefix
 php -r '
-require "vendor/autoload.php";
+require "vendor-prefixed/autoload.php";
 var_dump(class_exists("V3R\\Core\\Bootstrap"));                                    // false
 var_dump(class_exists("MeuPlugin\\Vendor\\V3R\\Core\\Bootstrap"));                 // true
 var_dump(class_exists("MeuPlugin\\Vendor\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory")); // true
@@ -196,7 +287,22 @@ Snippet a inserir no script de build do plugin, **depois** de gerar o
 > **antes** do dump. Levantado pela sessão do V3RLGPD ao executar a
 > receita, e vale para qualquer plugin da casa que ache o layout.
 
+> **`delete_vendor_packages` morde no segundo build — achado da execução
+> real (V3RLGPD, 26/08/2026).** `delete_vendor_packages: true` (bloco
+> `extra.strauss`, §3) apaga o pacote-fonte de `vendor/` depois da primeira
+> prefixação. Um segundo `composer prefix` **sem reinstalar antes** encontra
+> `vendor/v3rtech` já vazio e "sucede" sem copiar nada — `vendor-prefixed/`
+> sai vazio **em silêncio**, sem erro nenhum (o guard abaixo ainda pega
+> isso, mas só se rodar depois). É falha que só aparece no segundo build
+> em diante, então passa despercebida em teste feito uma vez só. Por isso
+> o `composer install` roda de novo, logo antes de cada `composer prefix`,
+> dentro do próprio `build-zip.sh` — nunca assuma que o `vendor/` de uma
+> execução anterior ainda tem a lib.
+
 ```bash
+echo "=== Strauss: garantindo vendor/ fresco antes de prefixar ==="
+composer install --no-interaction
+
 echo "=== Strauss: prefixando v3r-core e dependências transitivas ==="
 composer prefix --no-interaction
 
@@ -239,11 +345,24 @@ php -r '
 echo "v3r-core e dependências prefixados, namespaces originais ausentes — OK."
 
 cp -r vendor-prefixed "$TEMP_DIR/"
+
+# Autoloader de produção — SEMPRE depois da cópia acima (ver §3.1: é este
+# --no-dev que descarta v3rtech/v3r-core do pacote final, porque a lib é
+# require-dev). Copiar depois do dump gera classmap sem as classes da
+# biblioteca, com o build passando igual — a ordem abaixo é a confirmada
+# em execução real (V3RLGPD, 26/08/2026).
+(
+  cd "$TEMP_DIR"
+  composer install --no-dev --no-interaction
+  composer dump-autoload --no-interaction
+)
 ```
 
-**O que é genérico:** o `composer prefix`, a checagem de arquivo em
-`vendor-prefixed/v3rtech/v3r-core/src/Bootstrap.php` (caminho idêntico em
-qualquer plugin — é sempre o mesmo pacote), e o `cp -r vendor-prefixed`.
+**O que é genérico:** o `composer install` de garantia, o `composer prefix`,
+a checagem de arquivo em `vendor-prefixed/v3rtech/v3r-core/src/Bootstrap.php`
+(caminho idêntico em qualquer plugin — é sempre o mesmo pacote), o
+`cp -r vendor-prefixed` e o `composer install --no-dev` + `dump-autoload`
+finais dentro do `$TEMP_DIR`.
 
 **O que cada plugin ajusta:** `$NAMESPACE_PREFIX` (o mesmo valor de
 `namespace_prefix` do `extra.strauss` do próprio plugin, sem as barras
@@ -332,15 +451,45 @@ em histórico de arquivo rastreado fora do escopo estrito da correção.
 
 ## 7. Trecho de bootstrap (assinatura real)
 
+> **O exemplo abaixo é defensivo por construção — não por zelo.** Sem os
+> hooks `post-install-cmd`/`post-update-cmd` (§3), o estado "lib instalada
+> mas ainda não prefixada" é **normal e esperado** logo depois de um clone
+> recém-baixado ou de um `composer install` limpo — `vendor-prefixed/`
+> fica vazio até alguém rodar `composer run prefix` explicitamente (§4).
+> Um `require_once` incondicional de `vendor-prefixed/autoload.php` nesse
+> estado é fatal error na ativação do plugin: o arquivo não existe. O
+> `class_exists()` em volta de toda chamada ao v3r-core deixou de ser
+> detalhe de implementação e virou **requisito** desta receita (achado da
+> execução real, V3RLGPD, 26/08/2026) — copie o padrão abaixo tal como
+> está, sem tirar as checagens.
+>
+> No V3RLGPD isso não quebrou por acaso: o arranque do plugin já era uma
+> sequência de `class_exists()`, mas **por outro motivo** — lá o Composer
+> sempre foi opcional em runtime, decisão anterior e independente desta
+> receita. Foi sorte de arquitetura, não previsão; um plugin novo que
+> copie só o `require_once` sem as duas checagens abaixo quebra na
+> primeira ativação após `composer install`.
+
 ```php
 <?php
 declare(strict_types=1);
 
 use MeuPlugin\Vendor\V3R\Core\Bootstrap;
 
-require_once __DIR__ . '/vendor-prefixed/autoload.php';
+$v3rCoreAutoload = __DIR__ . '/vendor-prefixed/autoload.php';
+if ( file_exists( $v3rCoreAutoload ) ) {
+    require_once $v3rCoreAutoload;
+}
 
 add_action( 'plugins_loaded', function () {
+    // vendor-prefixed/ pode não existir ainda (composer install sem
+    // "composer run prefix" depois — §3/§4). Nesse estado o plugin
+    // carrega normalmente e o licenciamento simplesmente não liga; nunca
+    // fatal error, nunca ativação abortada.
+    if ( ! class_exists( Bootstrap::class ) ) {
+        return;
+    }
+
     $v3rCore = new Bootstrap(
         'meuplugin',                                          // product_slug no servidor de licenças
         __FILE__,                                              // arquivo principal do plugin

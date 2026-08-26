@@ -40,9 +40,19 @@ namespace original. Toda a prefixação (v3r-core + dependências
 transitivas) é feita numa única passada do Strauss, no **plugin
 hospedeiro**.
 
+**A prefixação não é automática — é passo explícito.** Achado da execução
+real (V3RLGPD, 26/08/2026, `docs/integracao-em-plugin.md` §3): Strauss
+como dependência do Composer quebra (`Class "Composer\Factory" not
+found`), então ele entra como binário `.phar` standalone, fora do
+Composer — e isso tira os hooks `post-install-cmd`/`post-update-cmd` que
+antes disparavam a prefixação sozinhos. `composer install` sozinho deixa
+`vendor-prefixed/` vazio; é preciso rodar `composer run prefix` depois.
+
 ```bash
-composer require v3rtech/v3r-core:^0.2.0
-composer require brianhenryie/strauss --dev
+composer require v3rtech/v3r-core:^0.2.0 --dev
+# Strauss: .phar standalone, não dependência do Composer — ver
+# docs/integracao-em-plugin.md §3 para o download e o bloco extra.strauss.
+composer run prefix
 ```
 
 #### Endpoints REST internos e tela padrão (fatia 2b)
