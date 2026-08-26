@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace V3R\Core\Licensing;
 
+use DateTimeImmutable;
+use V3R\Core\Updater\UpdateGate;
+
 /**
  * Orquestra ativação, validação periódica e cache do estado de licença.
  * Decide QUANDO chamar o servidor (política de cache de 12h, refresh
@@ -10,10 +13,16 @@ namespace V3R\Core\Licensing;
  * formato de rede (ApiClientInterface) nem se o site recebe update
  * (V3R\Core\Updater\UpdateGate).
  *
- * TODO(fatia-2): implementar ativação/desativação/validação de verdade,
- * usando ApiClientInterface + SignatureVerifier + LicenseStorage. Nesta
- * fatia, devolve sempre o estado neutro (nunca ativado) — o plugin
- * consumidor continua funcionando normalmente.
+ * Regra central, não negociável (docs/api-contract.md §6/§7): uma resposta
+ * que NÃO é uma confirmação assinada de "expired"/"revoked"/"invalid" é
+ * tratada, para efeito de grace period, como "não sei se ainda vale" —
+ * timeout, 5xx, JSON malformado, assinatura inválida E qualquer erro de
+ * negócio do protocolo (invalid_key, domain_not_activated, product_mismatch,
+ * rate_limited) entram todos no mesmo caminho de grace period. Só um
+ * payload validamente assinado dizendo "expired"/"revoked"/"invalid" é
+ * tratado como "sei que não vale mais" (suspende sem grace). Essa distinção
+ * é conservadora de propósito: qualquer ambiguidade sobre o estado real da
+ * licença nunca pode custar a atualização do site antes do prazo de graça.
  */
 class LicenseManager {
 
@@ -26,10 +35,41 @@ class LicenseManager {
 	/** @var LicenseStorage */
 	private $storage;
 
-	public function __construct( string $productSlug, ApiClientInterface $apiClient, LicenseStorage $storage ) {
-		$this->productSlug = $productSlug;
-		$this->apiClient   = $apiClient;
-		$this->storage     = $storage;
+	/** @var string */
+	private $pluginVersion;
+
+	/** @var callable */
+	private $siteUrlProvider;
+
+	/** @var callable */
+	private $wpVersionProvider;
+
+	/**
+	 * @param string             $productSlug
+	 * @param ApiClientInterface $apiClient
+	 * @param LicenseStorage     $storage
+	 * @param string             $pluginVersion
+	 * @param callable|null      $siteUrlProvider   Sem argumentos, devolve string. Default: site_url() do WordPress, ou "" fora dele.
+	 * @param callable|null      $wpVersionProvider Sem argumentos, devolve string. Default: get_bloginfo('version'), ou "" fora do WordPress.
+	 */
+	public function __construct(
+		string $productSlug,
+		ApiClientInterface $apiClient,
+		LicenseStorage $storage,
+		string $pluginVersion,
+		?callable $siteUrlProvider = null,
+		?callable $wpVersionProvider = null
+	) {
+		$this->productSlug       = $productSlug;
+		$this->apiClient         = $apiClient;
+		$this->storage           = $storage;
+		$this->pluginVersion     = $pluginVersion;
+		$this->siteUrlProvider   = $siteUrlProvider ?? static function (): string {
+			return function_exists( 'site_url' ) ? (string) site_url() : '';
+		};
+		$this->wpVersionProvider = $wpVersionProvider ?? static function (): string {
+			return function_exists( 'get_bloginfo' ) ? (string) get_bloginfo( 'version' ) : '';
+		};
 	}
 
 	/**
@@ -53,30 +93,184 @@ class LicenseManager {
 	}
 
 	/**
-	 * TODO(fatia-2): ativar a licença ($licenseKey) para este site.
+	 * Ativa a licença para este site. Em sucesso, persiste o novo estado e
+	 * marca o cache de 12h como fresco (o próprio activate já é um contato
+	 * bem-sucedido). Em falha (de qualquer natureza — comunicação ou erro de
+	 * negócio do servidor), NÃO altera o estado local: nada foi confirmado,
+	 * então nada muda. A exceção sobe para o chamador decidir o que mostrar.
 	 *
-	 * @throws \LogicException Sempre, nesta fatia — lógica de rede ainda não existe.
+	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
 	 */
-	public function activate( string $licenseKey ): LicenseState {
-		throw new \LogicException( 'não implementado' );
+	public function activate( string $licenseKey, ?DateTimeImmutable $now = null ): LicenseState {
+		$now = $now ?? new DateTimeImmutable();
+
+		$response = $this->apiClient->activate(
+			array(
+				'license_key'    => $licenseKey,
+				'product_slug'   => $this->productSlug,
+				'site_url'       => $this->currentSiteUrl(),
+				'plugin_version' => $this->pluginVersion,
+				'php_version'    => PHP_VERSION,
+				'wp_version'     => $this->currentWpVersion(),
+			)
+		);
+
+		$state = $this->stateFromSignedPayload( $licenseKey, $response, $now );
+
+		$this->storage->save( $state );
+		$this->storage->markValidationCacheFresh();
+
+		return $state;
 	}
 
 	/**
-	 * TODO(fatia-2): liberar a cota deste site.
+	 * Libera a cota deste site no servidor e limpa o estado local. Se o
+	 * servidor recusar (ex.: domain_not_activated) ou não responder, o
+	 * estado local É PRESERVADO — desativar sem confirmação do servidor
+	 * deixaria a cota presa lá e o site "achando" que está livre.
 	 *
-	 * @throws \LogicException Sempre, nesta fatia — lógica de rede ainda não existe.
+	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
 	 */
 	public function deactivate(): LicenseState {
-		throw new \LogicException( 'não implementado' );
+		$current = $this->getState();
+
+		$this->apiClient->deactivate(
+			array(
+				'license_key'  => $current->getKey(),
+				'product_slug' => $this->productSlug,
+				'site_url'     => $this->currentSiteUrl(),
+			)
+		);
+
+		$this->storage->clear();
+
+		return LicenseState::neutral( $this->productSlug );
 	}
 
 	/**
-	 * TODO(fatia-2): revalidar contra o servidor, respeitando o cache de
-	 * 12h a menos que $force seja verdadeiro.
-	 *
-	 * @throws \LogicException Sempre, nesta fatia — lógica de rede ainda não existe.
+	 * Revalida contra o servidor, respeitando o cache de 12h a menos que
+	 * $force seja verdadeiro (docs/api-contract.md §5). Nunca lança: falha
+	 * de comunicação e erro de negócio ambíguo entram em grace period;
+	 * confirmação assinada de expired/revoked/invalid suspende o update
+	 * imediatamente, sem grace — em nenhum dos casos o site trava.
 	 */
-	public function refresh( bool $force = false ): LicenseState {
-		throw new \LogicException( 'não implementado' );
+	public function refresh( bool $force = false, ?DateTimeImmutable $now = null ): LicenseState {
+		$now = $now ?? new DateTimeImmutable();
+
+		$current = $this->getState();
+
+		if ( LicenseStatus::INACTIVE === $current->getStatus() ) {
+			// Nunca houve ativação — não há o que revalidar.
+			return $current;
+		}
+
+		if ( ! $force && $this->storage->hasFreshValidationCache() ) {
+			return $current;
+		}
+
+		try {
+			$response = $this->apiClient->validate(
+				array(
+					'license_key'  => $current->getKey(),
+					'product_slug' => $this->productSlug,
+					'site_url'     => $this->currentSiteUrl(),
+				)
+			);
+		} catch ( ApiException $exception ) {
+			return $this->applyCommunicationFailure( $current, $now );
+		}
+
+		$state = $this->stateFromSignedPayload( $current->getKey(), $response, $now );
+
+		$this->storage->save( $state );
+		$this->storage->markValidationCacheFresh();
+
+		return $state;
+	}
+
+	/**
+	 * Constrói o novo LicenseState a partir de um envelope { payload,
+	 * signature } já verificado pelo ApiClientInterface (se chegou até
+	 * aqui, a assinatura já é válida — ApiClientInterface nunca devolve uma
+	 * resposta com assinatura ruim, ele lança ApiException antes).
+	 *
+	 * @param string               $licenseKey
+	 * @param array<string, mixed> $response
+	 * @param DateTimeImmutable    $now
+	 */
+	private function stateFromSignedPayload( string $licenseKey, array $response, DateTimeImmutable $now ): LicenseState {
+		$payload = isset( $response['payload'] ) && is_array( $response['payload'] ) ? $response['payload'] : array();
+
+		$status = isset( $payload['status'] ) && is_string( $payload['status'] ) ? $payload['status'] : LicenseStatus::INVALID;
+
+		$expiresAt = isset( $payload['expires_at'] ) && is_string( $payload['expires_at'] )
+			? $this->parseIso8601( $payload['expires_at'] )
+			: null;
+
+		$activationsUsed = isset( $payload['activations_used'] ) ? (int) $payload['activations_used'] : 0;
+
+		$activationsMax = isset( $payload['activations_max'] ) && null !== $payload['activations_max']
+			? (int) $payload['activations_max']
+			: null;
+
+		// Contato bem-sucedido e assinado: zera o grace period, qualquer que
+		// seja o status confirmado (docs/api-contract.md §6).
+		return new LicenseState(
+			$licenseKey,
+			$status,
+			$expiresAt,
+			$activationsUsed,
+			$activationsMax,
+			$now,
+			null,
+			$this->productSlug
+		);
+	}
+
+	/**
+	 * Falha de comunicação (ou erro de negócio ambíguo — ver o comentário de
+	 * classe): mantém o último estado conhecido e entra/permanece em grace
+	 * period, contado a partir do último contato bem-sucedido e assinado
+	 * (docs/api-contract.md §6). Sem nunca ter havido contato bem-sucedido,
+	 * não há grace a conceder — o estado permanece como está.
+	 */
+	private function applyCommunicationFailure( LicenseState $current, DateTimeImmutable $now ): LicenseState {
+		$lastCheckedAt = $current->getLastCheckedAt();
+
+		if ( null === $lastCheckedAt ) {
+			return $current;
+		}
+
+		$graceUntil = $lastCheckedAt->modify( '+' . UpdateGate::GRACE_PERIOD_DAYS . ' days' );
+
+		$updated = $current->withGraceUntil( $graceUntil );
+
+		$this->storage->save( $updated );
+
+		return $updated;
+	}
+
+	private function currentSiteUrl(): string {
+		return ( $this->siteUrlProvider )();
+	}
+
+	private function currentWpVersion(): string {
+		return ( $this->wpVersionProvider )();
+	}
+
+	private function parseIso8601( string $value ): ?DateTimeImmutable {
+		$parsed = DateTimeImmutable::createFromFormat( DateTimeImmutable::ATOM, $value );
+
+		if ( false !== $parsed ) {
+			return $parsed;
+		}
+
+		// Aceita também variações válidas de ISO 8601 que createFromFormat
+		// com o formato ATOM exato pode rejeitar (ex.: offset "Z").
+		try {
+			return new DateTimeImmutable( $value );
+		} catch ( \Exception $exception ) {
+			return null;
+		}
 	}
 }

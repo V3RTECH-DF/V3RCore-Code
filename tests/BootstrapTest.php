@@ -1,0 +1,46 @@
+<?php
+declare(strict_types=1);
+
+namespace V3R\Core\Tests;
+
+use PHPUnit\Framework\TestCase;
+use V3R\Core\Bootstrap;
+use V3R\Core\Licensing\LicenseStatus;
+
+/**
+ * Critério de aceite: Bootstrap instanciável sem rede e sem estado salvo,
+ * sem exceção — mesmo fora do WordPress de verdade (ver stubs de
+ * get_option/get_transient em tests/bootstrap.php).
+ */
+final class BootstrapTest extends TestCase {
+
+	public function test_instantiates_and_boots_without_network_or_saved_state(): void {
+		$bootstrap = new Bootstrap(
+			'v3rlgpd',
+			__FILE__,
+			'https://licencas.example.com/wp-json/v3r-license/v1',
+			'chave-publica-fake-base64',
+			'1.0.0'
+		);
+
+		$bootstrap->boot();
+
+		self::assertSame( 'v3rlgpd', $bootstrap->getProductSlug() );
+		self::assertSame( __FILE__, $bootstrap->getPluginFile() );
+
+		$state = $bootstrap->getLicenseManager()->getState();
+		self::assertSame( LicenseStatus::INACTIVE, $state->getStatus() );
+	}
+
+	public function test_default_capability_is_manage_options(): void {
+		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
+
+		self::assertSame( 'manage_options', $bootstrap->getCapability() );
+	}
+
+	public function test_capability_is_configurable_per_host_plugin(): void {
+		$bootstrap = new Bootstrap( 'rit360-premiado', __FILE__, 'https://licencas.example.com', 'chave', '2.0.0', 'manage_rit360_premiado' );
+
+		self::assertSame( 'manage_rit360_premiado', $bootstrap->getCapability() );
+	}
+}

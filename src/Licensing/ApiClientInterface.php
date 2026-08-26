@@ -25,7 +25,7 @@ interface ApiClientInterface {
 	/**
 	 * POST /deactivate — libera a cota de ativação deste domínio.
 	 *
-	 * @param array<string, mixed> $payload license_key, site_url, instance_id.
+	 * @param array<string, mixed> $payload license_key, product_slug, site_url.
 	 * @return array<string, mixed>
 	 *
 	 * @throws \V3R\Core\Licensing\ApiException Em falha de rede, timeout ou erro do servidor.
@@ -35,7 +35,7 @@ interface ApiClientInterface {
 	/**
 	 * POST /validate — checagem periódica do estado da licença.
 	 *
-	 * @param array<string, mixed> $payload license_key, site_url, instance_id.
+	 * @param array<string, mixed> $payload license_key, product_slug, site_url.
 	 * @return array<string, mixed>
 	 *
 	 * @throws \V3R\Core\Licensing\ApiException Em falha de rede, timeout ou erro do servidor.
