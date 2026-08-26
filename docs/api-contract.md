@@ -210,7 +210,11 @@ arquivo. Não é JSON.
 **Saída de negação:** `403 Forbidden`, corpo no formato de erro padrão
 (§1), com `code` explicando o motivo: `invalid_token` (token inexistente,
 expirado, ou de licença já revogada), `license_expired`, `license_revoked`,
-`rate_limited`.
+`rate_limited`. Uma negação distinta, com HTTP diferente, é
+`release_unavailable` (`503 Service Unavailable`): o token é válido e a
+licença está em dia, mas o arquivo da versão não está disponível no
+servidor no momento (falha operacional nossa — release cadastrado sem o
+zip gravado — nunca um problema do token ou da licença do cliente).
 
 ## 3. Códigos de erro
 
@@ -223,6 +227,7 @@ expirado, ou de licença já revogada), `license_expired`, `license_revoked`,
 | `license_expired`          | 403 | Licença encontrada, mas `status = expired`. |
 | `license_revoked`          | 403 | Licença encontrada, mas `status = revoked` (reembolso/cancelamento). |
 | `invalid_token`            | 403 | Token de `/download` inexistente, expirado, ou pertencente a licença já revogada. |
+| `release_unavailable`      | 503 | Token e licença válidos, mas o arquivo da versão não está disponível no servidor (falha operacional, não do cliente). |
 | `rate_limited`             | 429 | Excesso de tentativas para este IP ou esta chave (ver §4.6 da pesquisa). |
 
 Todos seguem `{ code, message, data: { status } }` — `data.status` sempre
