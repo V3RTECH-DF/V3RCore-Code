@@ -2,6 +2,18 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Adicionado
+- **ADR-010 — par único de constantes `V3R_LICENSE_API_URL` /
+  `V3R_LICENSE_PUBLIC_KEY` para os sete plugins clientes.** Decisão de
+  rollout: um único par genérico, compartilhado por todos os plugins da
+  casa (não sete pares com prefixo próprio); a chave pública é constante,
+  não variável de ambiente; o par de produção é o default embutido no
+  build; e as duas constantes só podem ser sobrescritas juntas no
+  `wp-config.php` — regra do par, achado da execução real do V3RLGPD. Ver
+  `docs/ARCHITECTURE.md` ADR-010 e `docs/integracao-em-plugin.md` §8.
+
 ## [0.3.0]
 
 ### Adicionado

@@ -145,6 +145,47 @@ qualquer que seja o código HTTP, apenas consome a graça de 14 dias e
 converge para o estado seguro pelo decurso do prazo, nunca por resposta
 não autenticada.
 
+### ADR-010 — Um único par de constantes de produção, embutido no build; `wp-config.php` só sobrescreve os dois juntos
+
+Decisão de rollout para os sete plugins clientes (V3REvent, V3RHelp, V3RLGPD,
+V3RProp, GE Associados, RIT360 Solidário, RIT360 Premiado).
+
+**Decisão:**
+
+1. Um único par de constantes, com nomes genéricos compartilhados por todos
+   os plugins — `V3R_LICENSE_API_URL` e `V3R_LICENSE_PUBLIC_KEY` — em vez de
+   um par por plugin com prefixo próprio. Um mesmo site cliente pode ter
+   vários plugins da casa instalados, e todos falam com o mesmo servidor e
+   conferem a mesma chave; sete pares seriam sete cópias do mesmo valor a
+   manter em sincronia, e a primeira que divergisse falharia só na
+   verificação de assinatura.
+2. A chave pública **não é segredo** e não vai por variável de ambiente —
+   é constante mesmo, embutida no código. Contraste que não deve ser
+   confundido: a chave **privada**, do lado do servidor V3RLicense, vai por
+   variável de ambiente (issue V3RLicense-Code#11). As duas chaves têm
+   exigências opostas (uma nunca pode vazar, a outra existe para ser
+   pública) e não devem seguir a mesma regra por simetria de nome.
+3. O par de **produção** é o default embutido no build do plugin. O cliente
+   comum não edita `wp-config.php`; se o default fosse o par de
+   desenvolvimento, todo cliente precisaria configurar algo só para o
+   plugin funcionar.
+4. **Regra do par:** URL e chave vêm sempre da mesma fonte, e mudam juntas.
+   Se uma das duas constantes estiver definida em `wp-config.php` e a outra
+   não, o plugin recusa e avisa — nunca combina a constante de uma com o
+   default da outra. URL de produção com chave de desenvolvimento (ou
+   vice-versa) é um par incoerente que passa por qualquer guard de
+   ambiente e só falha depois, na verificação de assinatura — sintoma bem
+   mais difícil de diagnosticar do que "não iniciou".
+
+**Consequência:** todo plugin hospedeiro resolve o par de configuração numa
+única função, antes de instanciar `Bootstrap` — nunca lendo `V3R_LICENSE_API_URL`
+e `V3R_LICENSE_PUBLIC_KEY` em pontos diferentes do código. Receita de
+integração: `docs/integracao-em-plugin.md` §8.
+
+**Origem:** ponto 4 (regra do par) foi levantado pela sessão do V3RLGPD ao
+integrar a biblioteca, a partir do mesmo tipo de achado que já rendeu o
+guard de duas pontas do ADR-007.
+
 ---
 
 ## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.3.0)

@@ -490,11 +490,19 @@ add_action( 'plugins_loaded', function () {
         return;
     }
 
+    // Resolve o par URL + chave pública a partir das constantes
+    // V3R_LICENSE_API_URL / V3R_LICENSE_PUBLIC_KEY — nunca lendo cada uma
+    // separadamente em pontos diferentes do código. Ver §8.
+    $licenseConfig = meuplugin_resolve_v3r_license_config();
+    if ( null === $licenseConfig ) {
+        return; // par incoerente ou parcialmente definido — já logado, não ativa
+    }
+
     $v3rCore = new Bootstrap(
         'meuplugin',                                          // product_slug no servidor de licenças
         __FILE__,                                              // arquivo principal do plugin
-        'https://licencas.v3rtech.com.br/wp-json/v3r-license/v1',
-        'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR',            // não é segredo — docs/api-contract.md §4
+        $licenseConfig['api_url'],
+        $licenseConfig['public_key'],
         '1.0.0',                                                // versão instalada do plugin (semver)
         'meuplugin_settings_view',                              // capability de leitura — ver nota abaixo
         'meuplugin_settings_manage'                             // capability de gestão — ver nota abaixo
@@ -527,3 +535,82 @@ a mesma responsabilidade (consultar licença / gerir licença).
 RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de errar:
 estreita demais exclui quem administra o plugin sem ser administrador do
 site.
+
+## 8. Configuração de produção: URL e chave pública via constantes
+
+> **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,
+> V3RHelp, V3RLGPD, V3RProp, GE Associados, RIT360 Solidário, RIT360
+> Premiado). Registrada também como ADR-010 em `docs/ARCHITECTURE.md`.
+
+**Um único par de constantes, com os mesmos nomes em todo plugin da casa:**
+
+```php
+define( 'V3R_LICENSE_API_URL', 'https://v3rtech.com.br/wp-json/v3r-license/v1' );
+define( 'V3R_LICENSE_PUBLIC_KEY', 'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR' );
+```
+
+Não são sete pares com prefixo por plugin (`MEUPLUGIN_LICENSE_API_URL` etc.).
+Um mesmo site cliente pode ter vários plugins da casa instalados, e todos
+falam com o mesmo servidor e conferem a mesma chave — sete pares seriam sete
+cópias do mesmo valor a manter em sincronia, e a primeira que divergisse
+falharia só na verificação de assinatura.
+
+**A chave pública não é segredo e não vai por variável de ambiente** — é
+constante mesmo, embutida no código do plugin. (Contraste: a chave
+**privada**, do lado do servidor V3RLicense, vai por variável de ambiente —
+issue V3RLicense-Code#11. As duas chaves têm exigências opostas; não seguem
+a mesma regra por simetria de nome.)
+
+**O par de produção é o default embutido no build do plugin.** O cliente
+comum não edita `wp-config.php`; se o default fosse o par de
+desenvolvimento, todo cliente precisaria configurar algo só para o plugin
+funcionar. `wp-config.php` só entra em cena para *sobrescrever* o par —
+tipicamente em ambiente de desenvolvimento, apontando para um servidor de
+licenças local.
+
+> **Regra do par — achado da execução real (V3RLGPD, 26/08/2026).** URL e
+> chave vêm sempre da **mesma fonte**, e mudam **juntas**. Se uma das duas
+> constantes estiver definida em `wp-config.php` e a outra não, o plugin
+> **recusa e avisa** — nunca combina a constante de uma com o default da
+> outra. URL de produção com chave de desenvolvimento (ou vice-versa) é um
+> par incoerente que passa por qualquer guard de ambiente e só falha
+> depois, na verificação de assinatura — sintoma bem mais difícil de
+> diagnosticar do que "não iniciou".
+
+Implementação de referência da função usada no bootstrap (§7):
+
+```php
+/**
+ * Resolve o par (URL, chave pública) do V3R License a partir das
+ * constantes V3R_LICENSE_API_URL / V3R_LICENSE_PUBLIC_KEY.
+ *
+ * Regra do par: as duas vêm da mesma fonte. Se o wp-config.php do site
+ * definir só uma das duas, é configuração incoerente — recusa e loga, em
+ * vez de completar com o default de produção da outra.
+ *
+ * @return array{api_url: string, public_key: string}|null null quando o
+ *         par está incoerente (uma definida, a outra não).
+ */
+function meuplugin_resolve_v3r_license_config(): ?array {
+    $urlDefinida = defined( 'V3R_LICENSE_API_URL' );
+    $chaveDefinida = defined( 'V3R_LICENSE_PUBLIC_KEY' );
+
+    if ( $urlDefinida !== $chaveDefinida ) {
+        error_log(
+            'MeuPlugin: V3R_LICENSE_API_URL e V3R_LICENSE_PUBLIC_KEY precisam ' .
+            'ser definidas juntas no wp-config.php, nunca só uma — licenciamento desativado.'
+        );
+        return null;
+    }
+
+    return array(
+        'api_url'    => $urlDefinida ? V3R_LICENSE_API_URL : 'https://v3rtech.com.br/wp-json/v3r-license/v1',
+        'public_key' => $chaveDefinida ? V3R_LICENSE_PUBLIC_KEY : 'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR',
+    );
+}
+```
+
+O par de produção embutido nesta função (`https://v3rtech.com.br/wp-json/...`
+e a chave pública real) é o mesmo em todos os sete plugins — copie a função,
+troque só o prefixo `meuplugin_` pelo nome do plugin, e mantenha os valores
+de produção idênticos entre eles.
