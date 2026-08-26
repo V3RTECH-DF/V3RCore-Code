@@ -17,11 +17,13 @@ plugins WordPress da V3RTECH/RIT. Embutida via Composer + [Strauss](https://gith
 em cada plugin distribuído fora do wordpress.org, para que dois plugins com
 versões diferentes desta lib no mesmo WordPress nunca colidam.
 
-> **Estado atual: esqueleto (fatia 1).** Estrutura, contratos, qualidade e a
-> spec do protocolo (`docs/api-contract.md`) estão prontos. A lógica de rede
-> e de update em si ainda não existe — ver `// TODO(fatia-2)` no código.
-> Instanciar e usar `Bootstrap` já é seguro: nada aqui derruba o plugin
-> hospedeiro.
+> **Estado atual: fatia 2a concluída.** Comunicação com o servidor, cache
+> local, verificação de assinatura e período de graça estão implementados e
+> testados (`activate`/`deactivate`/`refresh`/`getState`). A integração com
+> o mecanismo de atualização do WordPress (`Updater\UpdateChecker`), os
+> endpoints REST internos (`docs/api-contract.md` §8) e a `AdminPage` ainda
+> são TODO da fatia 2b. Instanciar e usar `Bootstrap` já é seguro: nada aqui
+> derruba o plugin hospedeiro, mesmo sem rede e sem estado salvo.
 
 ### Como um plugin consome esta lib
 
@@ -51,9 +53,12 @@ require_once __DIR__ . '/vendor-prefixed/autoload.php'; // ou vendor/autoload.ph
 
 add_action( 'plugins_loaded', function () {
     $v3rCore = new Bootstrap(
-        'v3rlgpd',                                  // product_slug no servidor de licenças
-        __FILE__,                                    // arquivo principal do plugin
-        'https://licencas.v3rtech.com.br/wp-json/v3r-license/v1'
+        'v3rlgpd',                                          // product_slug no servidor de licenças
+        __FILE__,                                            // arquivo principal do plugin
+        'https://licencas.v3rtech.com.br/wp-json/v3r-license/v1',
+        'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR',           // não é segredo — ver docs/api-contract.md §4
+        '2.3.0',                                              // versão instalada do plugin (semver)
+        'manage_v3rlgpd_licenses'                             // opcional — default manage_options
     );
 
     $v3rCore->boot();
@@ -76,6 +81,10 @@ add_action( 'plugins_loaded', function () {
 - Chave pública ed25519 do servidor, embutida como constante do plugin, para
   a verificação de assinatura (`V3R\Core\Licensing\SignatureVerifier`) — ver
   `docs/api-contract.md` §4.
+- Versão instalada do plugin (semver) — vai em toda chamada ao servidor
+  (`plugin_version`, `docs/api-contract.md` §2.1).
+- Capability do WordPress para a tela/endpoints internos da fatia 2b
+  (opcional — default `manage_options`, ver `docs/api-contract.md` §8.2).
 
 ### Desenvolvimento
 

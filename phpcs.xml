@@ -73,10 +73,12 @@
         <exclude name="WordPress.WP.AlternativeFunctions.json_encode_json_encode"/>
 
         <!--
-            base64_decode() aqui é decodificação de assinatura ed25519, não
-            ofuscação de código (docs/api-contract.md §4).
+            base64_decode()/base64_encode() aqui são (de)codificação de
+            assinatura ed25519 e chaves de teste, não ofuscação de código
+            (docs/api-contract.md §4).
         -->
         <exclude name="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode"/>
+        <exclude name="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode"/>
 
         <!--
             Métodos "// TODO(fatia-2)" respeitam a assinatura final do
