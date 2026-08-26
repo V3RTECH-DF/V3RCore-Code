@@ -1,0 +1,32 @@
+# Dependências e artefatos de build — nunca versionar, nunca viajar entre máquinas.
+node_modules/
+vendor/
+dist/
+build/
+.next/
+__pycache__/
+*.pyc
+
+# Logs e arquivos de sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# Segredos: o .envrc é gerado por prj.sh -r em cada máquina, e nunca vai ao git.
+.envrc
+.credentials*
+.credenciais*
+.env
+.env.local
+
+# Inventário real de deploy (hosts/URLs/chaves de cliente).
+# Use bin/deploy-sites.conf.example como modelo.
+bin/deploy-sites.conf
+
+# Sessões de navegador e artefatos de teste (locais, não versionar)
+.playwright-mcp/
+tests/screenshots/
