@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace V3R\Core\Updater;
 
 use YahnisElsts\PluginUpdateChecker\v5p7\Plugin\PluginInfo;
+use YahnisElsts\PluginUpdateChecker\v5p7\Plugin\Update as PucPluginUpdate;
 use YahnisElsts\PluginUpdateChecker\v5p7\Plugin\UpdateChecker as PucPluginUpdateChecker;
 
 /**
@@ -39,6 +40,14 @@ class PucBridge extends PucPluginUpdateChecker {
 	/** @var string */
 	private $pluginDisplayName;
 
+	/**
+	 * Valor de `requires` resolvido na última chamada de requestInfo() —
+	 * ver injectMissingRequires() para o porquê de precisar deste cache.
+	 *
+	 * @var string|null
+	 */
+	private $lastResolvedRequires;
+
 	public function __construct(
 		string $metadataUrl,
 		string $pluginFile,
@@ -51,6 +60,11 @@ class PucBridge extends PucPluginUpdateChecker {
 		$this->pluginDisplayName = $pluginDisplayName;
 
 		parent::__construct( $metadataUrl, $pluginFile, $slug, $checkPeriod );
+
+		// V3RCore-Code#8: reinjeta `requires`, perdido pelo PUC entre
+		// PluginInfo e Update — ver PucUpdateWithRequires e
+		// injectMissingRequires() para o porquê deste ser o hook certo.
+		add_filter( $this->getUniqueName( 'pre_inject_update' ), array( $this, 'injectMissingRequires' ) );
 	}
 
 	/**
@@ -107,8 +121,24 @@ class PucBridge extends PucPluginUpdateChecker {
 		$info->tested       = $availability->getTested();
 		$info->download_url = (string) $availability->getPackageUrl();
 
+		// Cache para injectMissingRequires(): requestUpdate() chama este
+		// método via requestInfo() e converte o resultado num Update ANTES
+		// de disparar o filtro pre_inject_update — sem guardar aqui, o
+		// filtro não teria como recuperar o valor sem uma segunda chamada
+		// (que repetiria a consulta ao servidor).
+		$this->lastResolvedRequires = $info->requires;
+
 		$changelogUrl = $availability->getChangelogUrl();
 		if ( null !== $changelogUrl ) {
+			// V3RCore-Code#10: mesma URL que alimenta o link "Ver
+			// changelog completo" da tela de detalhes vira o destino do
+			// link "Ver detalhes da versão" da lista de plugins (o campo
+			// `url` do transiente vem de `homepage`, ver
+			// Plugin\Update::toWpFormat() no upstream). Se o servidor não
+			// mandar changelog_url, homepage fica null — nunca string
+			// vazia, que apontaria para lugar nenhum.
+			$info->homepage = $changelogUrl;
+
 			$info->sections = array(
 				'changelog' => sprintf(
 					'<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>',
@@ -119,5 +149,22 @@ class PucBridge extends PucPluginUpdateChecker {
 		}
 
 		return $info;
+	}
+
+	/**
+	 * Callback do filtro `pre_inject_update` (registrado no construtor).
+	 * Ver PucUpdateWithRequires para o porquê deste ser o mecanismo certo
+	 * do PUC para reinjetar um campo que `Update::getFieldNames()` não
+	 * conhece.
+	 *
+	 * @param mixed $update Instância de Plugin\Update, ou null/false (sem update disponível).
+	 * @return mixed
+	 */
+	public function injectMissingRequires( $update ) {
+		if ( ! ( $update instanceof PucPluginUpdate ) || null === $this->lastResolvedRequires || '' === $this->lastResolvedRequires ) {
+			return $update;
+		}
+
+		return PucUpdateWithRequires::fromExisting( $update, $this->lastResolvedRequires );
 	}
 }

@@ -126,3 +126,7 @@ if ( ! function_exists( 'wp_verify_nonce' ) ) {
 // mistura função com classe no mesmo arquivo.
 require_once __DIR__ . '/Support/WpErrorStub.php';
 require_once __DIR__ . '/Support/WpRestRequestStub.php';
+
+// Stubs específicos do Plugin Update Checker real (V3RCore-Code#8 e #10)
+// — ver o docblock do próprio arquivo para o porquê de existirem à parte.
+require_once __DIR__ . '/Support/PucFunctionStubs.php';
