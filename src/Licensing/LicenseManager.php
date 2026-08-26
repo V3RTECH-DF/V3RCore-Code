@@ -92,6 +92,10 @@ class LicenseManager {
 		return $this->storage;
 	}
 
+	public function getProductSlug(): string {
+		return $this->productSlug;
+	}
+
 	/**
 	 * Ativa a licença para este site. Em sucesso, persiste o novo estado e
 	 * marca o cache de 12h como fresco (o próprio activate já é um contato
@@ -248,6 +252,43 @@ class LicenseManager {
 		$this->storage->save( $updated );
 
 		return $updated;
+	}
+
+	/**
+	 * GET /update-check (docs/api-contract.md §2.4): consulta metadados da
+	 * versão disponível. Não decide SE o site recebe essa atualização — é
+	 * do V3R\Core\Updater\UpdateGate, chamado pelo integrador ANTES desta
+	 * função (ver Updater\UpdateMetadataResolver). Site sem ativação local
+	 * não tem chave de licença para enviar: devolve null sem contatar o
+	 * servidor, em vez de mandar `license_key` vazia.
+	 *
+	 * @param string|null $version Versão específica a consultar (rollback).
+	 *                              Ausente = a mais recente do produto.
+	 * @return array<string, mixed>|null Envelope { payload, signature } já
+	 *                                    com assinatura verificada, ou null
+	 *                                    quando não há licença ativada.
+	 *
+	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
+	 */
+	public function checkForUpdate( ?string $version = null ): ?array {
+		$current = $this->getState();
+
+		if ( LicenseStatus::INACTIVE === $current->getStatus() ) {
+			return null;
+		}
+
+		$query = array(
+			'product_slug'   => $this->productSlug,
+			'license_key'    => $current->getKey(),
+			'site_url'       => $this->currentSiteUrl(),
+			'plugin_version' => $this->pluginVersion,
+		);
+
+		if ( null !== $version ) {
+			$query['version'] = $version;
+		}
+
+		return $this->apiClient->checkUpdate( $query );
 	}
 
 	private function currentSiteUrl(): string {
