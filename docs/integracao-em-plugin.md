@@ -536,6 +536,18 @@ RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de errar:
 estreita demais exclui quem administra o plugin sem ser administrador do
 site.
 
+> **Chamar o `LicenseManager` fora do endpoint REST exige `try/catch` —
+> achado da execução real (V3RLGPD, 27/08/2026).** No fluxo normal, o
+> controller REST captura a `ApiException` e devolve o código do contrato
+> (por exemplo `404` para chave inexistente). Quem chamar o
+> `LicenseManager` **direto**, fora desse caminho — uma rotina de
+> diagnóstico, um comando WP-CLI próprio, uma sonda —, recebe a exceção
+> propagada e derruba a requisição com erro crítico do WordPress.
+>
+> Não é defeito no caminho que os clientes usam; é o contrato da camada.
+> Mas a descoberta costuma acontecer do jeito mais caro, com a tela branca
+> aparecendo em ambiente de quem estava só investigando.
+
 ## 8. Configuração de produção: URL e chave pública via constantes
 
 > **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,
