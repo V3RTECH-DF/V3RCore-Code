@@ -1,7 +1,8 @@
 # Dependências e artefatos de build — nunca versionar, nunca viajar entre máquinas.
 node_modules/
 vendor/
-vendor-prefixed/
+vendor-prefixed/*
+!vendor-prefixed/.gitkeep
 dist/
 build/
 .next/

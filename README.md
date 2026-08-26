@@ -80,13 +80,26 @@ add_action( 'plugins_loaded', function () {
 ### Desenvolvimento
 
 ```bash
-make install   # composer install
-make prefix    # gera vendor-prefixed/ via Strauss
+make install   # composer install (já roda o prefixo do Strauss sozinho, ver abaixo)
 make lint      # phpcs
 make analyse   # phpstan
 make test      # phpunit
 make check     # os três, nesta ordem
+make prefix    # reexecuta só o Strauss, sem reinstalar dependências
 ```
+
+**O prefixo do Strauss não é um passo opcional nem manual.** `composer.json`
+amarra `composer prefix` a `post-install-cmd`/`post-update-cmd`: todo
+`composer install`/`composer update` já deixa `vendor-prefixed/` gerado e
+registrado no classmap do próprio Composer (`autoload.classmap` aponta para
+`vendor-prefixed/`), e o pacote original (`vendor/yahnis-elsts/`) é apagado
+pelo Strauss (`delete_vendor_packages: true`) — sem isso, o autoloader do
+Composer carregaria a cópia original do `plugin-update-checker` via
+`autoload.files` (a própria lib declara isso no `composer.json` dela), e a
+cópia prefixada em `vendor-prefixed/` ficaria como código morto, sem
+resolver o problema de colisão entre plugins que o Strauss existe para
+evitar. Se você rodar `composer install` sem os hooks (ex.: com
+`--no-scripts`), rode `composer prefix` manualmente antes de usar a lib.
 
 ### Estrutura
 

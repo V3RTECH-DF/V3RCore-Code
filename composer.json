@@ -26,7 +26,10 @@
     "autoload": {
         "psr-4": {
             "V3R\\Core\\": "src/"
-        }
+        },
+        "classmap": [
+            "vendor-prefixed/"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -47,7 +50,17 @@
         "lint": "phpcs",
         "analyse": "phpstan analyse",
         "test": "phpunit",
-        "prefix": "php tools/strauss.php",
+        "strauss": "php tools/strauss.php",
+        "prefix": [
+            "@strauss",
+            "composer dump-autoload"
+        ],
+        "post-install-cmd": [
+            "@prefix"
+        ],
+        "post-update-cmd": [
+            "@prefix"
+        ],
         "check": [
             "@lint",
             "@analyse",
@@ -65,11 +78,15 @@
             ],
             "override_autoload": {
                 "yahnis-elsts/plugin-update-checker": {
-                    "classmap": ["Puc/"],
-                    "files": ["load-v5p7.php"]
+                    "classmap": [
+                        "Puc/"
+                    ],
+                    "files": [
+                        "load-v5p7.php"
+                    ]
                 }
             },
-            "delete_vendor_packages": false,
+            "delete_vendor_packages": true,
             "include_modified_date": false,
             "include_author": false
         }

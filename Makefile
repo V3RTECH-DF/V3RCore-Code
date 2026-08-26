@@ -2,31 +2,36 @@
 #
 # Biblioteca cliente compartilhada (composer library). Não roda WordPress —
 # os testes desta fatia são PHP puro. Assume `composer` e `php` no PATH.
+#
+# O prefixo do Strauss (vendor-prefixed/) roda sozinho como post-install-cmd/
+# post-update-cmd do composer.json — `composer install` já deixa tudo pronto.
+# `make prefix` só existe para reexecutar manualmente sem reinstalar tudo.
 
 .PHONY: install prefix lint analyse test check clean help
 
 install:
 	composer install
 
-prefix: install
+prefix:
 	composer prefix
 
 lint: install
 	composer lint
 
-analyse: prefix
+analyse: install
 	composer analyse
 
-test: prefix
+test: install
 	composer test
 
-check: prefix
+check: install
 	composer lint
 	composer analyse
 	composer test
 
 clean:
-	rm -rf vendor vendor-prefixed .phpunit.cache
+	rm -rf vendor .phpunit.cache
+	find vendor-prefixed -mindepth 1 ! -name '.gitkeep' -delete
 
 help:
 	@echo ""

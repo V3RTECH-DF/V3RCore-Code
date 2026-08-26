@@ -35,10 +35,22 @@ jobs:
           restore-keys: composer-${{ matrix.php }}-
 
       - name: Install dependencies
+        # O prefixo do Strauss (vendor-prefixed/) roda sozinho aqui, via
+        # post-install-cmd do composer.json — não é um passo à parte.
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      - name: Generate prefixed deps (Strauss)
-        run: php tools/strauss.php --quiet
+      - name: Verify Strauss prefix is the one actually loaded
+        run: |
+          php -r '
+            require "vendor/autoload.php";
+            $original = class_exists("YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory");
+            $prefixed = class_exists("V3R\\Core\\Vendor\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory");
+            fwrite(STDOUT, "original=" . var_export($original, true) . " prefixed=" . var_export($prefixed, true) . "\n");
+            if ($original || !$prefixed) {
+                fwrite(STDERR, "Strauss prefix não está em uso em runtime.\n");
+                exit(1);
+            }
+          '
 
       - name: Run PHPUnit
         run: ./vendor/bin/phpunit --no-coverage
@@ -95,10 +107,9 @@ jobs:
           restore-keys: composer-8.4-
 
       - name: Install dependencies
+        # O prefixo do Strauss (vendor-prefixed/) roda sozinho aqui, via
+        # post-install-cmd do composer.json — não é um passo à parte.
         run: composer install --prefer-dist --no-progress --no-interaction
-
-      - name: Generate prefixed deps (Strauss)
-        run: php tools/strauss.php --quiet
 
       - name: Run PHPStan
         run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress
