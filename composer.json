@@ -14,7 +14,6 @@
         "yahnis-elsts/plugin-update-checker": "^5.4"
     },
     "require-dev": {
-        "brianhenryie/strauss": "^0.19",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "paragonie/sodium_compat": "^1.24",
         "php-stubs/wordpress-stubs": "^6.6",
@@ -27,10 +26,7 @@
     "autoload": {
         "psr-4": {
             "V3R\\Core\\": "src/"
-        },
-        "classmap": [
-            "vendor-prefixed/"
-        ]
+        }
     },
     "autoload-dev": {
         "psr-4": {
@@ -51,45 +47,10 @@
         "lint": "phpcs",
         "analyse": "phpstan analyse",
         "test": "phpunit",
-        "strauss": "php tools/strauss.php",
-        "prefix": [
-            "@strauss",
-            "composer dump-autoload"
-        ],
-        "post-install-cmd": [
-            "@prefix"
-        ],
-        "post-update-cmd": [
-            "@prefix"
-        ],
         "check": [
             "@lint",
             "@analyse",
             "@test"
         ]
-    },
-    "extra": {
-        "strauss": {
-            "target_directory": "vendor-prefixed/",
-            "namespace_prefix": "V3R\\Core\\Vendor\\",
-            "classmap_prefix": "V3RCore_Vendor_",
-            "constant_prefix": "V3RCORE_VENDOR_",
-            "packages": [
-                "yahnis-elsts/plugin-update-checker"
-            ],
-            "override_autoload": {
-                "yahnis-elsts/plugin-update-checker": {
-                    "classmap": [
-                        "Puc/"
-                    ],
-                    "files": [
-                        "load-v5p7.php"
-                    ]
-                }
-            },
-            "delete_vendor_packages": true,
-            "include_modified_date": false,
-            "include_author": false
-        }
     }
 }

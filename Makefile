@@ -3,17 +3,15 @@
 # Biblioteca cliente compartilhada (composer library). Não roda WordPress —
 # os testes desta fatia são PHP puro. Assume `composer` e `php` no PATH.
 #
-# O prefixo do Strauss (vendor-prefixed/) roda sozinho como post-install-cmd/
-# post-update-cmd do composer.json — `composer install` já deixa tudo pronto.
-# `make prefix` só existe para reexecutar manualmente sem reinstalar tudo.
+# Esta biblioteca NÃO se auto-prefixa (nem a si mesma, nem o
+# plugin-update-checker): quem prefixa v3r-core, via Strauss, é o plugin
+# hospedeiro — numa única passada, junto com as dependências transitivas.
+# Ver docs/integracao-em-plugin.md.
 
-.PHONY: install prefix lint analyse test check clean help
+.PHONY: install lint analyse test check clean help
 
 install:
 	composer install
-
-prefix:
-	composer prefix
 
 lint: install
 	composer lint
@@ -31,17 +29,15 @@ check: install
 
 clean:
 	rm -rf vendor .phpunit.cache
-	find vendor-prefixed -mindepth 1 ! -name '.gitkeep' -delete
 
 help:
 	@echo ""
 	@echo "v3r-core — Comandos disponíveis"
 	@echo "────────────────────────────────────────"
 	@echo "  make install   Instala dependências (composer install)"
-	@echo "  make prefix    Gera vendor-prefixed/ via Strauss"
 	@echo "  make lint      Executa PHPCS"
 	@echo "  make analyse   Executa PHPStan"
 	@echo "  make test      Executa PHPUnit"
 	@echo "  make check     Roda lint + analyse + test, nesta ordem"
-	@echo "  make clean     Remove vendor/, vendor-prefixed/ e cache de testes"
+	@echo "  make clean     Remove vendor/ e cache de testes"
 	@echo ""

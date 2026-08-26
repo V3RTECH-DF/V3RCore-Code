@@ -3,14 +3,20 @@ declare(strict_types=1);
 
 namespace V3R\Core\Updater;
 
-use V3R\Core\Vendor\YahnisElsts\PluginUpdateChecker\v5p7\Plugin\PluginInfo;
-use V3R\Core\Vendor\YahnisElsts\PluginUpdateChecker\v5p7\Plugin\UpdateChecker as PucPluginUpdateChecker;
+use YahnisElsts\PluginUpdateChecker\v5p7\Plugin\PluginInfo;
+use YahnisElsts\PluginUpdateChecker\v5p7\Plugin\UpdateChecker as PucPluginUpdateChecker;
 
 /**
- * Ponte entre o Plugin Update Checker (biblioteca de terceiro, prefixada
- * por Strauss) e o resto desta biblioteca. Só existe fora de
- * Updater\UpdateChecker porque estender uma classe de terceiro precisa de
- * um arquivo próprio.
+ * Ponte entre o Plugin Update Checker (biblioteca de terceiro, referenciada
+ * aqui pelo namespace ORIGINAL, sem prefixo) e o resto desta biblioteca. Só
+ * existe fora de Updater\UpdateChecker porque estender uma classe de
+ * terceiro precisa de um arquivo próprio.
+ *
+ * É o plugin hospedeiro, via Strauss, quem prefixa v3r-core e o
+ * plugin-update-checker juntos numa única passada — ver
+ * docs/integracao-em-plugin.md. Referenciar aqui um namespace já
+ * pré-prefixado quebraria essa passada (produziria um prefixo aninhado que
+ * não bate com o das classes reais do pacote transitivo).
  *
  * Toda a decisão de negócio (o site tem direito à atualização? qual a
  * versão disponível?) já veio pronta de Updater\UpdateMetadataResolver —

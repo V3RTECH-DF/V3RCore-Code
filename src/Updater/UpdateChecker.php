@@ -7,12 +7,16 @@ use V3R\Core\Licensing\HttpApiClient;
 use V3R\Core\Licensing\LicenseManager;
 
 /**
- * Encapsula o Plugin Update Checker (YahnisElsts\PluginUpdateChecker), a
- * lib de terceiro embarcada via Strauss sob V3R\Core\Vendor\. Decide COMO
- * o transiente de update do WordPress é populado; a decisão de SE este site
- * recebe update é sempre delegada ao UpdateGate, através de
- * UpdateMetadataResolver (a peça pura e testável desta fatia — ver
- * Updater\PucBridge para a ponte com a lib de terceiro em si).
+ * Encapsula o Plugin Update Checker (YahnisElsts\PluginUpdateChecker). Esta
+ * lib de terceiro NÃO é prefixada por esta biblioteca — o namespace usado em
+ * todo o código desta fatia é o original, sem prefixo. É o plugin hospedeiro
+ * que prefixa v3r-core E suas dependências transitivas (incluindo esta) numa
+ * única passada do Strauss (ver docs/integracao-em-plugin.md); prefixar aqui
+ * também produziria um namespace aninhado que a passada do hospedeiro não
+ * consegue reconciliar. Decide COMO o transiente de update do WordPress é
+ * populado; a decisão de SE este site recebe update é sempre delegada ao
+ * UpdateGate, através de UpdateMetadataResolver (a peça pura e testável desta
+ * fatia — ver Updater\PucBridge para a ponte com a lib de terceiro em si).
  */
 class UpdateChecker {
 
