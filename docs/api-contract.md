@@ -334,10 +334,44 @@ $valid = sodium_crypto_sign_verify_detached(
 |--------------------------------------------------|---------------------------|
 | Timeout de rede                                   | Mantém último estado conhecido; entra/permanece em grace period. |
 | 5xx do servidor                                    | Idem timeout. |
-| 4xx com corpo de erro reconhecido (§3)             | Aplica o significado do código (ex.: `license_expired` suspende update imediatamente, sem grace). |
+| 4xx com corpo de erro reconhecido (§3)             | **Nunca suspende por si só.** Mantém último estado conhecido e entra/permanece em grace period, como um timeout. O código é registrado e pode ser exibido ao usuário, mas não altera o estado da licença. Ver §7.1. |
 | Resposta 200 com JSON malformado                   | Tratado como falha de comunicação (idem timeout) — nunca como "sem update". |
 | **Assinatura inválida ou ausente**                 | **Nunca** tratado como "licença válida". Tratado como falha de comunicação (idem timeout) — mantém último estado conhecido e entra em grace period; nunca promove o estado da resposta suspeita. |
 | `sodium_crypto_sign_verify_detached` indisponível  | Impedimento de ambiente (`\RuntimeException`), distinto de assinatura inválida — não deve ocorrer em WordPress ≥ 5.2, mas o cliente confere antes de chamar. |
+
+### 7.1 Só payload assinado suspende — resposta de erro nunca é autoritativa
+
+A linha do 4xx acima **mudou** em 26/08/2026, ao implementar a fatia 2a. A
+redação anterior mandava "aplicar o significado do código", com
+`license_expired` suspendendo a atualização imediatamente. Estava errada, e
+o motivo é estrutural:
+
+**As respostas de erro não são assinadas.** Apenas o `payload` de sucesso é
+(§4.1). Aceitar um `403 license_expired` não autenticado como prova de que a
+licença acabou significa que **qualquer um que controle o caminho de rede** —
+DNS envenenado, proxy corporativo mal configurado, um servidor devolvendo erro
+genérico durante manutenção — consegue cortar a atualização de um cliente
+legítimo. É negação de serviço barata contra quem pagou.
+
+O §4.3 já estabelece a disciplina numa direção: assinatura ruim **nunca** vira
+"licença válida". A simetria é obrigatória: **resposta não assinada nunca
+invalida.**
+
+A distinção que fica valendo:
+
+- **Suspende:** `payload` **assinado** dizendo `expired`, `revoked` ou
+  `invalid` — o que o `/validate` devolve com `200`, porque estado de licença
+  é informação, não erro. Isso é "sei que não vale mais".
+- **Não suspende:** qualquer erro HTTP, de qualquer código, com ou sem corpo
+  reconhecido. Isso é "não consegui saber" — mantém o último estado e conta o
+  período de graça.
+
+**Isso não afrouxa o controle**, e é o ponto que costuma ser mal
+compreendido: sem confirmação assinada, a graça de 14 dias expira e a
+atualização para sozinha (§6). Uma chave realmente inválida deixa de receber
+atualização em duas semanas, **sem que o cliente precise confiar numa resposta
+que não pode verificar**. O sistema converge para o estado seguro por decurso
+de prazo, não por obediência a um erro anônimo.
 
 ## 8. Protocolo interno: tela administrativa ↔ biblioteca, dentro do mesmo WordPress
 
