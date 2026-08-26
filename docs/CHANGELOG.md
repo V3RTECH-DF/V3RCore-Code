@@ -14,6 +14,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versio
   `wp-config.php` — regra do par, achado da execução real do V3RLGPD. Ver
   `docs/ARCHITECTURE.md` ADR-010 e `docs/integracao-em-plugin.md` §8.
 
+### Corrigido
+- **Implementação de referência da §8 decidia pela existência da constante
+  e não guardava nada** se o plugin definisse os nomes compartilhados com
+  `if ( ! defined(...) ) define(...)`, padrão do WordPress: as duas
+  passariam a existir sempre e a comparação do guard viraria
+  `false !== false`. A referência passou a separar a decisão (função pura,
+  recebendo os valores) da leitura das constantes, e a ADR-010 registra as
+  duas restrições — o plugin não define os nomes compartilhados, e o valor
+  igual ao default não serve como sinal de "não configurado". Achado da
+  execução real (V3RLGPD).
+
 ## [0.3.0]
 
 ### Adicionado

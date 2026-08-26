@@ -177,12 +177,27 @@ V3RProp, GE Associados, RIT360 Solidário, RIT360 Premiado).
    ambiente e só falha depois, na verificação de assinatura — sintoma bem
    mais difícil de diagnosticar do que "não iniciou".
 
-**Consequência:** todo plugin hospedeiro resolve o par de configuração numa
-única função, antes de instanciar `Bootstrap` — nunca lendo `V3R_LICENSE_API_URL`
-e `V3R_LICENSE_PUBLIC_KEY` em pontos diferentes do código. Receita de
-integração: `docs/integracao-em-plugin.md` §8.
+**Consequência:** todo plugin hospedeiro resolve o par de configuração antes
+de instanciar `Bootstrap` — nunca lendo `V3R_LICENSE_API_URL` e
+`V3R_LICENSE_PUBLIC_KEY` em pontos diferentes do código. Duas restrições
+fazem parte da decisão, e sem elas o guard do ponto 4 não guarda nada:
 
-**Origem:** ponto 4 (regra do par) foi levantado pela sessão do V3RLGPD ao
+- **O plugin nunca define as duas constantes compartilhadas.** Elas
+  pertencem ao `wp-config.php` do site, e a existência delas é o único
+  sinal de que o dono do site sobrescreveu o par. Um `if ( ! defined(...) )
+  define(...)` no topo do plugin — padrão do WordPress — faz as duas
+  existirem sempre, e a comparação do guard vira `false !== false`. Os
+  defaults de produção moram em constantes de nome próprio do plugin.
+- **A decisão é uma função pura**, que recebe os valores; a leitura das
+  constantes fica num adaptador fino em volta. É o que permite testar o
+  estado *futuro* — chave de produção já existente — antes do dia da
+  implantação. Inline, dependendo de constante global, a decisão não é
+  testável, e o defeito só apareceria implantando.
+
+Receita de integração: `docs/integracao-em-plugin.md` §8.
+
+**Origem:** o ponto 4 (regra do par) e as duas restrições acima foram
+levantados pela sessão do V3RLGPD ao
 integrar a biblioteca, a partir do mesmo tipo de achado que já rendeu o
 guard de duas pontas do ADR-007.
 
