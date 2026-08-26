@@ -1,11 +1,16 @@
 # Dependências e artefatos de build — nunca versionar, nunca viajar entre máquinas.
 node_modules/
 vendor/
+vendor-prefixed/
 dist/
 build/
 .next/
 __pycache__/
 *.pyc
+
+# PHPUnit
+.phpunit.cache/
+.phpunit.result.cache
 
 # Logs e arquivos de sistema
 *.log

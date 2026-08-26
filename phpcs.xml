@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<ruleset name="V3RCore">
+    <description>WordPress Coding Standards para a biblioteca v3r-core</description>
+
+    <file>src/</file>
+    <file>tests/</file>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/vendor-prefixed/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+    <arg name="extensions" value="php"/>
+
+    <config name="testVersion" value="7.4-"/>
+
+    <rule ref="WordPress">
+        <exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+        <exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
+
+        <!--
+            Squiz.Commenting.* desativadas: a lib usa declare(strict_types=1)
+            com parameter/return types em tudo. Docblocks por método apenas
+            repetem o que o sistema de tipos já garante; comentários ficam
+            onde há semântica não-óbvia (o que cada classe decide).
+        -->
+        <exclude name="Squiz.Commenting.FileComment.Missing"/>
+        <exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
+        <exclude name="Squiz.Commenting.ClassComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+        <exclude name="Squiz.Commenting.VariableComment.Missing"/>
+        <exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+        <exclude name="Generic.Commenting.DocComment.MissingShort"/>
+
+        <!--
+            Short array syntax permitida: PHP 7.4+ moderno, sem necessidade
+            de compatibilidade com array() antigo.
+        -->
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax.Found"/>
+
+        <!--
+            Alinhamento de double arrow desativado: ruído visual sem ganho
+            funcional em arrays de configuração.
+        -->
+        <exclude name="WordPress.Arrays.MultipleStatementAlignment.DoubleArrowNotAligned"/>
+
+        <!--
+            É uma biblioteca (PSR-4, namespace V3R\Core\), não um plugin com
+            prefixo de globais — a regra de prefixo de globais do WPCS não
+            se aplica a classes namespaced.
+        -->
+        <exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+
+        <!--
+            camelCase em variáveis/propriedades: convenção desta biblioteca
+            (PSR-4 orientada a objetos, sem hooks procedurais de WP) — não
+            snake_case do padrão WPCS de plugin. Nomes de opções/constantes
+            expostas ao WordPress continuam em snake_case onde fizer sentido.
+        -->
+        <exclude name="WordPress.NamingConventions.ValidVariableName"/>
+        <exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+
+        <!--
+            wp_parse_url()/wp_json_encode() só existem com o WordPress
+            carregado; esta lib roda também em teste isolado (tests/) e no
+            SignatureVerifier, que precisa de serialização determinística
+            fora de qualquer wrapper do WP (docs/api-contract.md §4.2).
+        -->
+        <exclude name="WordPress.WP.AlternativeFunctions.parse_url_parse_url"/>
+        <exclude name="WordPress.WP.AlternativeFunctions.json_encode_json_encode"/>
+
+        <!--
+            base64_decode() aqui é decodificação de assinatura ed25519, não
+            ofuscação de código (docs/api-contract.md §4).
+        -->
+        <exclude name="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode"/>
+
+        <!--
+            Métodos "// TODO(fatia-2)" respeitam a assinatura final do
+            contrato (ApiClientInterface, LicenseManager) antes da lógica
+            existir — o parâmetro fica sem uso até a fatia 2 implementar.
+        -->
+        <exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+
+        <!--
+            Sem text_domain — a lib não tem strings traduzíveis próprias
+            (isso é do plugin consumidor).
+        -->
+        <exclude name="WordPress.WP.I18n"/>
+
+        <!--
+            Exceções de domínio (LogicException, RuntimeException) não vão
+            direto a HTML; escapar é responsabilidade de quem renderiza.
+        -->
+        <exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+    </rule>
+</ruleset>
