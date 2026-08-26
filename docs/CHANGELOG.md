@@ -49,33 +49,62 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versio
 
 ## [0.1.0]
 
-Primeira tag consumível — fatias 1, 2a e 2b concluídas (ver seções
-"Adicionado" abaixo). Continha o defeito de auto-prefixação descrito em
-`[0.2.0]`; não usar para integração nova.
-
-## [Não lançado]
+Primeira tag consumível — fatias 1, 2a e 2b concluídas. Continha o
+defeito de auto-prefixação descrito em `[0.2.0]`; não usar para integração
+nova.
 
 ### Adicionado
 - **Fatia 1 — esqueleto da biblioteca (#1)** — estrutura PSR-4 `V3R\Core\`,
   Composer + Strauss para prefixar a lib e suas dependências transitivas em
   cada plugin hospedeiro, CI em matriz PHP 7.4–8.0–8.1–8.2–8.3–8.4.
-- `Support\SiteIdentity` — normalização de domínio e detecção de ambiente de
-  teste/desenvolvimento (não consome cota de ativação).
-- `Support\LicenseKeyMasker` e `Support\Logger`.
-- `Licensing\LicenseState`, `LicenseStatus`, `SignatureVerifier` (verificação
-  ed25519 da resposta do servidor de licenças).
-- `Licensing\ApiClientInterface` / `ApiException` — contrato de rede para a
-  fatia 2.
-- `Updater\UpdateGate` — decide liberação de atualização a partir do
-  `LicenseState`.
-- `Bootstrap` — ponto de entrada para o plugin hospedeiro.
-- `docs/api-contract.md` — contrato completo da API `v3r-license/v1` entre
-  esta lib e o servidor V3RLicense, para as duas pontas implementarem
-  independentemente.
+  `Support\SiteIdentity` (normalização de domínio e detecção de ambiente de
+  teste/desenvolvimento, sem consumir cota), `Support\LicenseKeyMasker`,
+  `Support\Logger`. `Licensing\LicenseState`, `LicenseStatus`,
+  `SignatureVerifier` (verificação ed25519 da resposta do servidor).
+  `Updater\UpdateGate`. `Bootstrap` como ponto de entrada. `docs/api-contract.md`
+  — contrato completo da API `v3r-license/v1` entre esta lib e o servidor
+  V3RLicense, para as duas pontas implementarem de forma independente.
+- **Fatia 2a — comunicação cliente-servidor, cache e grace period** —
+  `HttpApiClient` via transporte injetável (testável sem WordPress);
+  `LicenseStorage` em `wp_options`/transient via `KeyValueStoreInterface`;
+  `LicenseManager` com ativação, desativação e refresh com **cache de
+  12h** e **grace period de 14 dias**. Assinatura ausente, malformada ou
+  inválida nunca vira licença válida — sempre falha de comunicação, mesmo
+  caminho de timeout/5xx. Confirmação assinada de
+  `expired`/`revoked`/`invalid` suspende o update sem grace.
+- **Fatia 2b — integração com o WordPress, endpoints REST internos e
+  tela padrão** — `Updater\UpdateChecker`/`PucBridge` liga a lib ao
+  mecanismo de atualização do WordPress via Plugin Update Checker, sempre
+  atrás do `UpdateGate`. `Rest\LicenseController`/`LicenseRestRouter`
+  registra as **quatro rotas REST internas** do protocolo tela↔biblioteca
+  (`GET .../license`, `POST .../license/{activate,deactivate,refresh}`,
+  ver `docs/api-contract.md` §8). `AdminPage` padrão, em PHP, opcional —
+  para plugin sem SPA própria (ADR-005).
 
 ### Corrigido
 - Autoloader carregava o `plugin-update-checker` original em vez do
   prefixado pelo Strauss (#2).
+- **`LicenseManager::checkForUpdate()` enviava a versão instalada como
+  pedido de rollback** — pelo §2.4 do contrato, o parâmetro `version`
+  significa "me dê esta versão específica". O servidor procurava a
+  versão que o cliente já tinha, não achava novidade e respondia
+  `update_available: false`, assinado e legítimo: **nenhum site jamais
+  veria uma atualização**, em silêncio. Corrigido separando
+  `installedVersion` (sempre enviada) de `requestedVersion` (só rollback
+  explícito); `PucBridge` passou a ler a versão instalada do cabeçalho
+  real do arquivo, não do valor fixado na construção do `Bootstrap`.
+
+### Emendado
+- **§7.1 do contrato — resposta de erro não é assinada, logo nunca é
+  autoritativa para suspender.** Só payload assinado suspende. Aceitar um
+  `403` como prova permitiria a quem controla a rede cortar a atualização
+  de um cliente legítimo; o sistema converge para o estado seguro pelo
+  decurso da graça de 14 dias, nunca por resposta não autenticada.
+- `ApiException` ganha o código `SIGNATURE_INVALID` (distinto de
+  `COMMUNICATION_FAILURE`, mas com `isCommunicationFailure()` continuando
+  `true` para os dois), para o protocolo interno responder
+  `signature_invalid` (502) separado de `server_unreachable` (503) — o
+  protocolo externo não distinguia os dois por design.
 
 ### Decisões de arquitetura
 - Ver `docs/ARCHITECTURE.md` (ADR-001 a ADR-006): updater e licenciamento na
@@ -83,8 +112,3 @@ Primeira tag consumível — fatias 1, 2a e 2b concluídas (ver seções
   efetivo na licença, licença expirada nunca derruba o plugin, a lib entrega
   capacidade e não tela imposta, bootstrap tolerante à ausência de Composer
   em runtime.
-
-### Pendente (fatia 2, issue #3)
-- `HttpApiClient`, `LicenseManager`, `LicenseStorage`, `AdminPage`,
-  `UpdateChecker` — hoje contrato (`TODO(fatia-2)`), sem lógica de rede nem
-  persistência real.
