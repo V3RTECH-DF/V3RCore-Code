@@ -24,6 +24,11 @@ use V3R\Core\Updater\UpdateMetadataResolver;
  * direito, o WordPress não enxerga atualização" — cobre a peça pura que
  * decide isso (a integração de verdade com o Plugin Update Checker,
  * Updater\PucBridge, só roda dentro de um WordPress de verdade).
+ *
+ * BUG CORRIGIDO, validado ao vivo: além de checar a RESPOSTA (o que os
+ * testes já faziam e não bastava), agora também checamos o PEDIDO — que a
+ * checagem de rotina nunca manda a versão instalada como pedido de
+ * rollback. Ver LicenseManagerCheckForUpdateTest para o histórico completo.
  */
 final class UpdateMetadataResolverTest extends TestCase {
 
@@ -56,7 +61,7 @@ final class UpdateMetadataResolverTest extends TestCase {
 	public function test_license_without_right_to_update_never_reaches_the_server(): void {
 		$this->storage->save( LicenseState::neutral( 'v3rlgpd' ) ); // inactive => gate nega.
 
-		$availability = $this->resolver->resolve();
+		$availability = $this->resolver->resolve( '1.0.0' );
 
 		self::assertFalse( $availability->isAvailable() );
 		self::assertSame( 0, $this->transport->getCallCount() );
@@ -66,7 +71,7 @@ final class UpdateMetadataResolverTest extends TestCase {
 		$now = new DateTimeImmutable( '2026-08-25T12:00:00+00:00' );
 		$this->storage->save( new LicenseState( 'V3RL-AAAA', LicenseStatus::REVOKED, null, 1, 5, $now, null, 'v3rlgpd' ) );
 
-		$availability = $this->resolver->resolve();
+		$availability = $this->resolver->resolve( '1.0.0' );
 
 		self::assertFalse( $availability->isAvailable() );
 		self::assertSame( 0, $this->transport->getCallCount() );
@@ -90,7 +95,7 @@ final class UpdateMetadataResolverTest extends TestCase {
 		);
 		$this->transport->enqueue( HttpTransportResult::success( 200, (string) json_encode( $envelope ) ) );
 
-		$availability = $this->resolver->resolve();
+		$availability = $this->resolver->resolve( '1.0.0' );
 
 		self::assertTrue( $availability->isAvailable() );
 		self::assertSame( '2.3.0', $availability->getVersion() );
@@ -98,6 +103,33 @@ final class UpdateMetadataResolverTest extends TestCase {
 		self::assertSame( '8.0', $availability->getRequiresPhp() );
 		self::assertSame( '6.7', $availability->getTested() );
 		self::assertSame( 'https://licencas.example.com/download?token=abc', $availability->getPackageUrl() );
+	}
+
+	/**
+	 * O teste que faltava: a checagem de rotina do resolver (sem segundo
+	 * argumento) nunca pode mandar a versão instalada como pedido de
+	 * rollback. Só a resposta programada não bastava — o FakeHttpTransport
+	 * não interpreta o parâmetro, então um pedido errado com resposta
+	 * "há atualização" passava despercebido (era exatamente este o defeito).
+	 */
+	public function test_routine_resolve_sends_installed_version_only_as_plugin_version_never_as_rollback(): void {
+		$now = new DateTimeImmutable( '2026-08-25T12:00:00+00:00' );
+		$this->activate( $now );
+
+		$envelope = TestSigner::sign(
+			array(
+				'update_available' => true,
+				'version'          => '2.3.0',
+				'checked_at'       => $now->format( DATE_ATOM ),
+			)
+		);
+		$this->transport->enqueue( HttpTransportResult::success( 200, (string) json_encode( $envelope ) ) );
+
+		$this->resolver->resolve( '1.0.0' );
+
+		$call = $this->transport->getCalls()[0];
+		self::assertStringContainsString( 'plugin_version=1.0.0', $call['url'] );
+		self::assertDoesNotMatchRegularExpression( '/(?<!plugin_)version=1\.0\.0/', $call['url'] );
 	}
 
 	public function test_active_license_without_available_update_reports_none(): void {
@@ -112,7 +144,7 @@ final class UpdateMetadataResolverTest extends TestCase {
 		);
 		$this->transport->enqueue( HttpTransportResult::success( 200, (string) json_encode( $envelope ) ) );
 
-		$availability = $this->resolver->resolve();
+		$availability = $this->resolver->resolve( '1.0.0' );
 
 		self::assertFalse( $availability->isAvailable() );
 	}
@@ -123,7 +155,7 @@ final class UpdateMetadataResolverTest extends TestCase {
 
 		$this->transport->enqueue( HttpTransportResult::failure( 'timeout' ) );
 
-		$availability = $this->resolver->resolve();
+		$availability = $this->resolver->resolve( '1.0.0' );
 
 		self::assertFalse( $availability->isAvailable() );
 	}

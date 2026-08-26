@@ -59,12 +59,33 @@ class PucBridge extends PucPluginUpdateChecker {
 	 * único ponto que precisa aplicar o gate — os dois fluxos passam por
 	 * aqui.
 	 *
+	 * BUG CORRIGIDO (validação ao vivo): a versão instalada usada na
+	 * pergunta ao servidor é SEMPRE a lida daqui — getInstalledVersion()
+	 * (herdado da classe-pai, lê o cabeçalho `Version:` do arquivo real do
+	 * plugin) — nunca a versão fixada na construção do Bootstrap. As duas
+	 * podem divergir (plugin atualizado sem o hospedeiro atualizar o valor
+	 * que passa ao Bootstrap); quem decide "há novidade?" é sempre o que
+	 * está de fato instalado agora.
+	 *
 	 * @param array<string, mixed> $queryArgs Ignorado: não fazemos requisição HTTP própria aqui.
 	 * @return PluginInfo|null
 	 */
 	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- assinatura exigida pela classe-pai.
 	public function requestInfo( $queryArgs = array() ) {
-		$availability = $this->resolver->resolve();
+		$installedVersion = $this->getInstalledVersion();
+
+		if ( null === $installedVersion ) {
+			// Cabeçalho do plugin ilegível — a própria classe-pai já
+			// registra um E_USER_WARNING para este caso (checkForUpdates()).
+			// Sem versão instalada não há como perguntar nada ao servidor.
+			return null;
+		}
+
+		// Nunca passa um segundo argumento aqui: esta é a checagem de
+		// ROTINA ("há algo mais novo?"), nunca um pedido de rollback — ver
+		// UpdateMetadataResolver::resolve() e LicenseManager::checkForUpdate()
+		// para o histórico completo do bug que isto corrige.
+		$availability = $this->resolver->resolve( $installedVersion );
 
 		if ( ! $availability->isAvailable() ) {
 			return null;

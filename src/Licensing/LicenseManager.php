@@ -262,15 +262,34 @@ class LicenseManager {
 	 * não tem chave de licença para enviar: devolve null sem contatar o
 	 * servidor, em vez de mandar `license_key` vazia.
 	 *
-	 * @param string|null $version Versão específica a consultar (rollback).
-	 *                              Ausente = a mais recente do produto.
+	 * BUG CORRIGIDO (validação ao vivo, fatia 2b): $installedVersion é
+	 * SEMPRE obrigatório e SEMPRE vai em `plugin_version` — nunca em
+	 * `version`. `plugin_version` é "o que está instalado agora" (o que o
+	 * servidor usa para decidir se há novidade); `version`/$requestedVersion
+	 * é "peça exatamente esta versão" (rollback explícito, §2.4) — os dois
+	 * nomes antigos ($version único, ambíguo) faziam a chamada de rotina do
+	 * WordPress mandar a versão instalada também como pedido de rollback, o
+	 * servidor entendia "quero exatamente a que já tenho" e respondia
+	 * update_available=false, mesmo com release mais nova publicada.
+	 *
+	 * NUNCA use $this->pluginVersion (fixado na construção do Bootstrap)
+	 * aqui — só o chamador (Updater\PucBridge, via
+	 * PucBridge::getInstalledVersion(), que lê o cabeçalho real do arquivo
+	 * do plugin) sabe a versão de verdade instalada neste momento. As duas
+	 * podem divergir se o hospedeiro atualizar o plugin sem atualizar o
+	 * valor passado ao Bootstrap.
+	 *
+	 * @param string      $installedVersion Versão REALMENTE instalada agora — vai em `plugin_version`.
+	 * @param string|null $requestedVersion Versão específica a fixar (rollback explícito, §2.4) — vai em
+	 *                                      `version`. Ausente (o caso normal, "há algo mais novo?") não
+	 *                                      manda esse campo — nunca preenchido com $installedVersion.
 	 * @return array<string, mixed>|null Envelope { payload, signature } já
 	 *                                    com assinatura verificada, ou null
 	 *                                    quando não há licença ativada.
 	 *
 	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
 	 */
-	public function checkForUpdate( ?string $version = null ): ?array {
+	public function checkForUpdate( string $installedVersion, ?string $requestedVersion = null ): ?array {
 		$current = $this->getState();
 
 		if ( LicenseStatus::INACTIVE === $current->getStatus() ) {
@@ -281,11 +300,11 @@ class LicenseManager {
 			'product_slug'   => $this->productSlug,
 			'license_key'    => $current->getKey(),
 			'site_url'       => $this->currentSiteUrl(),
-			'plugin_version' => $this->pluginVersion,
+			'plugin_version' => $installedVersion,
 		);
 
-		if ( null !== $version ) {
-			$query['version'] = $version;
+		if ( null !== $requestedVersion ) {
+			$query['version'] = $requestedVersion;
 		}
 
 		return $this->apiClient->checkUpdate( $query );

@@ -31,10 +31,20 @@ final class UpdateMetadataResolver {
 	}
 
 	/**
-	 * @param string|null $version Versão específica a consultar (rollback).
-	 *                              Ausente = a mais recente do produto.
+	 * BUG CORRIGIDO (validação ao vivo): $installedVersion é obrigatório —
+	 * a chamada de rotina do WordPress ("há versão nova?") nunca deve
+	 * mandar $requestedVersion, sob pena de o servidor entender isso como
+	 * "quero exatamente esta versão" e responder update_available=false
+	 * mesmo havendo release mais nova (ver LicenseManager::checkForUpdate()
+	 * para o histórico completo).
+	 *
+	 * @param string      $installedVersion Versão REALMENTE instalada agora (lida por quem chama,
+	 *                                       nunca a fixada na construção do Bootstrap — ver
+	 *                                       Updater\PucBridge::getInstalledVersion()).
+	 * @param string|null $requestedVersion Só para rollback explícito (docs/api-contract.md §2.4).
+	 *                                       Ausente na checagem de rotina.
 	 */
-	public function resolve( ?string $version = null ): UpdateAvailability {
+	public function resolve( string $installedVersion, ?string $requestedVersion = null ): UpdateAvailability {
 		$state = $this->licenseManager->getState();
 
 		if ( ! $this->gate->canUpdate( $state ) ) {
@@ -45,7 +55,7 @@ final class UpdateMetadataResolver {
 		}
 
 		try {
-			$response = $this->licenseManager->checkForUpdate( $version );
+			$response = $this->licenseManager->checkForUpdate( $installedVersion, $requestedVersion );
 		} catch ( ApiException $exception ) {
 			// Falha ao consultar update-check (rede, 5xx, assinatura ruim,
 			// erro de negócio do servidor) nunca deve quebrar a tela de
