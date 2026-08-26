@@ -551,6 +551,73 @@ licenças a cada visita.
 propriamente dita (`activation_limit_reached` não se aplica aqui — este
 endpoint não ativa nada novo).
 
+#### 8.8.1 Throttle local — 1 `refresh` por minuto por produto
+
+`refresh` é o único destes quatro endpoints que força uma chamada
+externa ao servidor de licenças por definição — é exatamente o que o
+diferencia do `GET`. O servidor de licenças aplica rate limiting de
+**20 requisições por minuto por chave de licença** (§3, `rate_limited`).
+Um administrador clicando "verificar agora" repetidamente — reação
+natural quando algo parece travado — consome essa cota em segundos.
+
+**O modo de falha é perverso: o site do cliente se auto-bloqueia.**
+Passa a receber `429 rate_limited` do próprio servidor, a tela mostra
+falha, e a reação do usuário é clicar mais — de fora, isso é
+indistinguível de um problema de licença ou de servidor fora do ar,
+quando na verdade foi o próprio cliente que esgotou sua cota.
+
+Por isso a biblioteca aplica, **antes de a chamada externa sair**, um
+throttle local independente do rate limit do servidor:
+
+- **No máximo um `refresh` por minuto, por produto, por instalação.**
+  Uma chamada dentro da janela de 1 minuto desde o último `refresh`
+  (bem-sucedido ou não) **não** contata o servidor de licenças.
+- Nesse caso a resposta **não é erro**: é `200 OK`, mesmo schema de
+  §8.3 (o estado corrente do cache, exatamente como um `GET`), acrescido
+  de dois campos:
+
+  | Campo          | Tipo | Descrição |
+  |----------------|------|-----------|
+  | `throttled`    | bool | `true` quando esta chamada foi adiada pelo throttle local (não chegou a contatar o servidor). Ausente ou `false` nas demais respostas de `refresh`. |
+  | `retry_after`  | int  | Segundos até o throttle liberar um novo `refresh` de verdade. Só presente quando `throttled = true`. |
+
+  ```json
+  {
+    "license_key_masked": "V3RL-XXXX-...-2D5C",
+    "status": "active",
+    "expires_at": "2027-08-25T00:00:00+00:00",
+    "activations_used": 2,
+    "activations_max": 5,
+    "last_checked_at": "2026-08-25T12:00:00+00:00",
+    "in_grace_period": false,
+    "grace_until": null,
+    "receives_updates": true,
+    "status_message": "Licença ativa. Você recebe atualizações normalmente.",
+    "throttled": true,
+    "retry_after": 43
+  }
+  ```
+
+  A tela usa `throttled`/`retry_after` para desabilitar o botão "verificar
+  agora" e mostrar algo como "verificado há instantes" — nunca uma
+  mensagem de falha.
+
+- **Este throttle é cortesia com o servidor e proteção do próprio
+  cliente, não controle de acesso.** Ele existe para o site do cliente
+  não gastar a própria cota do rate limit externo com cliques repetidos
+  na mesma tela — não é uma trava de segurança nem de autorização, e não
+  produz nenhum dos códigos de erro de §8.9.
+- **`activate` não entra neste throttle.** É ação deliberada e rara (o
+  administrador digitando ou corrigindo uma chave); throttlá-la
+  impediria alguém de corrigir na hora uma chave digitada errada.
+- **Interação com o cache de 12h (§5 do protocolo externo):** são duas
+  coisas diferentes, e `refresh` se relaciona com as duas ao mesmo
+  tempo — ele **ignora** o cache de 12h (é o que permite forçar a
+  verificação fora da janela rotineira), mas **respeita** este throttle
+  de 1 minuto (é o que evita a rajada de cliques). O cache de 12h evita
+  chamada rotineira desnecessária a cada carregamento de tela; o
+  throttle de 1 minuto evita rajada quando alguém insiste no botão.
+
 ### 8.9 Erros deste protocolo
 
 Mesmo formato de erro da REST API do WordPress usado em §1/§3
