@@ -60,6 +60,7 @@ Ativa uma licença para um site.
     "activations_used": 2,
     "activations_max": 5,
     "product_slug": "v3rlgpd",
+    "already_activated": false,
     "checked_at": "2026-08-25T12:00:00+00:00"
   },
   "signature": "base64..."
@@ -73,7 +74,15 @@ Ativa uma licença para um site.
 | `activations_used`   | int          | Cota consumida (não inclui domínios de teste). |
 | `activations_max`    | int\|null    | `null` = ilimitado. |
 | `product_slug`       | string       | Eco do produto ativado. |
+| `already_activated`  | bool         | `true` quando o domínio informado já estava ativado para esta licença e produto — nenhuma cota nova foi consumida. `false` quando esta chamada ativou o domínio agora. |
 | `checked_at`         | string       | Instante em que o servidor gerou esta resposta. |
+
+**Idempotência:** se o domínio normalizado já está ativado para a mesma
+licença e produto, `/activate` responde `200 OK` com o estado atual e
+`already_activated: true`, sem consumir cota nova e sem erro — mesmo que
+`activations_max` já esteja no limite. Reativar um site que já era seu não
+pode falhar por cota cheia. `activation_limit_reached` só se aplica a um
+domínio **novo** quando a cota já está esgotada.
 
 **Erros possíveis:** `invalid_key`, `product_mismatch`, `activation_limit_reached`,
 `license_expired`, `license_revoked`, `rate_limited`.
@@ -125,12 +134,13 @@ Metadados da versão disponível, ou "nenhuma atualização".
 
 **Entrada** (query string):
 
-| Campo             | Tipo   | Obrigatório |
-|-------------------|--------|:---:|
-| `product_slug`    | string | sim |
-| `license_key`     | string | sim |
-| `site_url`        | string | sim |
-| `plugin_version`  | string | sim |
+| Campo             | Tipo   | Obrigatório | Descrição |
+|-------------------|--------|:---:|-----------|
+| `product_slug`    | string | sim | |
+| `license_key`     | string | sim | |
+| `site_url`        | string | sim | |
+| `plugin_version`  | string | sim | |
+| `version`         | string | não | Versão específica a consultar/baixar (rollback). Ausente = a mais recente disponível para o produto. Presente = o token de download (ver `package_url` abaixo) é emitido para exatamente essa versão. |
 
 **Saída quando há atualização** — `200 OK`:
 
@@ -163,8 +173,15 @@ Metadados da versão disponível, ou "nenhuma atualização".
 ```
 
 `package_url` não é o zip em si — é a URL que o cliente chama em
-`/download` (ver §2.5), autenticada por licença, não um link público
-permanente.
+`/download` (ver §2.5), no formato `.../download?token=<token>` e **só**
+esse parâmetro. O token é opaco (aleatório, ≥32 bytes, base64url), gerado
+por este `/update-check` e amarrado no servidor a: licença, produto,
+domínio normalizado e a versão específica resolvida (a pedida em
+`version`, ou a mais recente quando ausente) — `/download` não recebe mais
+`license_key`, `product_slug` nem `site_url` (ver §2.5). Validade: **30
+minutos**, com múltiplos usos permitidos dentro da janela (uso único
+quebraria a retentativa do próprio WordPress num download interrompido).
+Ao revogar uma licença, os tokens dela são invalidados junto.
 
 **Erros possíveis:** `invalid_key`, `product_mismatch`, `license_expired`,
 `license_revoked`, `rate_limited`. **Importante:** licença expirada/revogada
@@ -175,33 +192,37 @@ mostrar na UI, mas em ambos os casos o `V3R\Core\Updater\UpdateGate` decide
 
 ### 2.5 `GET /download`
 
-Entrega o zip da versão, ou nega com motivo.
+Entrega o zip da versão, ou nega com motivo. Recebe **só** o token
+efêmero emitido por `/update-check` — nenhum outro parâmetro. Chave de
+licença em query string vazaria em log de acesso, log de proxy e cabeçalho
+`Referer`; com o token, tudo (licença, produto, domínio, versão) já está
+amarrado no servidor.
 
 **Entrada** (query string):
 
-| Campo          | Tipo   | Obrigatório |
-|----------------|--------|:---:|
-| `product_slug` | string | sim |
-| `license_key`  | string | sim |
-| `site_url`     | string | sim |
+| Campo    | Tipo   | Obrigatório |
+|----------|--------|:---:|
+| `token`  | string | sim |
 
 **Saída de sucesso:** `200 OK`, `Content-Type: application/zip`, stream do
 arquivo. Não é JSON.
 
 **Saída de negação:** `403 Forbidden`, corpo no formato de erro padrão
-(§1), com `code` explicando o motivo: `license_expired`, `license_revoked`,
-`domain_not_activated`, `invalid_key`, `product_mismatch`, `rate_limited`.
+(§1), com `code` explicando o motivo: `invalid_token` (token inexistente,
+expirado, ou de licença já revogada), `license_expired`, `license_revoked`,
+`rate_limited`.
 
 ## 3. Códigos de erro
 
 | Código                     | HTTP | Significado |
 |----------------------------|:---:|-------------|
 | `invalid_key`              | 404 | Chave não existe ou está malformada. |
-| `activation_limit_reached` | 409 | `activations_max` já atingido para esta licença. |
+| `activation_limit_reached` | 409 | `activations_max` já atingido para esta licença (domínio novo; reativar domínio já ativado nunca cai aqui — ver §2.1). |
 | `domain_not_activated`     | 404 | O domínio informado não tem ativação registrada para esta licença. |
 | `product_mismatch`         | 400 | A chave é válida, mas não é para o `product_slug` informado. |
 | `license_expired`          | 403 | Licença encontrada, mas `status = expired`. |
 | `license_revoked`          | 403 | Licença encontrada, mas `status = revoked` (reembolso/cancelamento). |
+| `invalid_token`            | 403 | Token de `/download` inexistente, expirado, ou pertencente a licença já revogada. |
 | `rate_limited`             | 429 | Excesso de tentativas para este IP ou esta chave (ver §4.6 da pesquisa). |
 
 Todos seguem `{ code, message, data: { status } }` — `data.status` sempre
