@@ -588,6 +588,19 @@ licenças local.
 > a comparação vira `false !== false` e nunca dispara. Os defaults de
 > produção moram em constantes **de nome próprio do plugin**, ou como
 > literais na resolução — nunca sob os nomes compartilhados.
+>
+> **E o dano maior não é dentro de um plugin, é entre plugins.** O guard
+> inerte é o estrago local. Num site com dois plugins da casa — que é o
+> caso que a ADR-010 existe para suportar — o primeiro a carregar (ordem
+> alfabética do WordPress, que ninguém controla) define os dois nomes
+> compartilhados com o **seu** default; o segundo encontra as duas
+> definidas, conclui que o dono do site sobrescreveu o par, e passa a
+> falar com a URL do primeiro e a conferir a chave do primeiro. Em versões
+> iguais ninguém percebe; em versões diferentes — o normal, porque
+> atualizam em ritmos diferentes — a configuração de um plugin vaza para
+> o outro e o guard não só deixa de guardar, ele **mente**. É o mesmo
+> acoplamento silencioso entre plugins da casa que o Strauss resolve para
+> namespaces (§3), aqui em constantes globais.
 
 > **E o default não serve como sinal de "não configurado".** Comparar o
 > valor com o default parece equivalente a perguntar de onde ele veio, e
@@ -610,55 +623,86 @@ torna testável antes do dia da implantação, inclusive para o estado
  * trouxer só uma das duas, é configuração incoerente — recusa, em vez de
  * completar com o default de produção da outra.
  *
+ * Devolve o motivo da recusa junto, porque os dois motivos merecem
+ * tratamento diferente de quem chama (ver o adaptador abaixo).
+ *
  * @param string|null $url_do_site   Valor vindo do wp-config.php, ou null.
  * @param string|null $chave_do_site Valor vindo do wp-config.php, ou null.
  * @param string      $url_padrao    Default de produção, embutido no build.
  * @param string      $chave_padrao  Default de produção, embutido no build.
+ * @param string      $placeholder   Valor da chave enquanto ela não existir.
  *
- * @return array{api_url: string, public_key: string}|null null quando o par
- *         está incoerente (uma veio do site, a outra não).
+ * @return array{status: string, api_url?: string, public_key?: string}
+ *         status: 'ok' | 'incoerente' | 'chave_pendente'.
  */
 function meuplugin_decide_v3r_license_config(
     ?string $url_do_site,
     ?string $chave_do_site,
     string $url_padrao,
-    string $chave_padrao
-): ?array {
+    string $chave_padrao,
+    string $placeholder
+): array {
     $veio_url   = null !== $url_do_site && '' !== $url_do_site;
     $veio_chave = null !== $chave_do_site && '' !== $chave_do_site;
 
     if ( $veio_url !== $veio_chave ) {
-        return null;
+        return array( 'status' => 'incoerente' );
     }
 
-    return $veio_url
-        ? array( 'api_url' => $url_do_site, 'public_key' => $chave_do_site )
-        : array( 'api_url' => $url_padrao, 'public_key' => $chave_padrao );
+    if ( $veio_url ) {
+        return array( 'status' => 'ok', 'api_url' => $url_do_site, 'public_key' => $chave_do_site );
+    }
+
+    if ( $placeholder === $chave_padrao ) {
+        return array( 'status' => 'chave_pendente' );
+    }
+
+    return array( 'status' => 'ok', 'api_url' => $url_padrao, 'public_key' => $chave_padrao );
 }
 ```
+
+> **A chave pendente é caso da decisão, não do acaso — achado da execução
+> real (V3RLGPD, 27/08/2026).** Enquanto a chave pública de produção não
+> existir, o default do build é um placeholder, e esse é o caminho de
+> **todos** os sete plugins em qualquer site que não configure nada. Sem o
+> ramo `chave_pendente`, o plugin inicia e falha na verificação de
+> assinatura de toda resposta — o modo de falha caro, em vez de "não
+> iniciou". E o aviso no log sai **só** no par incoerente: registrar a
+> chave pendente encheria o log de todo site sem configuração por um
+> estado que hoje é o esperado.
 
 A leitura das constantes fica **fora** da decisão, num adaptador fino — a
 única parte que toca o estado global, e a única que não dá para testar:
 
 ```php
 function meuplugin_resolve_v3r_license_config(): ?array {
-    $config = meuplugin_decide_v3r_license_config(
+    $decisao = meuplugin_decide_v3r_license_config(
         defined( 'V3R_LICENSE_API_URL' ) ? (string) V3R_LICENSE_API_URL : null,
         defined( 'V3R_LICENSE_PUBLIC_KEY' ) ? (string) V3R_LICENSE_PUBLIC_KEY : null,
         MEUPLUGIN_LICENSE_API_URL_PADRAO,   // default de produção — nome PRÓPRIO do plugin
-        MEUPLUGIN_LICENSE_PUBLIC_KEY_PADRAO // idem; nunca sob o nome compartilhado
+        MEUPLUGIN_LICENSE_PUBLIC_KEY_PADRAO, // idem; nunca sob o nome compartilhado
+        MEUPLUGIN_LICENSE_PUBLIC_KEY_PLACEHOLDER
     );
 
-    if ( null === $config ) {
+    if ( 'incoerente' === $decisao['status'] ) {
         error_log(
             'MeuPlugin: V3R_LICENSE_API_URL e V3R_LICENSE_PUBLIC_KEY precisam ' .
             'ser definidas juntas no wp-config.php, nunca só uma — licenciamento desativado.'
         );
     }
 
-    return $config;
+    return 'ok' === $decisao['status']
+        ? array( 'api_url' => $decisao['api_url'], 'public_key' => $decisao['public_key'] )
+        : null;
 }
 ```
+
+> **Trave o invariante com um teste, não só com este documento — achado da
+> execução real (V3RLGPD, 27/08/2026).** Uma regra escrita não impede que
+> alguém reintroduza `define( 'V3R_LICENSE_...' )` daqui a seis meses; um
+> teste que lê o próprio arquivo principal do plugin e procura essa
+> expressão impede. É uma expressão regular de uma linha, e serve igual
+> nos sete.
 
 Os defaults de produção (`https://v3rtech.com.br/wp-json/v3r-license/v1` e a
 chave pública real) são os mesmos nos sete plugins — copie as duas funções,

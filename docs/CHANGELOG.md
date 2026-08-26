@@ -24,6 +24,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versio
   duas restrições — o plugin não define os nomes compartilhados, e o valor
   igual ao default não serve como sinal de "não configurado". Achado da
   execução real (V3RLGPD).
+- **A §8 e a ADR-010 ganharam o motivo decisivo da regra "o plugin não
+  define os nomes compartilhados": o vazamento entre plugins.** Num site
+  com dois plugins da casa, o primeiro a carregar define o par com o seu
+  default e o segundo passa a usar a URL e a chave do primeiro — em
+  versões diferentes, silenciosamente. Também entraram o ramo
+  `chave_pendente` na decisão (o caminho de todos os sete plugins
+  enquanto a chave de produção não existir), o aviso no log restrito ao
+  par incoerente, e o teste que trava o invariante lendo o arquivo
+  principal do plugin. Todos achados da execução real (V3RLGPD).
 
 ## [0.3.0]
 

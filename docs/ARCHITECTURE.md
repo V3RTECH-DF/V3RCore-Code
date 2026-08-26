@@ -188,6 +188,23 @@ fazem parte da decisão, e sem elas o guard do ponto 4 não guarda nada:
   define(...)` no topo do plugin — padrão do WordPress — faz as duas
   existirem sempre, e a comparação do guard vira `false !== false`. Os
   defaults de produção moram em constantes de nome próprio do plugin.
+  **O dano decisivo é entre plugins, não dentro de um:** num site com dois
+  plugins da casa, o primeiro a carregar (ordem alfabética, que ninguém
+  controla) define os nomes compartilhados com o seu default, e o segundo
+  conclui que o dono do site sobrescreveu o par — passando a falar com a
+  URL do primeiro e a conferir a chave do primeiro. Em versões diferentes,
+  que é o normal, a configuração de um vaza para o outro e o guard mente.
+  É o mesmo acoplamento silencioso que o Strauss resolve para namespaces,
+  aqui em constantes globais.
+- **A chave pendente é um estado da decisão.** Enquanto a chave pública de
+  produção não existir, o default do build é um placeholder — o caminho de
+  todos os sete plugins em qualquer site que não configure nada. A decisão
+  recusa nesse caso, para o plugin não iniciar e falhar na verificação de
+  assinatura de toda resposta; e o aviso no log sai só no par incoerente,
+  nunca na chave pendente, que hoje é o estado esperado.
+- **O invariante é travado por teste**, lendo o próprio arquivo principal
+  do plugin à procura de `define( 'V3R_LICENSE_...' )`. Documento não
+  impede reintrodução daqui a seis meses; teste impede.
 - **A decisão é uma função pura**, que recebe os valores; a leitura das
   constantes fica num adaptador fino em volta. É o que permite testar o
   estado *futuro* — chave de produção já existente — antes do dia da
