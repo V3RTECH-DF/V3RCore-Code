@@ -38,6 +38,9 @@ final class LicenseControllerTest extends TestCase {
 		unset( $GLOBALS['v3r_core_test_current_user_can'], $GLOBALS['v3r_core_test_valid_nonce'] );
 	}
 
+	private const READ_CAPABILITY   = 'v3rlgpd_settings_view';
+	private const MANAGE_CAPABILITY = 'v3rlgpd_settings_manage';
+
 	private function makeController( ?RefreshThrottle $throttle = null ): LicenseController {
 		$this->transport = new FakeHttpTransport();
 		$verifier        = new SignatureVerifier( Ed25519TestKeys::PUBLIC_KEY_BASE64 );
@@ -45,48 +48,87 @@ final class LicenseControllerTest extends TestCase {
 		$this->storage   = new LicenseStorage( 'v3rlgpd', new InMemoryKeyValueStore(), new InMemoryKeyValueStore() );
 		$this->manager   = new LicenseManager( 'v3rlgpd', $apiClient, $this->storage, '1.0.0' );
 
-		return new LicenseController( $this->manager, new UpdateGate(), 'manage_v3rlgpd_licenses', $throttle );
+		return new LicenseController( $this->manager, new UpdateGate(), self::READ_CAPABILITY, self::MANAGE_CAPABILITY, $throttle );
 	}
 
 	protected function setUp(): void {
 		$this->controller = $this->makeController();
 	}
 
-	public function test_denies_without_capability_even_with_valid_nonce(): void {
+	public function test_denies_read_without_capability_even_with_valid_nonce(): void {
 		$GLOBALS['v3r_core_test_current_user_can'] = false;
 		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
 
 		$request = new \WP_REST_Request();
 		$request->set_header( 'X-WP-Nonce', 'abc123' );
 
-		self::assertFalse( $this->controller->permission_callback( $request ) );
+		self::assertFalse( $this->controller->permission_callback_read( $request ) );
 	}
 
-	public function test_denies_without_valid_nonce_even_with_capability(): void {
-		$GLOBALS['v3r_core_test_current_user_can'] = true;
+	public function test_denies_read_without_valid_nonce_even_with_capability(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY, self::MANAGE_CAPABILITY );
 		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
 
 		$request = new \WP_REST_Request();
 		$request->set_header( 'X-WP-Nonce', 'nonce-errado' );
 
-		self::assertFalse( $this->controller->permission_callback( $request ) );
+		self::assertFalse( $this->controller->permission_callback_read( $request ) );
 	}
 
-	public function test_denies_missing_nonce_header(): void {
-		$GLOBALS['v3r_core_test_current_user_can'] = true;
+	public function test_denies_read_missing_nonce_header(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY, self::MANAGE_CAPABILITY );
 		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
 
-		self::assertFalse( $this->controller->permission_callback( new \WP_REST_Request() ) );
+		self::assertFalse( $this->controller->permission_callback_read( new \WP_REST_Request() ) );
 	}
 
-	public function test_allows_when_capability_and_nonce_are_both_valid(): void {
-		$GLOBALS['v3r_core_test_current_user_can'] = true;
+	public function test_allows_read_when_capability_and_nonce_are_both_valid(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY, self::MANAGE_CAPABILITY );
 		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
 
 		$request = new \WP_REST_Request();
 		$request->set_header( 'X-WP-Nonce', 'abc123' );
 
-		self::assertTrue( $this->controller->permission_callback( $request ) );
+		self::assertTrue( $this->controller->permission_callback_read( $request ) );
+	}
+
+	/**
+	 * Critério de aceite da issue #9: usuário com a capability de leitura
+	 * mas sem a de gestão consegue GET/refresh (permission_callback_read)
+	 * e recebe 403 em activate/deactivate (permission_callback_manage) —
+	 * testado isoladamente, sem depender de is_admin() nem de esconder
+	 * botão em tela.
+	 */
+	public function test_read_only_user_passes_read_permission_but_fails_manage_permission(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY );
+		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
+
+		$request = new \WP_REST_Request();
+		$request->set_header( 'X-WP-Nonce', 'abc123' );
+
+		self::assertTrue( $this->controller->permission_callback_read( $request ) );
+		self::assertFalse( $this->controller->permission_callback_manage( $request ) );
+	}
+
+	public function test_manage_capable_user_passes_both_permissions(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY, self::MANAGE_CAPABILITY );
+		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
+
+		$request = new \WP_REST_Request();
+		$request->set_header( 'X-WP-Nonce', 'abc123' );
+
+		self::assertTrue( $this->controller->permission_callback_read( $request ) );
+		self::assertTrue( $this->controller->permission_callback_manage( $request ) );
+	}
+
+	public function test_denies_manage_without_valid_nonce_even_with_capability(): void {
+		$GLOBALS['v3r_core_test_current_user_can'] = array( self::READ_CAPABILITY, self::MANAGE_CAPABILITY );
+		$GLOBALS['v3r_core_test_valid_nonce']      = 'abc123';
+
+		$request = new \WP_REST_Request();
+		$request->set_header( 'X-WP-Nonce', 'nonce-errado' );
+
+		self::assertFalse( $this->controller->permission_callback_manage( $request ) );
 	}
 
 	public function test_get_state_never_touches_the_network(): void {

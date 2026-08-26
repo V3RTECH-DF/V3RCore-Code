@@ -36,11 +36,46 @@ final class BootstrapTest extends TestCase {
 		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
 
 		self::assertSame( 'manage_options', $bootstrap->getCapability() );
+		self::assertSame( 'manage_options', $bootstrap->getReadCapability() );
+		self::assertSame( 'manage_options', $bootstrap->getManageCapability() );
 	}
 
 	public function test_capability_is_configurable_per_host_plugin(): void {
 		$bootstrap = new Bootstrap( 'rit360-premiado', __FILE__, 'https://licencas.example.com', 'chave', '2.0.0', 'manage_rit360_premiado' );
 
 		self::assertSame( 'manage_rit360_premiado', $bootstrap->getCapability() );
+	}
+
+	/**
+	 * Critério de aceite da issue #9: quem passa uma capability só continua
+	 * se comportando exatamente como antes — leitura e gestão caem na
+	 * mesma capability, sem precisar do sétimo argumento.
+	 */
+	public function test_single_capability_falls_back_to_same_value_for_read_and_manage(): void {
+		$bootstrap = new Bootstrap( 'rit360-premiado', __FILE__, 'https://licencas.example.com', 'chave', '2.0.0', 'manage_rit360_premiado' );
+
+		self::assertSame( 'manage_rit360_premiado', $bootstrap->getReadCapability() );
+		self::assertSame( 'manage_rit360_premiado', $bootstrap->getManageCapability() );
+	}
+
+	/**
+	 * Issue #9: as duas capabilities podem ser informadas separadamente —
+	 * é o que permite ao hospedeiro dar leitura a quem só consulta e
+	 * reservar ativar/desativar a quem administra o plugin.
+	 */
+	public function test_read_and_manage_capabilities_can_be_configured_separately(): void {
+		$bootstrap = new Bootstrap(
+			'v3rlgpd',
+			__FILE__,
+			'https://licencas.example.com',
+			'chave',
+			'1.0.0',
+			'v3rlgpd_settings_view',
+			'v3rlgpd_settings_manage'
+		);
+
+		self::assertSame( 'v3rlgpd_settings_view', $bootstrap->getReadCapability() );
+		self::assertSame( 'v3rlgpd_settings_manage', $bootstrap->getManageCapability() );
+		self::assertSame( 'v3rlgpd_settings_manage', $bootstrap->getCapability() );
 	}
 }

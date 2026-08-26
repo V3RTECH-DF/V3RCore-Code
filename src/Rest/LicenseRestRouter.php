@@ -40,8 +40,13 @@ final class LicenseRestRouter {
 	}
 
 	public function register_routes(): void {
-		$base       = '/' . rawurlencode( $this->productSlug ) . '/license';
-		$permission = array( $this->controller, 'permission_callback' );
+		$base = '/' . rawurlencode( $this->productSlug ) . '/license';
+
+		// Capability por operação (issue #9): leitura em GET .../license e
+		// POST .../license/refresh; gestão em activate/deactivate — nunca o
+		// mesmo permission_callback nas quatro rotas.
+		$readPermission   = array( $this->controller, 'permission_callback_read' );
+		$managePermission = array( $this->controller, 'permission_callback_manage' );
 
 		register_rest_route(
 			self::NAMESPACE_NAME,
@@ -49,7 +54,7 @@ final class LicenseRestRouter {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( $this->controller, 'get_state' ),
-				'permission_callback' => $permission,
+				'permission_callback' => $readPermission,
 			)
 		);
 
@@ -59,7 +64,7 @@ final class LicenseRestRouter {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this->controller, 'activate' ),
-				'permission_callback' => $permission,
+				'permission_callback' => $managePermission,
 				'args'                => array(
 					'license_key' => array(
 						'required' => true,
@@ -75,7 +80,7 @@ final class LicenseRestRouter {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this->controller, 'deactivate' ),
-				'permission_callback' => $permission,
+				'permission_callback' => $managePermission,
 			)
 		);
 
@@ -85,7 +90,7 @@ final class LicenseRestRouter {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( $this->controller, 'refresh' ),
-				'permission_callback' => $permission,
+				'permission_callback' => $readPermission,
 			)
 		);
 	}

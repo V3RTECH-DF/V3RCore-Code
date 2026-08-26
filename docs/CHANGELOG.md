@@ -2,6 +2,27 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.3.0]
+
+### Adicionado
+- **Capability por operação nos endpoints REST internos (#9).** `Bootstrap`
+  passa a aceitar `$readCapability` (sexto argumento, como antes) e
+  `$manageCapability` (sétimo, opcional). `GET .../license` e
+  `POST .../license/refresh` checam a capability de leitura;
+  `POST .../license/activate` e `POST .../license/deactivate` checam a de
+  gestão. Sem o sétimo argumento, gestão cai para leitura — quem já
+  integra com uma capability só continua se comportando exatamente como
+  antes. `Bootstrap::getReadCapability()`/`getManageCapability()` novos;
+  `getCapability()` mantido como alias, agora devolvendo a capability de
+  gestão. Corrige o caso em que qualquer portador de papel do plugin
+  hospedeiro (não só quem administra) podia desativar a licença via
+  chamada direta ao endpoint, mesmo com a tela escondendo o botão. Ver
+  `docs/api-contract.md` §8.2.
+
+### Corrigido
+- `docs/integracao-em-plugin.md` §7 — assinatura de bootstrap e nota de
+  capability atualizadas para as duas capabilities.
+
 ## [0.2.0]
 
 ### Corrigido
