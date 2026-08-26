@@ -182,10 +182,19 @@ não basta — foi assim que um defeito equivalente passou despercebido antes
 ## 5. O passo de prefixação no empacotamento (`build-zip.sh`)
 
 Snippet a inserir no script de build do plugin, **depois** de gerar o
-`vendor/` (autoloader de produção) e **antes** de zipar. Convive com os
-guards locais que cada plugin já tem (guard de classmap do V3RLGPD,
-regeneração do autoloader contra o layout achatado, bundle de frontend —
-nenhum deles precisa mudar).
+`vendor/` (autoloader de produção) e — atenção — **antes do
+`dump-autoload` do pacote, quando houver um**.
+
+> **A ordem importa mais do que "antes de zipar".** Plugin que monta um
+> pacote com layout achatado (`src/includes/` vira `includes/`) reescreve
+> o `composer.json` dentro do diretório temporário e roda
+> `composer dump-autoload` **lá dentro**. No instante em que esse
+> `composer.json` declarar `autoload.classmap: ["vendor-prefixed/"]`, o
+> dump procura a pasta **relativa ao diretório temporário** — e falha com
+> o mesmo erro do §3 (`Could not scan for classes inside`), agora no meio
+> do build. Nesse caso o `cp -r vendor-prefixed` precisa acontecer
+> **antes** do dump. Levantado pela sessão do V3RLGPD ao executar a
+> receita, e vale para qualquer plugin da casa que ache o layout.
 
 ```bash
 echo "=== Strauss: prefixando v3r-core e dependências transitivas ==="
@@ -199,12 +208,35 @@ if [ ! -f "vendor-prefixed/v3rtech/v3r-core/src/Bootstrap.php" ]; then
 fi
 php -r '
     require "vendor-prefixed/autoload.php";
-    if (!class_exists("'"$NAMESPACE_PREFIX"'\\V3R\\Core\\Bootstrap")) {
-        fwrite(STDERR, "ERRO: classe prefixada do v3r-core não resolve — build incompleto.\n");
-        exit(1);
+    $prefixo = "'"$NAMESPACE_PREFIX"'";
+    $erros   = array();
+
+    // As DUAS pontas. Verificar só que a classe prefixada resolve não
+    // distingue "bem configurado" de "mal configurado com as duas
+    // presentes" — e é justamente esse segundo estado que colide com o
+    // próximo plugin da casa que embutir a lib.
+    if ( ! class_exists( $prefixo . "\\V3R\\Core\\Bootstrap" ) ) {
+        $erros[] = "a classe prefixada do v3r-core não resolve";
+    }
+    if ( class_exists( "V3R\\Core\\Bootstrap" ) ) {
+        $erros[] = "o namespace ORIGINAL do v3r-core ainda resolve";
+    }
+    // O plugin-update-checker é a dependência que efetivamente colide:
+    // ele se autoloada por `files`, então sobra no namespace global se o
+    // Strauss não o alcançar.
+    if ( ! class_exists( $prefixo . "\\YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory" ) ) {
+        $erros[] = "o plugin-update-checker prefixado não resolve";
+    }
+    if ( class_exists( "YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory" ) ) {
+        $erros[] = "o namespace ORIGINAL do plugin-update-checker ainda resolve";
+    }
+
+    if ( $erros ) {
+        fwrite( STDERR, "ERRO de prefixação — build incompleto:\n  - " . implode( "\n  - ", $erros ) . "\n" );
+        exit( 1 );
     }
 ' 2>&1 || exit 1
-echo "v3r-core prefixado e carregável — OK."
+echo "v3r-core e dependências prefixados, namespaces originais ausentes — OK."
 
 cp -r vendor-prefixed "$TEMP_DIR/"
 ```

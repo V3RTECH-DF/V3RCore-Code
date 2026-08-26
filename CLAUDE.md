@@ -53,3 +53,12 @@ qualquer repositório. **Nunca imprimir `.envrc` nem `.credentials*`.**
 - [ ] Ambiente de desenvolvimento e como validar
 - [ ] Alvo de produção e como se deploya (ver `bin/README.md`)
 - [ ] Domínio do manual, quando existir (`MANUAL_CUSTOM_DOMAIN`)
+
+## Proteção da biblioteca (a partir da v0.2.0)
+
+A `v3r-core` **não se auto-prefixa mais** — até a `v0.1.0` rodava Strauss internamente,
+mas a pasta prefixada é gitignored e não viajava na tag, então o hospedeiro recebia
+namespace inexistente (fatal error na ativação). Isolar o `plugin-update-checker` agora
+é responsabilidade **de cada plugin hospedeiro**, numa passada só de Strauss. Ver
+`docs/integracao-em-plugin.md`. Remover essa responsabilidade do hospedeiro exigiria
+repensar a forma de distribuição da lib — não é mudança pontual.
