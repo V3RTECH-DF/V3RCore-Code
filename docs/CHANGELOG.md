@@ -2,6 +2,36 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.2.0]
+
+### Corrigido
+- **Auto-prefixação interna do `plugin-update-checker` removida.** Quebrava
+  quando o plugin hospedeiro prefixava v3r-core e o `plugin-update-checker`
+  juntos numa mesma passada do Strauss (o arranjo real de distribuição):
+  produzia um namespace aninhado (`Host\Vendor\V3R\Core\Vendor\YahnisElsts\...`)
+  que não batia com o das classes reais do pacote transitivo processado pelo
+  hospedeiro. `PucBridge.php`/`UpdateChecker.php` agora referenciam o
+  namespace original do `plugin-update-checker`; toda a prefixação passa a
+  ser responsabilidade de uma única passada do Strauss no hospedeiro. Ver
+  `docs/integracao-em-plugin.md` §6.
+
+### Removido
+- Auto-prefixação via `post-install-cmd`/`post-update-cmd`,
+  `tools/strauss.php`, `extra.strauss` do `composer.json`,
+  `brianhenryie/strauss` de `require-dev`, `classmap: vendor-prefixed/` do
+  autoload (nunca resolvia nada em produção — a pasta nunca viajava no
+  pacote Composer).
+
+### Adicionado
+- `docs/integracao-em-plugin.md` — receita testada de ponta a ponta de como
+  um plugin hospedeiro embute v3r-core via Strauss.
+
+## [0.1.0]
+
+Primeira tag consumível — fatias 1, 2a e 2b concluídas (ver seções
+"Adicionado" abaixo). Continha o defeito de auto-prefixação descrito em
+`[0.2.0]`; não usar para integração nova.
+
 ## [Não lançado]
 
 ### Adicionado

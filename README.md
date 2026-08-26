@@ -29,71 +29,23 @@ versões diferentes desta lib no mesmo WordPress nunca colidam.
 
 ### Como um plugin consome esta lib
 
-#### 1. Instalar
+**Receita completa, testada de ponta a ponta (declaração da dependência,
+bloco `extra.strauss`, passo de empacotamento, verificação e o que já
+quebrou e foi corrigido): [`docs/integracao-em-plugin.md`](docs/integracao-em-plugin.md).**
+Resumo rápido abaixo; para copiar/colar use o documento.
+
+Desde a `v0.2.0`, o v3r-core **não se auto-prefixa** — o código usa sempre
+o namespace `V3R\Core\` puro e referencia o `plugin-update-checker` pelo
+namespace original. Toda a prefixação (v3r-core + dependências
+transitivas) é feita numa única passada do Strauss, no **plugin
+hospedeiro**.
 
 ```bash
-composer require v3rtech/v3r-core
+composer require v3rtech/v3r-core:^0.2.0
 composer require brianhenryie/strauss --dev
 ```
 
-Configure o Strauss no `composer.json` do **plugin** (não desta lib) para
-prefixar `v3r-core` e suas próprias dependências transitivas — espelhando a
-config deste próprio repositório (`extra.strauss` em `composer.json`), com
-namespace específico do plugin (ex.: `MeuPlugin\Vendor\`).
-
-#### 2. Chamar o bootstrap
-
-No arquivo principal do plugin:
-
-```php
-<?php
-declare(strict_types=1);
-
-use V3R\Core\Bootstrap;
-
-require_once __DIR__ . '/vendor-prefixed/autoload.php'; // ou vendor/autoload.php em dev
-
-add_action( 'plugins_loaded', function () {
-    $v3rCore = new Bootstrap(
-        'v3rlgpd',                                          // product_slug no servidor de licenças
-        __FILE__,                                            // arquivo principal do plugin
-        'https://licencas.v3rtech.com.br/wp-json/v3r-license/v1',
-        'CHAVE_PUBLICA_ED25519_BASE64_DO_SERVIDOR',           // não é segredo — ver docs/api-contract.md §4
-        '2.3.0',                                              // versão instalada do plugin (semver)
-        'manage_v3rlgpd_licenses'                             // opcional — default manage_options
-    );
-
-    $v3rCore->boot(); // liga o UpdateChecker (auto-atualização) e os 4 endpoints REST internos (§8)
-
-    // Opcional — só para plugins SEM SPA própria (ex.: V3RProp). Plugins
-    // que desenham a própria aba (V3RLGPD, V3REvent) consomem os endpoints
-    // REST diretamente e NUNCA chamam isto — nenhuma tela extra aparece.
-    $v3rCore->createAdminPage()->register();
-
-    // Consultar o estado a qualquer momento (nunca bate na rede aqui):
-    $licenseState = $v3rCore->getLicenseManager()->getState();
-
-    if ( $licenseState->isValid() ) {
-        // Feature opcional que depende de licença ativa, se houver.
-    }
-    // A funcionalidade principal do plugin NUNCA deve ser condicionada a
-    // isValid() — o produto vendido é atualização, não funcionalidade.
-} );
-```
-
-#### 3. O que o plugin precisa configurar
-
-- `product_slug` — o mesmo cadastrado no servidor de licenças.
-- URL base do servidor de licenças (`v3r-license/v1`).
-- Chave pública ed25519 do servidor, embutida como constante do plugin, para
-  a verificação de assinatura (`V3R\Core\Licensing\SignatureVerifier`) — ver
-  `docs/api-contract.md` §4.
-- Versão instalada do plugin (semver) — vai em toda chamada ao servidor
-  (`plugin_version`, `docs/api-contract.md` §2.1).
-- Capability do WordPress para a tela/endpoints internos (opcional — default
-  `manage_options`, ver `docs/api-contract.md` §8.2).
-
-#### 4. Endpoints REST internos e tela padrão (fatia 2b)
+#### Endpoints REST internos e tela padrão (fatia 2b)
 
 `boot()` já registra, sob `v3r-core/v1/<product_slug>/license`, as quatro
 rotas de `docs/api-contract.md` §8 (`GET .../license`,
@@ -109,26 +61,20 @@ uma decisão explícita do plugin hospedeiro.
 ### Desenvolvimento
 
 ```bash
-make install   # composer install (já roda o prefixo do Strauss sozinho, ver abaixo)
+make install   # composer install
 make lint      # phpcs
 make analyse   # phpstan
 make test      # phpunit
 make check     # os três, nesta ordem
-make prefix    # reexecuta só o Strauss, sem reinstalar dependências
 ```
 
-**O prefixo do Strauss não é um passo opcional nem manual.** `composer.json`
-amarra `composer prefix` a `post-install-cmd`/`post-update-cmd`: todo
-`composer install`/`composer update` já deixa `vendor-prefixed/` gerado e
-registrado no classmap do próprio Composer (`autoload.classmap` aponta para
-`vendor-prefixed/`), e o pacote original (`vendor/yahnis-elsts/`) é apagado
-pelo Strauss (`delete_vendor_packages: true`) — sem isso, o autoloader do
-Composer carregaria a cópia original do `plugin-update-checker` via
-`autoload.files` (a própria lib declara isso no `composer.json` dela), e a
-cópia prefixada em `vendor-prefixed/` ficaria como código morto, sem
-resolver o problema de colisão entre plugins que o Strauss existe para
-evitar. Se você rodar `composer install` sem os hooks (ex.: com
-`--no-scripts`), rode `composer prefix` manualmente antes de usar a lib.
+**Esta lib não se auto-prefixa** (nem a si mesma, nem ao
+`plugin-update-checker`) — `composer install` aqui é um `composer install`
+comum, sem Strauss. Quem prefixa v3r-core, numa única passada junto com o
+`plugin-update-checker`, é sempre o **plugin hospedeiro** — ver
+`docs/integracao-em-plugin.md` §6 para o porquê desta lib não fazer sua
+própria prefixação (uma versão anterior fazia, e quebrava justamente na
+reprefixação em dois níveis).
 
 ### Estrutura
 
@@ -140,10 +86,13 @@ src/
   Support/                  — SiteIdentity, Logger, mascaramento de chave
 docs/
   api-contract.md           — spec do protocolo v3r-license/v1
+  integracao-em-plugin.md   — receita testada de consumo por um plugin
 ```
 
 ### Documentação técnica
 
 - `docs/api-contract.md` — contrato completo cliente↔servidor.
+- `docs/integracao-em-plugin.md` — receita testada de integração num plugin
+  hospedeiro (declaração da dependência, Strauss, empacotamento, verificação).
 - Guia de pesquisa que fundamenta as decisões desta lib:
   `V3RLicense/Projeto/dev-history/pesquisa-updater-licenciamento.md`.
