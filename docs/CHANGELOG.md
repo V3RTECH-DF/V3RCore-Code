@@ -2,7 +2,33 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [0.3.1] — 2026-08-27
+
+### Corrigido
+- **`requires` sumia do transiente de atualização do WordPress
+  (#8).** O campo não está em `Update::getFieldNames()` nem em
+  `$extraFields` do `plugin-update-checker` upstream, então morria na
+  cópia `PluginInfo` → `Update` e o `toWpFormat()` nunca o emitia — mesmo
+  o servidor mandando o valor e o `PucBridge` atribuindo-o corretamente.
+  Reinjetado pelo filtro `pre_inject_update`, que o próprio PUC expõe
+  entre a conversão e a serialização para o WordPress; sem fork do
+  upstream e sem tocar em `vendor/`. Sem esse campo, o WordPress não sabe
+  avisar que a atualização exige uma versão mínima dele, e pode oferecê-la
+  a um site que não a suporta.
+- **Link "Ver detalhes da versão" ficava sem destino (#10).** O
+  `PucBridge` nunca preenchia `homepage`, e é dele que o `toWpFormat()`
+  tira o campo `url` do transiente — justamente o único lugar onde o
+  cliente decidiria se atualiza. Passa a vir do `changelog_url` que o
+  servidor já manda, que aponta para a página de novidades do manual do
+  usuário. Ausente o `changelog_url`, `homepage` fica `null` em vez de
+  string vazia: link para lugar nenhum é pior que link ausente.
+
+As duas foram achadas na validação ao vivo do ciclo completo contra
+produção (V3RLicense-Code#14), com o V3RLGPD atualizando 1.66.1 → 1.67.0
+de verdade, e corrigidas antes de os outros seis plugins integrarem — a
+biblioteca é embutida, não compartilhada, então corrigir depois custaria
+sete rebuilds e sete releases.
+
 
 ### Adicionado
 - **ADR-010 — par único de constantes `V3R_LICENSE_API_URL` /
