@@ -110,7 +110,12 @@ final class HttpApiClientTest extends TestCase {
 			$this->client->validate( array( 'license_key' => 'V3RL-AAAA' ) );
 			self::fail( 'Deveria ter lançado ApiException.' );
 		} catch ( ApiException $exception ) {
-			self::assertSame( ApiException::COMMUNICATION_FAILURE, $exception->getErrorCode() );
+			// Fatia 2b (docs/api-contract.md §8.9/§8.10): código mais
+			// específico que COMMUNICATION_FAILURE, mas isCommunicationFailure()
+			// continua true — o protocolo externo (§7) trata os dois de
+			// forma idêntica; só o protocolo interno distingue.
+			self::assertSame( ApiException::SIGNATURE_INVALID, $exception->getErrorCode() );
+			self::assertTrue( $exception->isCommunicationFailure() );
 		}
 	}
 
@@ -121,7 +126,8 @@ final class HttpApiClientTest extends TestCase {
 			$this->client->validate( array( 'license_key' => 'V3RL-AAAA' ) );
 			self::fail( 'Deveria ter lançado ApiException.' );
 		} catch ( ApiException $exception ) {
-			self::assertSame( ApiException::COMMUNICATION_FAILURE, $exception->getErrorCode() );
+			self::assertSame( ApiException::SIGNATURE_INVALID, $exception->getErrorCode() );
+			self::assertTrue( $exception->isCommunicationFailure() );
 		}
 	}
 

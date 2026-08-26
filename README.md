@@ -17,13 +17,15 @@ plugins WordPress da V3RTECH/RIT. Embutida via Composer + [Strauss](https://gith
 em cada plugin distribuído fora do wordpress.org, para que dois plugins com
 versões diferentes desta lib no mesmo WordPress nunca colidam.
 
-> **Estado atual: fatia 2a concluída.** Comunicação com o servidor, cache
-> local, verificação de assinatura e período de graça estão implementados e
-> testados (`activate`/`deactivate`/`refresh`/`getState`). A integração com
-> o mecanismo de atualização do WordPress (`Updater\UpdateChecker`), os
-> endpoints REST internos (`docs/api-contract.md` §8) e a `AdminPage` ainda
-> são TODO da fatia 2b. Instanciar e usar `Bootstrap` já é seguro: nada aqui
-> derruba o plugin hospedeiro, mesmo sem rede e sem estado salvo.
+> **Estado atual: fatias 2a e 2b concluídas.** Comunicação com o servidor,
+> cache local, verificação de assinatura e período de graça estão
+> implementados e testados (`activate`/`deactivate`/`refresh`/`getState`).
+> A integração com o mecanismo de atualização do WordPress
+> (`Updater\UpdateChecker`, sobre o Plugin Update Checker), os quatro
+> endpoints REST internos (`docs/api-contract.md` §8) e a `AdminPage`
+> padrão (opcional) também estão prontos. `Bootstrap::boot()` já liga
+> tudo isso sozinho — instanciar e usar `Bootstrap` continua seguro mesmo
+> sem rede e sem estado salvo.
 
 ### Como um plugin consome esta lib
 
@@ -61,7 +63,12 @@ add_action( 'plugins_loaded', function () {
         'manage_v3rlgpd_licenses'                             // opcional — default manage_options
     );
 
-    $v3rCore->boot();
+    $v3rCore->boot(); // liga o UpdateChecker (auto-atualização) e os 4 endpoints REST internos (§8)
+
+    // Opcional — só para plugins SEM SPA própria (ex.: V3RProp). Plugins
+    // que desenham a própria aba (V3RLGPD, V3REvent) consomem os endpoints
+    // REST diretamente e NUNCA chamam isto — nenhuma tela extra aparece.
+    $v3rCore->createAdminPage()->register();
 
     // Consultar o estado a qualquer momento (nunca bate na rede aqui):
     $licenseState = $v3rCore->getLicenseManager()->getState();
@@ -83,8 +90,21 @@ add_action( 'plugins_loaded', function () {
   `docs/api-contract.md` §4.
 - Versão instalada do plugin (semver) — vai em toda chamada ao servidor
   (`plugin_version`, `docs/api-contract.md` §2.1).
-- Capability do WordPress para a tela/endpoints internos da fatia 2b
-  (opcional — default `manage_options`, ver `docs/api-contract.md` §8.2).
+- Capability do WordPress para a tela/endpoints internos (opcional — default
+  `manage_options`, ver `docs/api-contract.md` §8.2).
+
+#### 4. Endpoints REST internos e tela padrão (fatia 2b)
+
+`boot()` já registra, sob `v3r-core/v1/<product_slug>/license`, as quatro
+rotas de `docs/api-contract.md` §8 (`GET .../license`,
+`POST .../license/activate`, `.../deactivate`, `.../refresh`), autenticadas
+por nonce `wp_rest` + a capability configurada — nunca `is_admin()`. É o que
+a equipe do V3RLGPD/V3REvent consome para desenhar a própria aba.
+
+Para um plugin sem interface própria, `createAdminPage()->register()` liga
+uma tela padrão em **Ajustes → Licença**, em PHP simples (sem build,
+estilos nativos do wp-admin). Nunca chamado por `boot()` sozinho — é sempre
+uma decisão explícita do plugin hospedeiro.
 
 ### Desenvolvimento
 

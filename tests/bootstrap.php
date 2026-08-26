@@ -85,3 +85,31 @@ if ( ! function_exists( 'get_transient' ) ) {
 		return true;
 	}
 }
+
+// Stubs mínimos do protocolo REST interno (fatia 2b, docs/api-contract.md
+// §8), só o suficiente para testar Rest\LicenseController::permission_callback()
+// sem WordPress carregado. Controláveis por globals, mesmo padrão do
+// V3RLicense (tests/Support/WpStubs.php) para não inventar um segundo jeito
+// de simular current_user_can()/wp_verify_nonce() na casa.
+if ( ! function_exists( 'current_user_can' ) ) {
+	function current_user_can( string $capability ): bool {
+		return (bool) ( $GLOBALS['v3r_core_test_current_user_can'] ?? false );
+	}
+}
+
+if ( ! function_exists( 'wp_verify_nonce' ) ) {
+	/**
+	 * @return int|false
+	 */
+	function wp_verify_nonce( string $nonce, string $action = '' ) {
+		$expected = $GLOBALS['v3r_core_test_valid_nonce'] ?? null;
+
+		return null !== $expected && $expected === $nonce ? 1 : false;
+	}
+}
+
+// As duas classes-stub (WP_Error, WP_REST_Request) ficam em arquivos
+// próprios — WordPress.Files (via phpcs) exige um objeto por arquivo e não
+// mistura função com classe no mesmo arquivo.
+require_once __DIR__ . '/Support/WpErrorStub.php';
+require_once __DIR__ . '/Support/WpRestRequestStub.php';

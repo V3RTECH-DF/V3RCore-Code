@@ -92,6 +92,10 @@ class LicenseManager {
 		return $this->storage;
 	}
 
+	public function getProductSlug(): string {
+		return $this->productSlug;
+	}
+
 	/**
 	 * Ativa a licença para este site. Em sucesso, persiste o novo estado e
 	 * marca o cache de 12h como fresco (o próprio activate já é um contato
@@ -248,6 +252,62 @@ class LicenseManager {
 		$this->storage->save( $updated );
 
 		return $updated;
+	}
+
+	/**
+	 * GET /update-check (docs/api-contract.md §2.4): consulta metadados da
+	 * versão disponível. Não decide SE o site recebe essa atualização — é
+	 * do V3R\Core\Updater\UpdateGate, chamado pelo integrador ANTES desta
+	 * função (ver Updater\UpdateMetadataResolver). Site sem ativação local
+	 * não tem chave de licença para enviar: devolve null sem contatar o
+	 * servidor, em vez de mandar `license_key` vazia.
+	 *
+	 * BUG CORRIGIDO (validação ao vivo, fatia 2b): $installedVersion é
+	 * SEMPRE obrigatório e SEMPRE vai em `plugin_version` — nunca em
+	 * `version`. `plugin_version` é "o que está instalado agora" (o que o
+	 * servidor usa para decidir se há novidade); `version`/$requestedVersion
+	 * é "peça exatamente esta versão" (rollback explícito, §2.4) — os dois
+	 * nomes antigos ($version único, ambíguo) faziam a chamada de rotina do
+	 * WordPress mandar a versão instalada também como pedido de rollback, o
+	 * servidor entendia "quero exatamente a que já tenho" e respondia
+	 * update_available=false, mesmo com release mais nova publicada.
+	 *
+	 * NUNCA use $this->pluginVersion (fixado na construção do Bootstrap)
+	 * aqui — só o chamador (Updater\PucBridge, via
+	 * PucBridge::getInstalledVersion(), que lê o cabeçalho real do arquivo
+	 * do plugin) sabe a versão de verdade instalada neste momento. As duas
+	 * podem divergir se o hospedeiro atualizar o plugin sem atualizar o
+	 * valor passado ao Bootstrap.
+	 *
+	 * @param string      $installedVersion Versão REALMENTE instalada agora — vai em `plugin_version`.
+	 * @param string|null $requestedVersion Versão específica a fixar (rollback explícito, §2.4) — vai em
+	 *                                      `version`. Ausente (o caso normal, "há algo mais novo?") não
+	 *                                      manda esse campo — nunca preenchido com $installedVersion.
+	 * @return array<string, mixed>|null Envelope { payload, signature } já
+	 *                                    com assinatura verificada, ou null
+	 *                                    quando não há licença ativada.
+	 *
+	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
+	 */
+	public function checkForUpdate( string $installedVersion, ?string $requestedVersion = null ): ?array {
+		$current = $this->getState();
+
+		if ( LicenseStatus::INACTIVE === $current->getStatus() ) {
+			return null;
+		}
+
+		$query = array(
+			'product_slug'   => $this->productSlug,
+			'license_key'    => $current->getKey(),
+			'site_url'       => $this->currentSiteUrl(),
+			'plugin_version' => $installedVersion,
+		);
+
+		if ( null !== $requestedVersion ) {
+			$query['version'] = $requestedVersion;
+		}
+
+		return $this->apiClient->checkUpdate( $query );
 	}
 
 	private function currentSiteUrl(): string {

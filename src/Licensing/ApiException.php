@@ -20,6 +20,21 @@ class ApiException extends \RuntimeException {
 	 */
 	public const COMMUNICATION_FAILURE = 'communication_failure';
 
+	/**
+	 * Subcaso de falha de comunicação (fatia 2b, docs/api-contract.md
+	 * §8.9/§8.10): a resposta chegou, mas o payload/signature não veio no
+	 * formato esperado ou a assinatura ed25519 falhou a verificação.
+	 * isCommunicationFailure() continua verdadeiro para este código — para
+	 * o protocolo externo (§7) é exatamente a mesma coisa que
+	 * COMMUNICATION_FAILURE, e o LicenseManager trata os dois de forma
+	 * idêntica (mantém estado, entra em grace period). A distinção só
+	 * importa para o protocolo interno (§8), que precisa devolver
+	 * `signature_invalid` (502) separado de `server_unreachable` (503) —
+	 * a tela nunca pode confundir "não deu para confirmar a assinatura"
+	 * com "servidor fora do ar".
+	 */
+	public const SIGNATURE_INVALID = 'signature_invalid';
+
 	/** @var string */
 	private $errorCode;
 
@@ -43,6 +58,16 @@ class ApiException extends \RuntimeException {
 	 * distinção que decide se o grace period se aplica (docs/api-contract.md §6/§7).
 	 */
 	public function isCommunicationFailure(): bool {
-		return self::COMMUNICATION_FAILURE === $this->errorCode;
+		return self::COMMUNICATION_FAILURE === $this->errorCode || self::SIGNATURE_INVALID === $this->errorCode;
+	}
+
+	/**
+	 * Verdadeiro só para o subcaso "assinatura não confirmada" (ver
+	 * self::SIGNATURE_INVALID) — usado pelo protocolo REST interno (§8.10)
+	 * para responder `signature_invalid` (502) em vez de `server_unreachable`
+	 * (503). Nunca usado pelo protocolo externo, que não distingue os dois.
+	 */
+	public function isSignatureInvalid(): bool {
+		return self::SIGNATURE_INVALID === $this->errorCode;
 	}
 }

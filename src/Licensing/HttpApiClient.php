@@ -182,11 +182,11 @@ class HttpApiClient implements ApiClientInterface {
 	 */
 	private function verifySignedPayload( array $decoded ): array {
 		if ( ! isset( $decoded['payload'] ) || ! is_array( $decoded['payload'] ) || ! isset( $decoded['signature'] ) || ! is_string( $decoded['signature'] ) ) {
-			throw $this->communicationFailure( 'Resposta sem payload/signature no formato esperado' );
+			throw $this->signatureInvalid( 'Resposta sem payload/signature no formato esperado' );
 		}
 
 		if ( ! $this->verifySignatureDefensively( $decoded['payload'], $decoded['signature'] ) ) {
-			throw $this->communicationFailure( 'Assinatura da resposta inválida ou ausente' );
+			throw $this->signatureInvalid( 'Assinatura da resposta inválida ou ausente' );
 		}
 
 		return $decoded;
@@ -239,6 +239,17 @@ class HttpApiClient implements ApiClientInterface {
 
 	private function communicationFailure( string $message ): ApiException {
 		return new ApiException( ApiException::COMMUNICATION_FAILURE, $message, 0 );
+	}
+
+	/**
+	 * Mesma família de tratamento de communicationFailure() para o protocolo
+	 * externo (ApiException::isCommunicationFailure() é true para os dois),
+	 * mas com o código mais específico que o protocolo interno precisa
+	 * (docs/api-contract.md §8.9/§8.10) para responder `signature_invalid`
+	 * em vez de `server_unreachable`.
+	 */
+	private function signatureInvalid( string $message ): ApiException {
+		return new ApiException( ApiException::SIGNATURE_INVALID, $message, 0 );
 	}
 
 	/**
