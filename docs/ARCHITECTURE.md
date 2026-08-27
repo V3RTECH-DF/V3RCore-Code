@@ -218,11 +218,23 @@ levantados pela sessão do V3RLGPD ao
 integrar a biblioteca, a partir do mesmo tipo de achado que já rendeu o
 guard de duas pontas do ADR-007.
 
+### ADR-011 — Repositório público (27/08/2026)
+
+`V3RCore-Code` passou a ser repositório público. A biblioteca é derivada
+de GPL e já vai embutida (prefixada pelo Strauss) em cada zip distribuído
+aos clientes — o sigilo do repositório não protegia nada que o cliente
+não recebesse de qualquer forma. Público, o CI dos plugins que a
+consomem (ver `docs/integracao-em-plugin.md` e o rollout da issue #4)
+dispensa credencial para instalar a dependência via Composer, e evita
+espalhar um PAT pessoal por sete repositórios — cuja rotação quebraria
+todas as sete pipelines em silêncio, até a próxima tag de cada uma.
+
 ---
 
-## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.3.0)
+## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.3.1)
 
-> Estado em 26/08/2026. Fatia 2 (issue #3) concluída; nada mais listado
+> Estado em 26/08/2026, atualizado em 27/08/2026 (v0.3.1: fixes #8/#10,
+> repositório público). Fatia 2 (issue #3) concluída; nada mais listado
 > como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -259,6 +271,52 @@ programava, sem interpretar o que foi enviado. Corrigido separando
 `installedVersion` de `requestedVersion`; agora há teste que verifica o
 que é enviado, não só o que é recebido. Ver `docs/CHANGELOG.md` [0.1.0] e
 comentário de fechamento da issue #3.
+
+### Rollout: segundo plugin integrado (V3REvent, 27/08/2026)
+
+Primeiro plugin depois do piloto V3RLGPD (issue #4). A receita de
+`docs/integracao-em-plugin.md` foi seguida seção por seção e funcionou;
+achados que a complementam (ambos incorporados ao documento):
+
+- **A tela de licença não é opcional na prática** — ver
+  `docs/integracao-em-plugin.md` §7.1.
+- **Armadilha do `user_has_cap` recursivo**, abaixo.
+
+No V3REvent, a licença ganhou aba própria em Configurações (consumindo
+os endpoints REST internos), não a tela padrão da biblioteca — motivado
+pela issue #11 (rótulo "Licença" sem identificar o produto, indistinguível
+num site com dois plugins da casa usando a tela padrão).
+
+Faltam no rollout: V3RHelp, V3RProp (depende de composerizar —
+`V3RProp-Code#57`), GE Associados, RIT360 Solidário, RIT360 Premiado.
+
+### Armadilha conhecida — `user_has_cap` recursivo nas capabilities de licença
+
+O filtro `user_has_cap` que um plugin hospedeiro usa para conceder as
+capabilities sintéticas de licença (ADR-010 do `docs/integracao-em-plugin.md`
+§7 — a ponte para RBAC próprio) **precisa sair cedo** quando as
+capabilities pedidas na chamada não são as de licença. Sem essa saída
+antecipada, o ciclo `user_has_cap → user_can → user_has_cap` é infinito e
+derruba **toda requisição de usuário logado** por memória esgotada —
+inclusive `wp-login.php`. Requisição anônima passa normalmente, então o
+site parece no ar visto de fora; só quem tenta logar (ou já está logado)
+trava.
+
+Já aconteceu de verdade: **V3RLGPD-Code#74**, corrigido — o filtro
+equivalente consultava as permissões antes de olhar quais capabilities
+foram pedidas. O V3REvent já nasceu com a guarda e um teste que a prende
+(`tests/Core/Auth/LicenseCapsNoRecursionTest.php`) — o teste **conta
+chamadas**, não confere retorno, porque recursão infinita não devolve
+resposta errada, devolve estouro de memória; um teste de retorno passaria
+com o código defeituoso.
+
+**Sem correção na biblioteca até o momento desta atualização.** A
+armadilha é criada pela própria biblioteca (é ela que exige a ponte via
+`user_has_cap` quando o hospedeiro tem RBAC próprio), mas cada plugin
+hospedeiro hoje precisa lembrar da guarda por conta própria — um já
+esqueceu. Levantado no comentário de 27/08/2026 da issue #4 (rollout),
+sem issue dedicada aberta até aqui; considerar se a proteção não deveria
+morar na própria biblioteca antes do próximo plugin integrar.
 
 ## 4. Fora de escopo desta lib
 

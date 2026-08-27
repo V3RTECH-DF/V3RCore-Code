@@ -548,6 +548,28 @@ site.
 > Mas a descoberta costuma acontecer do jeito mais caro, com a tela branca
 > aparecendo em ambiente de quem estava só investigando.
 
+## 7.1 A tela de licença não é opcional na prática — achado da execução real (V3REvent, 27/08/2026)
+
+**Integração sem tela de licença é integração pela metade.** A receita
+acima cobre `boot()` corretamente, mas chamar `boot()` sem registrar
+nenhuma tela é um erro fácil de cometer porque nada nele falha: o plugin
+ganha o updater e as quatro rotas REST internas, os testes passam, a
+ativação funciona. O que falta só aparece depois — o cliente **não tem
+onde informar a chave de licença**, e o `UpdateGate` recusa atualização
+no estado `INACTIVE` ("nunca houve ativação") **sem período de graça**
+(diferente do estado "ativa, mas sem contato recente com o servidor",
+que tem os 14 dias do ADR-004/ADR-009 do `docs/ARCHITECTURE.md`). A
+versão que introduz a auto-atualização é a mesma que a desliga, sem
+saída pela interface.
+
+A integração só está completa quando existe caminho de ativação na
+interface — seja a tela padrão da biblioteca (`Licensing\AdminPage`,
+opcional por ADR-005 do `docs/ARCHITECTURE.md`), seja uma aba própria do
+plugin consumindo os quatro endpoints REST internos (o caminho escolhido
+pelo V3REvent, que descartou a tela padrão por causa da issue #11 —
+rótulo "Licença" sem identificar o produto, indistinguível num site com
+mais de um plugin da casa).
+
 ## 8. Configuração de produção: URL e chave pública via constantes
 
 > **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,

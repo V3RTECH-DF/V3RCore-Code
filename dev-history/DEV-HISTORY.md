@@ -1,5 +1,61 @@
 # Histórico de Desenvolvimento — V3RCore
 
+## 2026-08-27 — v0.3.1, repositório público, segundo plugin integrado (V3REvent)
+
+### Contexto
+Validação ao vivo do ciclo completo contra produção
+(`V3RLicense-Code#14`, V3RLGPD atualizando 1.66.1 → 1.67.0 de verdade)
+expôs dois defeitos na biblioteca; corrigidos antes do rollout continuar,
+que então avançou para o segundo plugin da casa.
+
+### Implementado — v0.3.1
+- **`requires` sumia do transiente de atualização do WordPress (#8)** —
+  não está em `getFieldNames()`/`extraFields` do `plugin-update-checker`
+  upstream; morria na cópia `PluginInfo` → `Update`. Reinjetado pelo
+  filtro `pre_inject_update` que o próprio PUC expõe, sem fork.
+- **Link "Ver detalhes da versão" ficava sem destino (#10)** —
+  `PucBridge` nunca preenchia `homepage`; passa a vir do `changelog_url`
+  que o servidor já manda.
+- Ver `docs/CHANGELOG.md` [0.3.1] para o detalhe completo.
+
+### Repositório tornado público
+`V3RCore-Code` passou a ser público (ADR-011). Biblioteca GPL já
+embarcada em cada zip distribuído — sigilo não protegia nada que o
+cliente não recebesse; público, o CI dos plugins-cliente dispensa
+credencial para instalar a dependência, evitando espalhar um PAT pessoal
+por sete repositórios.
+
+### Rollout — V3REvent integrado (issue #4)
+Segundo plugin da casa, primeiro depois do piloto V3RLGPD. A receita de
+`docs/integracao-em-plugin.md` funcionou seguida seção por seção; dois
+achados a complementaram:
+
+- **Tela de licença não é opcional na prática** — sem ela, `UpdateGate`
+  recusa update no estado `INACTIVE` sem período de graça, e o cliente
+  não tem onde ativar. Ver `docs/integracao-em-plugin.md` §7.1 (novo).
+- **`user_has_cap` recursivo** — filtro que concede capabilities
+  sintéticas de licença precisa sair cedo quando a capability pedida não
+  é de licença; sem isso, `user_has_cap → user_can → user_has_cap` é
+  infinito e derruba toda requisição de usuário logado por memória
+  esgotada (inclusive `wp-login.php`). Já aconteceu de verdade
+  (V3RLGPD-Code#74, corrigido). V3REvent nasceu com a guarda e um teste
+  que conta chamadas (retorno não distingue "certo" de recursão
+  infinita). Sem correção na biblioteca até aqui — registrado em
+  `docs/ARCHITECTURE.md`, comentário de 27/08/2026 da issue #4.
+
+No V3REvent, a licença ganhou aba própria em Configurações (não a tela
+padrão), motivada pela issue #11 (rótulo "Licença" sem identificar o
+produto).
+
+### Pendente para o próximo ciclo
+- Rollout: V3RHelp, V3RProp (depende de composerizar — `V3RProp-Code#57`),
+  GE Associados, RIT360 Solidário, RIT360 Premiado (#4).
+- Considerar mover a guarda de `user_has_cap` para dentro da biblioteca,
+  antes do próximo plugin integrar.
+- Metadados `requires`/`tested` (#8), CI em branch de feature (#7),
+  prefixar dependências compartilhadas (#6), padronizar versão mínima de
+  PHP (#5).
+
 ## 2026-08-26 — Fatias 2a e 2b, v0.2.0 e v0.3.0: o ciclo de auto-atualização fecha
 
 ### Contexto
