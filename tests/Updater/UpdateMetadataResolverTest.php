@@ -103,6 +103,67 @@ final class UpdateMetadataResolverTest extends TestCase {
 		self::assertSame( '8.0', $availability->getRequiresPhp() );
 		self::assertSame( '6.7', $availability->getTested() );
 		self::assertSame( 'https://licencas.example.com/download?token=abc', $availability->getPackageUrl() );
+		self::assertNull( $availability->getIcons(), 'Payload sem `icons` deve resultar em getIcons() === null.' );
+	}
+
+	/**
+	 * V3RLicense-Code#23 (segunda metade) — produto com ícone cadastrado:
+	 * o servidor manda `icons` com as chaves `1x`/`2x`, e a biblioteca
+	 * precisa repassar isso sem alteração.
+	 */
+	public function test_icons_are_reported_when_the_server_sends_them(): void {
+		$now = new DateTimeImmutable( '2026-08-25T12:00:00+00:00' );
+		$this->activate( $now );
+
+		$envelope = TestSigner::sign(
+			array(
+				'update_available' => true,
+				'version'          => '2.3.0',
+				'icons'            => array(
+					'1x' => 'https://licencas.example.com/icons/v3rlgpd-128.png',
+					'2x' => 'https://licencas.example.com/icons/v3rlgpd-256.png',
+				),
+				'checked_at'       => $now->format( DATE_ATOM ),
+			)
+		);
+		$this->transport->enqueue( HttpTransportResult::success( 200, (string) json_encode( $envelope ) ) );
+
+		$availability = $this->resolver->resolve( '1.0.0' );
+
+		self::assertSame(
+			array(
+				'1x' => 'https://licencas.example.com/icons/v3rlgpd-128.png',
+				'2x' => 'https://licencas.example.com/icons/v3rlgpd-256.png',
+			),
+			$availability->getIcons()
+		);
+	}
+
+	/**
+	 * Guardrail explícito do pedido: `icons` com formato inesperado (aqui,
+	 * uma string em vez de um mapa tamanho => URL) não pode derrubar a
+	 * checagem de atualização — atualização é o caminho crítico. O payload
+	 * malformado é tratado como se `icons` não existisse.
+	 */
+	public function test_malformed_icons_field_does_not_break_the_update_check(): void {
+		$now = new DateTimeImmutable( '2026-08-25T12:00:00+00:00' );
+		$this->activate( $now );
+
+		$envelope = TestSigner::sign(
+			array(
+				'update_available' => true,
+				'version'          => '2.3.0',
+				'icons'            => 'https://licencas.example.com/icons/v3rlgpd.png',
+				'checked_at'       => $now->format( DATE_ATOM ),
+			)
+		);
+		$this->transport->enqueue( HttpTransportResult::success( 200, (string) json_encode( $envelope ) ) );
+
+		$availability = $this->resolver->resolve( '1.0.0' );
+
+		self::assertTrue( $availability->isAvailable(), 'icons malformado não pode impedir a checagem de atualização.' );
+		self::assertSame( '2.3.0', $availability->getVersion() );
+		self::assertNull( $availability->getIcons() );
 	}
 
 	/**

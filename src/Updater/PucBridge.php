@@ -120,6 +120,13 @@ class PucBridge extends PucPluginUpdateChecker {
 		$info->requires_php = $availability->getRequiresPhp();
 		$info->tested       = $availability->getTested();
 		$info->download_url = (string) $availability->getPackageUrl();
+		// V3RLicense-Code#23: sem ícone cadastrado no produto, o payload não
+		// traz `icons` e getIcons() volta null — mantém $info->icons no
+		// array() vazio que PluginInfo já declara por padrão, exatamente o
+		// que Plugin\Update::toWpFormat() espera (ver `!empty($this->icons)`
+		// no upstream) para não popular nenhum ícone e o WordPress cair de
+		// volta na peça de quebra-cabeça genérica.
+		$info->icons = $availability->getIcons() ?? array();
 
 		// Cache para injectMissingRequires(): requestUpdate() chama este
 		// método via requestInfo() e converte o resultado num Update ANTES
