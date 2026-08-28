@@ -23,6 +23,10 @@ use V3R\Core\Updater\UpdateGate;
  * WordPress (nonce/capability/HTML ficam em render(), só exercitável com o
  * wp-admin de verdade). Critério de aceite: instanciar AdminPage não pode
  * lançar nem registrar nada por si só (ver AdminPage::register()).
+ *
+ * Também cobre AdminPage::registerMenu() (V3RCore-Code#11 — rótulo do menu
+ * por produto), via o stub de add_options_page() em
+ * tests/Support/AdminMenuFunctionStubs.php.
  */
 final class AdminPageTest extends TestCase {
 
@@ -111,5 +115,79 @@ final class AdminPageTest extends TestCase {
 		$result = $this->adminPage->handleAction( array( 'action' => 'nao-existe' ) );
 
 		self::assertSame( 'error', $result['type'] );
+	}
+
+	/**
+	 * V3RCore-Code#11: o rótulo do menu e o título da página nomeiam o
+	 * produto — não só "Licença" genérico, indistinguível entre plugins.
+	 */
+	public function test_registerMenu_uses_product_name_in_label_and_title(): void {
+		$adminPage = $this->buildAdminPageWithProductName( 'V3REvent' );
+
+		$adminPage->registerMenu();
+		$registered = $this->lastRegisteredOptionsPage();
+
+		self::assertStringContainsString( 'V3REvent', $registered['page_title'] );
+		self::assertStringContainsString( 'V3REvent', $registered['menu_title'] );
+		self::assertNotSame( 'Licença', $registered['page_title'] );
+		self::assertNotSame( 'Licença', $registered['menu_title'] );
+	}
+
+	/**
+	 * Fallback (V3RCore-Code#11): sem nome informado, o rótulo usa o
+	 * productSlug — nunca o texto genérico "Licença" sozinho.
+	 */
+	public function test_registerMenu_falls_back_to_product_slug_without_name(): void {
+		// $this->adminPage (setUp) usa o manager com productSlug 'v3rlgpd'
+		// e não recebe $productName.
+		$this->adminPage->registerMenu();
+		$registered = $this->lastRegisteredOptionsPage();
+
+		self::assertStringContainsString( 'v3rlgpd', $registered['page_title'] );
+		self::assertStringContainsString( 'v3rlgpd', $registered['menu_title'] );
+		self::assertNotSame( 'Licença', $registered['page_title'] );
+		self::assertNotSame( 'Licença', $registered['menu_title'] );
+	}
+
+	/**
+	 * Controle negativo (V3RCore-Code#11, seção Verificação da issue):
+	 * dois produtos distintos produzem rótulos distintos — é o estado que
+	 * resolve a colisão visual entre dois plugins da casa no mesmo site.
+	 */
+	public function test_two_products_produce_distinct_labels(): void {
+		$adminPageEvent = $this->buildAdminPageWithProductName( 'V3REvent' );
+		$adminPageLgpd  = $this->buildAdminPageWithProductName( 'V3RLGPD' );
+
+		$adminPageEvent->registerMenu();
+		$labelEvent = $this->lastRegisteredOptionsPage()['menu_title'];
+
+		$adminPageLgpd->registerMenu();
+		$labelLgpd = $this->lastRegisteredOptionsPage()['menu_title'];
+
+		self::assertNotSame( $labelEvent, $labelLgpd );
+	}
+
+	/**
+	 * Lê o último registro capturado pelo stub de add_options_page()
+	 * (tests/Support/AdminMenuFunctionStubs.php) — tipado aqui, e não
+	 * inline nos testes, para o PHPStan conhecer o shape do array sem
+	 * precisar inferir a partir de $GLOBALS.
+	 *
+	 * @return array{page_title: string, menu_title: string, capability: string, menu_slug: string}
+	 */
+	private function lastRegisteredOptionsPage(): array {
+		$pages = $GLOBALS['v3r_core_test_registered_options_pages'] ?? array();
+
+		return $pages[ count( $pages ) - 1 ];
+	}
+
+	private function buildAdminPageWithProductName( string $productName ): AdminPage {
+		$transport = new FakeHttpTransport();
+		$verifier  = new SignatureVerifier( Ed25519TestKeys::PUBLIC_KEY_BASE64 );
+		$apiClient = new HttpApiClient( 'https://licencas.example.com/wp-json/v3r-license/v1', $transport, $verifier, 5 );
+		$storage   = new LicenseStorage( 'v3rlgpd', new InMemoryKeyValueStore(), new InMemoryKeyValueStore() );
+		$manager   = new LicenseManager( 'v3rlgpd', $apiClient, $storage, '1.0.0' );
+
+		return new AdminPage( $manager, new UpdateGate(), 'manage_options', $productName );
 	}
 }

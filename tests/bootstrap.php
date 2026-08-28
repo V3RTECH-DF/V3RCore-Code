@@ -136,3 +136,8 @@ require_once __DIR__ . '/Support/PucFunctionStubs.php';
 // (V3RCore-Code#12). Ver o docblock do próprio arquivo.
 require_once __DIR__ . '/Support/WpUserStub.php';
 require_once __DIR__ . '/Support/CapabilityFunctionStubs.php';
+
+// Stub de add_options_page(), só para testar AdminPage::registerMenu()
+// (rótulo do menu por produto, V3RCore-Code#11) sem WordPress carregado.
+// Ver o docblock do próprio arquivo.
+require_once __DIR__ . '/Support/AdminMenuFunctionStubs.php';

@@ -518,6 +518,15 @@ add_action( 'plugins_loaded', function () {
         return MeuPlugin\Rbac::userCan( $userId, $capability );
     } );
 
+    // Nome de exibição do produto (V3RCore-Code#11) — usado no rótulo do
+    // menu e no título da tela padrão ("Licença do MeuPlugin"), para não
+    // colidir visualmente com a mesma tela de outro plugin da casa no
+    // mesmo site. Opcional: sem chamar, a tela cai para o productSlug
+    // ('meuplugin') — identifica pior, mas nunca some. Só tem efeito em
+    // quem usa createAdminPage() (§7.2) — plugin com aba própria não
+    // precisa chamar.
+    $v3rCore->withProductName( 'MeuPlugin' );
+
     $v3rCore->boot(); // grant das capabilities + updater + 4 endpoints REST internos (docs/api-contract.md §8)
 } );
 ```
@@ -605,7 +614,8 @@ opcional por ADR-005 do `docs/ARCHITECTURE.md`), seja uma aba própria do
 plugin consumindo os quatro endpoints REST internos (o caminho escolhido
 pelo V3REvent, que descartou a tela padrão por causa da issue #11 —
 rótulo "Licença" sem identificar o produto, indistinguível num site com
-mais de um plugin da casa).
+mais de um plugin da casa; **corrigida na v0.5.0** — `Bootstrap::withProductName()`
+nomeia o produto no rótulo e no título, ver §7).
 
 ## 8. Configuração de produção: URL e chave pública via constantes
 

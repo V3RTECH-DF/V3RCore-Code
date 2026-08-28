@@ -321,7 +321,10 @@ achados que a complementam (ambos incorporados ao documento):
 No V3REvent, a licença ganhou aba própria em Configurações (consumindo
 os endpoints REST internos), não a tela padrão da biblioteca — motivado
 pela issue #11 (rótulo "Licença" sem identificar o produto, indistinguível
-num site com dois plugins da casa usando a tela padrão).
+num site com dois plugins da casa usando a tela padrão). **Corrigida na
+v0.5.0**: `Licensing\AdminPage` nomeia o produto no rótulo do menu e no
+título da página via `Bootstrap::withProductName()`, opcional — quem usar
+a tela padrão a partir daqui não tem mais essa colisão.
 
 Faltam no rollout: V3RHelp, V3RProp (depende de composerizar —
 `V3RProp-Code#57`), GE Associados, RIT360 Solidário, RIT360 Premiado.

@@ -22,6 +22,11 @@ use V3R\Core\Updater\UpdateGate;
  * plugin nem degrada funcionalidade — só a atualização automática para.
  * Todo texto vem de LicenseStatePresenter::present()['status_message'],
  * nunca escrito aqui de novo.
+ *
+ * O rótulo do menu e o título da página nomeiam o produto
+ * (V3RCore-Code#11) — "Licença do V3REvent", não só "Licença" —, para não
+ * colidir visualmente com a mesma tela de outro plugin da casa no mesmo
+ * site. Ver `$productName`/`productDisplayName()`.
  */
 class AdminPage {
 
@@ -31,13 +36,26 @@ class AdminPage {
 	/** @var string */
 	private $capability;
 
+	/**
+	 * Nome de exibição do produto (V3RCore-Code#11) — ex.: "V3REvent" —
+	 * usado no rótulo do menu e no título da página ("Licença do
+	 * V3REvent"). Null quando o hospedeiro não informou; nesse caso o
+	 * texto cai para o `productSlug`, nunca para o "Licença" genérico
+	 * sozinho (`productDisplayName()`) — o slug identifica mal o produto,
+	 * mas identifica; o texto genérico não identifica nada.
+	 *
+	 * @var string|null
+	 */
+	private $productName;
+
 	/** @var LicenseStatePresenter */
 	private $presenter;
 
-	public function __construct( LicenseManager $manager, UpdateGate $gate, string $capability ) {
-		$this->manager    = $manager;
-		$this->capability = $capability;
-		$this->presenter  = new LicenseStatePresenter( $gate );
+	public function __construct( LicenseManager $manager, UpdateGate $gate, string $capability, ?string $productName = null ) {
+		$this->manager     = $manager;
+		$this->capability  = $capability;
+		$this->productName = $productName;
+		$this->presenter   = new LicenseStatePresenter( $gate );
 	}
 
 	/**
@@ -55,8 +73,10 @@ class AdminPage {
 
 	public function registerMenu(): void {
 		add_options_page(
-			__( 'Licença', 'v3r-core' ),
-			__( 'Licença', 'v3r-core' ),
+			// translators: %s é o nome de exibição do produto (ex.: "V3REvent").
+			sprintf( __( 'Licença do %s', 'v3r-core' ), $this->productDisplayName() ),
+			// translators: %s é o nome de exibição do produto (ex.: "V3REvent").
+			sprintf( __( 'Licença do %s', 'v3r-core' ), $this->productDisplayName() ),
 			$this->capability,
 			$this->menuSlug(),
 			array( $this, 'render' )
@@ -143,7 +163,8 @@ class AdminPage {
 		$state = $this->presenter->present( $this->manager->getState() );
 
 		echo '<div class="wrap">';
-		echo '<h1>' . esc_html__( 'Licença', 'v3r-core' ) . '</h1>';
+		// translators: %s é o nome de exibição do produto (ex.: "V3REvent").
+		echo '<h1>' . esc_html( sprintf( __( 'Licença do %s', 'v3r-core' ), $this->productDisplayName() ) ) . '</h1>';
 
 		if ( null !== $notice ) {
 			$noticeClass = 'success' === $notice['type'] ? 'notice-success' : 'notice-error';
@@ -202,6 +223,17 @@ class AdminPage {
 		echo '<input type="hidden" name="v3r_core_license_action" value="deactivate" />';
 		submit_button( __( 'Desativar neste site', 'v3r-core' ), 'delete', 'submit', false );
 		echo '</form>';
+	}
+
+	/**
+	 * Nome exibido no rótulo do menu e no título da página (V3RCore-Code#11).
+	 * Sem `$productName` informado ao construtor, cai para o `productSlug` —
+	 * identifica mal (é o identificador técnico, não um nome comercial),
+	 * mas identifica; nunca volta ao "Licença" genérico que esta issue
+	 * existe para eliminar.
+	 */
+	private function productDisplayName(): string {
+		return $this->productName ?? $this->manager->getProductSlug();
 	}
 
 	private function menuSlug(): string {

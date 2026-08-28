@@ -80,6 +80,18 @@ final class Bootstrap {
 	private $capabilityGate;
 
 	/**
+	 * Nome de exibição do produto (V3RCore-Code#11), repassado à AdminPage
+	 * padrão para nomear o rótulo do menu e o título da página — "Licença
+	 * do V3REvent" em vez de só "Licença". Null até `withProductName()`
+	 * ser chamado; `createAdminPage()` cai para o `productSlug` nesse caso
+	 * (ver o docblock de `withProductName()` para o porquê de não ser
+	 * obrigatório).
+	 *
+	 * @var string|null
+	 */
+	private $productName;
+
+	/**
 	 * @param string      $productSlug      Slug do produto no servidor de licenças (ex.: "v3rlgpd").
 	 * @param string      $pluginFile       Caminho absoluto do arquivo principal do plugin (__FILE__).
 	 * @param string      $apiBaseUrl       URL base do servidor de licenças (v3r-license/v1).
@@ -109,6 +121,7 @@ final class Bootstrap {
 		$this->readCapability   = $readCapability;
 		$this->manageCapability = $manageCapability ?? $readCapability;
 		$this->capabilityGate   = null;
+		$this->productName      = null;
 
 		$verifier             = new SignatureVerifier( $publicKey );
 		$apiClient            = new HttpApiClient( $apiBaseUrl, null, $verifier );
@@ -146,6 +159,29 @@ final class Bootstrap {
 	 */
 	public function withCapabilityDecider( callable $decider ): self {
 		$this->capabilityGate = new CapabilityGate( $this->readCapability, $this->manageCapability, $decider );
+
+		return $this;
+	}
+
+	/**
+	 * Informa o nome de exibição do produto (V3RCore-Code#11) — ex.:
+	 * "V3REvent" —, repassado à AdminPage padrão para nomear o rótulo do
+	 * menu e o título da página. Só tem efeito em quem chama
+	 * `createAdminPage()`; plugin com aba própria (V3RLGPD, V3REvent) pode
+	 * chamar ou não, sem diferença.
+	 *
+	 * Opcional, com o `productSlug` como fallback (ver
+	 * `AdminPage::productDisplayName()`) — deliberado: quem não chamar
+	 * continua funcionando exatamente como antes desta issue, sem precisar
+	 * mexer em nada. Método fluente, e não um 8º parâmetro do construtor,
+	 * pelo mesmo motivo de `withCapabilityDecider()` (ver o docblock dela):
+	 * a lista de parâmetros posicionais já está no limite do legível, e a
+	 * biblioteca precisa suportar PHP 7.4, sem named arguments.
+	 *
+	 * @return $this Fluente, para encadear com `boot()`/`createAdminPage()`.
+	 */
+	public function withProductName( string $productName ): self {
+		$this->productName = $productName;
 
 		return $this;
 	}
@@ -199,9 +235,13 @@ final class Bootstrap {
 	 * ativar/desativar numa página só, issue #9) — por isso usa
 	 * $manageCapability, nunca mais permissiva do que o endpoint que ela
 	 * aciona.
+	 *
+	 * Nome de exibição (V3RCore-Code#11): repassa `$productName` se
+	 * `withProductName()` foi chamado antes; senão `null`, e a AdminPage
+	 * cai para o `productSlug`.
 	 */
 	public function createAdminPage(): AdminPage {
-		return new AdminPage( $this->licenseManager, $this->updateGate, $this->manageCapability );
+		return new AdminPage( $this->licenseManager, $this->updateGate, $this->manageCapability, $this->productName );
 	}
 
 	public function getLicenseManager(): LicenseManager {

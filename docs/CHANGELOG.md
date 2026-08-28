@@ -2,6 +2,30 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.5.0] — 2026-08-27
+
+### Adicionado
+- **Rótulo do menu e título da tela padrão de licença nomeiam o produto
+  (#11).** `Licensing\AdminPage::registerMenu()` registrava a tela com
+  texto fixo `"Licença"` — o slug já era por produto
+  (`v3r-core-license-<slug>`), o texto não. Num site com dois plugins da
+  casa usando a tela padrão, Configurações listava duas entradas idênticas
+  distinguíveis só pela URL, e a página aberta também se intitulava só
+  "Licença". Agora o texto é "Licença do &lt;produto&gt;" (ex.: "Licença do
+  V3REvent"), traduzível com o nome como parâmetro (`sprintf` dentro de
+  `__()`, não concatenado fora — preserva a ordem das palavras noutros
+  idiomas).
+- `Bootstrap::withProductName(string $productName): self` — método fluente
+  novo, opcional, repassado a `createAdminPage()`. Sem chamá-lo,
+  `AdminPage` cai para o `productSlug` (nunca para o "Licença" genérico) —
+  **retrocompatível**: quem não informar o nome não precisa mexer em nada.
+  Método fluente e não um 8º parâmetro posicional do construtor, pelo
+  mesmo motivo de `withCapabilityDecider()` (docblock do método): PHP 7.4
+  sem named arguments, e a lista de parâmetros já está no limite do
+  legível.
+- Migração retrocompatível — MINOR, não MAJOR: V3RLGPD e V3REvent fixam
+  `^0.4.0` e continuam funcionando sem alteração.
+
 ## [0.4.0] — 2026-08-27
 
 ### Alterado (BREAKING)
