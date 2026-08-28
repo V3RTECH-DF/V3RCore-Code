@@ -2,6 +2,24 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.7.0] — 2026-08-28
+
+### Adicionado
+- **`Support\PluginVersion::resolve()` — primeira fase da unificação dos
+  pontos de versão dos plugins (v3rtech-scripts#32).** Movida da
+  implementação que já funcionava só no V3RLGPD (`Core\PluginVersion`,
+  issue #72 daquele repositório) para a biblioteca, para que outros
+  plugins da casa deixem de manter cópia hardcoded da versão sem fonte
+  comum — a falta de acesso a essa classe, não escolha, era o motivo de
+  cada plugin duplicar a lógica. Lê o cabeçalho `Version:` do arquivo
+  principal do plugin em tempo de boot; se a leitura falhar, vier vazia
+  ou o ambiente se comportar de forma inesperada, cai para o fallback
+  hardcoded passado pelo chamador — nunca deixa uma exceção escapar
+  (derrubaria o boot do plugin) nem devolve string vazia (quebraria em
+  silêncio o cache-busting de assets).
+- Migração retrocompatível — MINOR, não MAJOR: acréscimo de classe nova,
+  nenhuma API existente muda.
+
 ## [0.6.0] — 2026-08-28
 
 ### Adicionado
