@@ -36,9 +36,11 @@ use V3R\Core\Updater\UpdateMetadataResolver;
 final class PucBridgeTest extends TestCase {
 
 	/**
+	 * @param string|null                $changelogUrl
+	 * @param array<string, string>|null $icons
 	 * @return array{0: PucBridge, 1: FakeHttpTransport}
 	 */
-	private function makeBridgeWithAvailableUpdate( ?string $changelogUrl = 'https://manual.example.com/v3rlgpd/novidades' ): array {
+	private function makeBridgeWithAvailableUpdate( ?string $changelogUrl = 'https://manual.example.com/v3rlgpd/novidades', ?array $icons = null ): array {
 		$transport = new FakeHttpTransport();
 		$verifier  = new SignatureVerifier( Ed25519TestKeys::PUBLIC_KEY_BASE64 );
 		$apiClient = new HttpApiClient( 'https://licencas.example.com/wp-json/v3r-license/v1', $transport, $verifier, 5 );
@@ -59,6 +61,9 @@ final class PucBridgeTest extends TestCase {
 		);
 		if ( null !== $changelogUrl ) {
 			$payload['changelog_url'] = $changelogUrl;
+		}
+		if ( null !== $icons ) {
+			$payload['icons'] = $icons;
 		}
 
 		$envelope = TestSigner::sign( $payload );
@@ -149,6 +154,50 @@ final class PucBridgeTest extends TestCase {
 		self::assertTrue(
 			! isset( $wpUpdate->url ) || null === $wpUpdate->url,
 			'url deveria ficar ausente/nulo sem changelog_url, nunca string vazia.'
+		);
+	}
+
+	/**
+	 * V3RLicense-Code#23 (segunda metade): produto com ícone cadastrado —
+	 * `icons` sobrevive à conversão real do PUC (PluginInfo -> Update ->
+	 * toWpFormat()) até o transiente `update_plugins` que a tela "Painel →
+	 * Atualizações" lê.
+	 */
+	public function test_icons_survive_into_the_update_plugins_transient(): void {
+		list( $bridge ) = $this->makeBridgeWithAvailableUpdate(
+			'https://manual.example.com/v3rlgpd/novidades',
+			array(
+				'1x' => 'https://licencas.example.com/icons/v3rlgpd-128.png',
+				'2x' => 'https://licencas.example.com/icons/v3rlgpd-256.png',
+			)
+		);
+
+		$result = $this->injectIntoTransient( $bridge );
+
+		$plugin   = array_key_first( (array) $result->response );
+		$wpUpdate = $result->response[ $plugin ];
+
+		self::assertSame( 'https://licencas.example.com/icons/v3rlgpd-128.png', $wpUpdate->icons['1x'] );
+		self::assertSame( 'https://licencas.example.com/icons/v3rlgpd-256.png', $wpUpdate->icons['2x'] );
+	}
+
+	/**
+	 * Guardrail explícito do pedido: sem ícone cadastrado no produto, o
+	 * payload não traz `icons`, e o transiente não deve ganhar nenhum ícone
+	 * (nem chave `icons` populada com lixo) — a tela cai de volta na peça
+	 * de quebra-cabeça genérica, exatamente como hoje.
+	 */
+	public function test_icons_stay_absent_when_server_sends_no_icons(): void {
+		list( $bridge ) = $this->makeBridgeWithAvailableUpdate( 'https://manual.example.com/v3rlgpd/novidades', null );
+
+		$result = $this->injectIntoTransient( $bridge );
+
+		$plugin   = array_key_first( (array) $result->response );
+		$wpUpdate = $result->response[ $plugin ];
+
+		self::assertTrue(
+			! isset( $wpUpdate->icons ) || empty( $wpUpdate->icons ),
+			'icons deveria ficar ausente/vazio sem o campo no payload.'
 		);
 	}
 }

@@ -2,6 +2,31 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.6.0] — 2026-08-28
+
+### Adicionado
+- **A biblioteca repassa ao WordPress o ícone do produto (segunda metade
+  de V3RLicense-Code#23).** O payload de `GET /update-check` já trazia
+  `icons` (`1x`/`2x`) quando o servidor de licenças tem ícone cadastrado
+  para o produto — a biblioteca ignorava o campo, e a tela "Painel →
+  Atualizações" continuava mostrando a peça de quebra-cabeça genérica.
+  `Updater\UpdateAvailability::fromPayload()` agora lê `icons` e expõe
+  `getIcons(): ?array`; `Updater\PucBridge::requestInfo()` popula
+  `PluginInfo::$icons` a partir dele, no mesmo ponto em que já populava
+  `requires`/`requires_php`/`tested`. O Plugin Update Checker
+  (`yahnis-elsts/plugin-update-checker`) já sabia propagar `icons` de
+  `Plugin\PluginInfo` até o transiente `update_plugins` via
+  `Plugin\Update::toWpFormat()` — não precisou de nenhum filtro próprio,
+  diferente do que #8 exigiu para `requires`.
+- Payload sem a chave `icons` (produto sem ícone cadastrado) continua
+  funcionando exatamente como hoje: `getIcons()` volta `null`, e
+  `PluginInfo::$icons` recebe o array vazio que a própria classe já
+  declara por padrão. Payload com `icons` em formato inesperado (ex.:
+  string em vez de mapa tamanho => URL) também é tratado como ausente —
+  nunca derruba a checagem de atualização, que é caminho crítico.
+- Migração retrocompatível — MINOR, não MAJOR: V3RLGPD e V3REvent fixam
+  `^0.5.0`/`^0.4.0` e continuam funcionando sem alteração.
+
 ## [0.5.0] — 2026-08-27
 
 ### Adicionado

@@ -35,6 +35,24 @@ final class UpdateAvailability {
 	/** @var string|null */
 	private $packageUrl;
 
+	/**
+	 * Chaves de tamanho ('1x', '2x', ...) para URL pública do ícone do
+	 * produto — ver getIcons() para o formato esperado.
+	 *
+	 * @var array<string, string>|null
+	 */
+	private $icons;
+
+	/**
+	 * @param bool                       $available
+	 * @param string|null                $version
+	 * @param string|null                $requires
+	 * @param string|null                $requiresPhp
+	 * @param string|null                $tested
+	 * @param string|null                $changelogUrl
+	 * @param string|null                $packageUrl
+	 * @param array<string, string>|null $icons
+	 */
 	private function __construct(
 		bool $available,
 		?string $version,
@@ -42,7 +60,8 @@ final class UpdateAvailability {
 		?string $requiresPhp,
 		?string $tested,
 		?string $changelogUrl,
-		?string $packageUrl
+		?string $packageUrl,
+		?array $icons
 	) {
 		$this->available    = $available;
 		$this->version      = $version;
@@ -51,6 +70,7 @@ final class UpdateAvailability {
 		$this->tested       = $tested;
 		$this->changelogUrl = $changelogUrl;
 		$this->packageUrl   = $packageUrl;
+		$this->icons        = $icons;
 	}
 
 	/**
@@ -62,7 +82,7 @@ final class UpdateAvailability {
 	 * "não há", nunca "há, mas talvez".
 	 */
 	public static function none(): self {
-		return new self( false, null, null, null, null, null, null );
+		return new self( false, null, null, null, null, null, null, null );
 	}
 
 	/**
@@ -78,8 +98,34 @@ final class UpdateAvailability {
 			isset( $payload['requires_php'] ) && is_string( $payload['requires_php'] ) ? $payload['requires_php'] : null,
 			isset( $payload['tested'] ) && is_string( $payload['tested'] ) ? $payload['tested'] : null,
 			isset( $payload['changelog_url'] ) && is_string( $payload['changelog_url'] ) ? $payload['changelog_url'] : null,
-			isset( $payload['package_url'] ) && is_string( $payload['package_url'] ) ? $payload['package_url'] : null
+			isset( $payload['package_url'] ) && is_string( $payload['package_url'] ) ? $payload['package_url'] : null,
+			self::extractIcons( $payload )
 		);
+	}
+
+	/**
+	 * Chave `icons` é opcional no payload (o servidor só a envia quando o
+	 * produto tem ícone cadastrado — V3RLicense-Code#23) e, mesmo presente,
+	 * não é garantidamente bem formada. Um payload malformado aqui não pode
+	 * derrubar a checagem de atualização (caminho crítico): na dúvida,
+	 * volta null, exatamente como se a chave não existisse.
+	 *
+	 * @param array<string, mixed> $payload
+	 * @return array<string, string>|null
+	 */
+	private static function extractIcons( array $payload ): ?array {
+		if ( ! isset( $payload['icons'] ) || ! is_array( $payload['icons'] ) ) {
+			return null;
+		}
+
+		$icons = array();
+		foreach ( $payload['icons'] as $size => $url ) {
+			if ( is_string( $size ) && is_string( $url ) && '' !== $url ) {
+				$icons[ $size ] = $url;
+			}
+		}
+
+		return array() === $icons ? null : $icons;
 	}
 
 	public function isAvailable(): bool {
@@ -112,5 +158,16 @@ final class UpdateAvailability {
 	 */
 	public function getPackageUrl(): ?string {
 		return $this->packageUrl;
+	}
+
+	/**
+	 * URLs públicas do ícone do produto, por tamanho ('1x', '2x'), como o
+	 * servidor as envia — null quando o produto não tem ícone cadastrado ou
+	 * quando o payload trouxe algo que não é um mapa tamanho => URL.
+	 *
+	 * @return array<string, string>|null
+	 */
+	public function getIcons(): ?array {
+		return $this->icons;
 	}
 }
