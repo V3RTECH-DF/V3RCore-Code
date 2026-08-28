@@ -229,17 +229,53 @@ dispensa credencial para instalar a dependência via Composer, e evita
 espalhar um PAT pessoal por sete repositórios — cuja rotação quebraria
 todas as sete pipelines em silêncio, até a próxima tag de cada uma.
 
+### ADR-012 — A biblioteca concede as capabilities de licença; o plugin só decide (V3RCore-Code#12, v0.4.0)
+
+Até a v0.3.1, o `Bootstrap` exigia duas capabilities de licença
+(`$readCapability`/`$manageCapability`) e deixava cada plugin hospedeiro
+registrar o próprio filtro `user_has_cap` para concedê-las. O filtro
+precisa sair cedo quando as capabilities pedidas não são as de licença —
+esquecer isso fecha o ciclo `user_has_cap → user_can → user_has_cap` e
+derruba toda requisição de usuário logado por memória esgotada
+(V3RLGPD-Code#74). Dois plugins integraram; um esqueceu a guarda, o
+outro só não esqueceu por acaso.
+
+**Mudança incompatível deliberada:** a partir da v0.4.0, `Bootstrap` registra
+o filtro `user_has_cap` sozinho (`Licensing\CapabilityGate`), com a guarda de
+saída antecipada embutida e inescapável — ela roda antes de qualquer consulta
+ao plugin hospedeiro, não depois. O plugin fornece só a função de decisão via
+`Bootstrap::withCapabilityDecider(callable $decider)`, chamada exclusivamente
+quando a pergunta já é sobre uma das duas capabilities de licença; dentro
+dela, o plugin pode chamar `user_can()`/`current_user_can()` à vontade sem
+criar recursão. `boot()` lança `\LogicException` se `withCapabilityDecider()`
+não foi chamado — erro alto e imediato, para nunca cair no caminho
+silencioso de "a capability simplesmente não é concedida".
+
+**Por que método dedicado, e não um oitavo parâmetro do construtor:** a
+biblioteca sustenta PHP 7.4, que não tem named arguments. Um parâmetro
+obrigatório depois de `$readCapability`/`$manageCapability` (os dois
+opcionais) ou vira posicional incômodo para quem só quer sobrescrever um dos
+dois, ou obriga a tirar os defaults dos dois — as duas opções piores que uma
+chamada fluente separada, encadeável com `boot()`.
+
+Escopo desta ADR é só a biblioteca. V3RLGPD e V3REvent — os dois
+consumidores atuais, cada um com o próprio filtro `user_has_cap` — migram
+para `withCapabilityDecider()` em issue própria, depois desta versão
+publicada; até lá seguem presos em `^0.3.0` no `composer.json` de cada um,
+que não puxa a v0.4.0 sozinho.
+
 ---
 
-## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.3.1)
+## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.4.0)
 
-> Estado em 26/08/2026, atualizado em 27/08/2026 (v0.3.1: fixes #8/#10,
-> repositório público). Fatia 2 (issue #3) concluída; nada mais listado
-> como `TODO(fatia-2)`.
+> Estado em 26/08/2026, atualizado em 27/08/2026 (v0.4.0: `Licensing\CapabilityGate`,
+> ADR-012/#12; v0.3.1: fixes #8/#10, repositório público). Fatia 2 (issue #3)
+> concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
 |---|---|---|
 | `Support\SiteIdentity` | Normaliza domínio, identifica ambiente de teste/dev (não consome cota) | completo |
+| `Licensing\CapabilityGate` | Concede as capabilities de licença via `user_has_cap`, guarda de saída antecipada inescapável (ADR-012) | completo |
 | `Support\LicenseKeyMasker` | Nunca deixar chave de licença ir para log | completo |
 | `Support\Logger` | Logging do lado da lib | completo |
 | `Licensing\LicenseState` | Estado da licença no cliente (imutável, refletindo o servidor) | completo |
@@ -279,7 +315,7 @@ Primeiro plugin depois do piloto V3RLGPD (issue #4). A receita de
 achados que a complementam (ambos incorporados ao documento):
 
 - **A tela de licença não é opcional na prática** — ver
-  `docs/integracao-em-plugin.md` §7.1.
+  `docs/integracao-em-plugin.md` §7.2.
 - **Armadilha do `user_has_cap` recursivo**, abaixo.
 
 No V3REvent, a licença ganhou aba própria em Configurações (consumindo
@@ -290,33 +326,42 @@ num site com dois plugins da casa usando a tela padrão).
 Faltam no rollout: V3RHelp, V3RProp (depende de composerizar —
 `V3RProp-Code#57`), GE Associados, RIT360 Solidário, RIT360 Premiado.
 
-### Armadilha conhecida — `user_has_cap` recursivo nas capabilities de licença
+### Armadilha conhecida — `user_has_cap` recursivo nas capabilities de licença (corrigida na biblioteca, v0.4.0)
 
-O filtro `user_has_cap` que um plugin hospedeiro usa para conceder as
-capabilities sintéticas de licença (ADR-010 do `docs/integracao-em-plugin.md`
-§7 — a ponte para RBAC próprio) **precisa sair cedo** quando as
-capabilities pedidas na chamada não são as de licença. Sem essa saída
-antecipada, o ciclo `user_has_cap → user_can → user_has_cap` é infinito e
-derruba **toda requisição de usuário logado** por memória esgotada —
-inclusive `wp-login.php`. Requisição anônima passa normalmente, então o
-site parece no ar visto de fora; só quem tenta logar (ou já está logado)
-trava.
+Até a v0.3.1, o filtro `user_has_cap` que concedia as capabilities
+sintéticas de licença era responsabilidade de cada plugin hospedeiro, que
+precisava lembrar de **sair cedo** quando as capabilities pedidas na
+chamada não eram as de licença. Sem essa saída antecipada, o ciclo
+`user_has_cap → user_can → user_has_cap` é infinito e derruba **toda
+requisição de usuário logado** por memória esgotada — inclusive
+`wp-login.php`. Requisição anônima passa normalmente, então o site parece
+no ar visto de fora; só quem tenta logar (ou já está logado) trava.
 
-Já aconteceu de verdade: **V3RLGPD-Code#74**, corrigido — o filtro
-equivalente consultava as permissões antes de olhar quais capabilities
-foram pedidas. O V3REvent já nasceu com a guarda e um teste que a prende
-(`tests/Core/Auth/LicenseCapsNoRecursionTest.php`) — o teste **conta
-chamadas**, não confere retorno, porque recursão infinita não devolve
-resposta errada, devolve estouro de memória; um teste de retorno passaria
-com o código defeituoso.
+Já aconteceu de verdade: **V3RLGPD-Code#74**, corrigido no plugin — o
+filtro equivalente consultava as permissões antes de olhar quais
+capabilities foram pedidas. O V3REvent já nasceu com a guarda, por acaso
+(quem escreveu tinha o padrão corrigido fresco na cabeça, não porque a
+documentação o prescrevesse) — nada garantia que o próximo plugin
+acertasse também.
 
-**Sem correção na biblioteca até o momento desta atualização.** A
-armadilha é criada pela própria biblioteca (é ela que exige a ponte via
-`user_has_cap` quando o hospedeiro tem RBAC próprio), mas cada plugin
-hospedeiro hoje precisa lembrar da guarda por conta própria — um já
-esqueceu. Levantado no comentário de 27/08/2026 da issue #4 (rollout),
-sem issue dedicada aberta até aqui; considerar se a proteção não deveria
-morar na própria biblioteca antes do próximo plugin integrar.
+**Corrigida na biblioteca em V3RCore-Code#12 (v0.4.0, ADR-012).** A
+guarda deixou de ser responsabilidade de cada plugin: `Bootstrap` registra
+o filtro `user_has_cap` sozinho, via `Licensing\CapabilityGate`, com a
+saída antecipada embutida e inescapável — ela roda antes de qualquer
+consulta à função de decisão do plugin, nunca depois. A função de decisão
+(`Bootstrap::withCapabilityDecider()`) só é chamada quando a pergunta já
+é sobre uma das duas capabilities de licença; dentro dela, o plugin chama
+`user_can()`/`current_user_can()` à vontade sem criar recursão. O teste
+que prova isso — `tests/Licensing/CapabilityGateNoRecursionTest.php` —
+migrou para a biblioteca no mesmo formato usado nos dois plugins
+(`LicenseCapsNoRecursionTest`): conta **chamadas**, não confere retorno,
+porque recursão infinita não devolve resposta errada, devolve estouro de
+memória; um teste de retorno passaria com o código defeituoso.
+
+V3RLGPD e V3REvent continuam com o filtro próprio até migrarem para
+`withCapabilityDecider()` — issue separada, depois desta versão
+publicada; `composer.json` de cada um fixa `^0.3.0` e não puxa a v0.4.0
+sozinho.
 
 ## 4. Fora de escopo desta lib
 

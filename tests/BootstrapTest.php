@@ -23,6 +23,11 @@ final class BootstrapTest extends TestCase {
 			'1.0.0'
 		);
 
+		$bootstrap->withCapabilityDecider(
+			static function ( int $userId, string $capability ): bool {
+				return true;
+			}
+		);
 		$bootstrap->boot();
 
 		self::assertSame( 'v3rlgpd', $bootstrap->getProductSlug() );
@@ -77,5 +82,37 @@ final class BootstrapTest extends TestCase {
 		self::assertSame( 'v3rlgpd_settings_view', $bootstrap->getReadCapability() );
 		self::assertSame( 'v3rlgpd_settings_manage', $bootstrap->getManageCapability() );
 		self::assertSame( 'v3rlgpd_settings_manage', $bootstrap->getCapability() );
+	}
+
+	/**
+	 * V3RCore-Code#12, item 4: sem função de decisão, o comportamento
+	 * precisa ser explícito e diagnosticável — nunca um site que
+	 * silenciosamente não concede a capability. `boot()` recusa e diz o
+	 * que falta.
+	 */
+	public function test_boot_without_capability_decider_throws_explicit_exception(): void {
+		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
+
+		$this->expectException( \LogicException::class );
+		$this->expectExceptionMessage( 'withCapabilityDecider' );
+
+		$bootstrap->boot();
+	}
+
+	/** WithCapabilityDecider() devolve $this — chamada fluente com boot(). */
+	public function test_with_capability_decider_is_fluent(): void {
+		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
+
+		$returned = $bootstrap->withCapabilityDecider(
+			static function ( int $userId, string $capability ): bool {
+				return false;
+			}
+		);
+
+		self::assertSame( $bootstrap, $returned );
+
+		// Não lança mais, agora que a função de decisão foi configurada.
+		$returned->boot();
+		$this->addToAssertionCount( 1 );
 	}
 }

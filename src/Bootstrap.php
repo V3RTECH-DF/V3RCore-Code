@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace V3R\Core;
 
 use V3R\Core\Licensing\AdminPage;
+use V3R\Core\Licensing\CapabilityGate;
 use V3R\Core\Licensing\HttpApiClient;
 use V3R\Core\Licensing\LicenseManager;
 use V3R\Core\Licensing\LicenseStorage;
@@ -70,6 +71,15 @@ final class Bootstrap {
 	private $restRouter;
 
 	/**
+	 * Concede as capabilities de licença via `user_has_cap` (V3RCore-Code#12).
+	 * Null até `withCapabilityDecider()` ser chamado; `boot()` recusa
+	 * seguir enquanto estiver null — ver o docblock de `boot()`.
+	 *
+	 * @var CapabilityGate|null
+	 */
+	private $capabilityGate;
+
+	/**
 	 * @param string      $productSlug      Slug do produto no servidor de licenças (ex.: "v3rlgpd").
 	 * @param string      $pluginFile       Caminho absoluto do arquivo principal do plugin (__FILE__).
 	 * @param string      $apiBaseUrl       URL base do servidor de licenças (v3r-license/v1).
@@ -81,6 +91,9 @@ final class Bootstrap {
 	 *                                      e POST .../license/deactivate) — docs/api-contract.md §8.2. Quando omitida
 	 *                                      (null), cai para $readCapability — mesmo comportamento de quem passa uma
 	 *                                      capability só, sem ficar acidentalmente mais permissivo.
+	 *
+	 * Concessão das duas capabilities (V3RCore-Code#12): não entra aqui —
+	 * ver `withCapabilityDecider()`. Chame-o antes de `boot()`, sempre.
 	 */
 	public function __construct(
 		string $productSlug,
@@ -95,6 +108,7 @@ final class Bootstrap {
 		$this->pluginFile       = $pluginFile;
 		$this->readCapability   = $readCapability;
 		$this->manageCapability = $manageCapability ?? $readCapability;
+		$this->capabilityGate   = null;
 
 		$verifier             = new SignatureVerifier( $publicKey );
 		$apiClient            = new HttpApiClient( $apiBaseUrl, null, $verifier );
@@ -108,18 +122,68 @@ final class Bootstrap {
 	}
 
 	/**
-	 * Liga os hooks do WordPress necessários: auto-atualização
-	 * (Updater\UpdateChecker) e os quatro endpoints REST internos de
-	 * docs/api-contract.md §8 (Rest\LicenseRestRouter). Idempotente e
-	 * seguro de chamar mesmo fora do WordPress (ex.: em teste) — os dois só
-	 * agem quando reconhecem um WordPress de verdade por baixo.
+	 * Configura quem decide se um usuário pode ler/gerir a licença
+	 * (V3RCore-Code#12) — a biblioteca concede as duas capabilities
+	 * sintéticas sozinha a partir daqui, registrando o filtro
+	 * `user_has_cap` com a guarda de saída antecipada embutida
+	 * (Licensing\CapabilityGate). O plugin não registra mais filtro
+	 * nenhum: chama `user_can()`/`current_user_can()` livremente dentro
+	 * de `$decider` sem criar recursão — ver o contrato documentado em
+	 * `Licensing\CapabilityGate`.
+	 *
+	 * Método dedicado, e não um 8º parâmetro do construtor: a
+	 * biblioteca precisa suportar PHP 7.4 (sem named arguments), e um
+	 * parâmetro obrigatório depois de dois opcionais ($readCapability,
+	 * $manageCapability) ou vira posicional inconveniente para quem só
+	 * quer sobrescrever um dos dois, ou obriga a remover os defaults
+	 * dos dois — pior nos dois casos que uma chamada fluente separada.
+	 * `boot()` recusa seguir sem isto ter sido chamado (ver seu
+	 * docblock): a omissão precisa ser um erro alto e imediato, nunca
+	 * um site que silenciosamente não concede a capability.
+	 *
+	 * @param callable $decider `function( int $userId, string $capability ): bool`.
+	 * @return $this Fluente, para encadear com `boot()`.
+	 */
+	public function withCapabilityDecider( callable $decider ): self {
+		$this->capabilityGate = new CapabilityGate( $this->readCapability, $this->manageCapability, $decider );
+
+		return $this;
+	}
+
+	/**
+	 * Liga os hooks do WordPress necessários: concessão das capabilities
+	 * de licença (Licensing\CapabilityGate, V3RCore-Code#12),
+	 * auto-atualização (Updater\UpdateChecker) e os quatro endpoints REST
+	 * internos de docs/api-contract.md §8 (Rest\LicenseRestRouter).
+	 * Idempotente e seguro de chamar mesmo fora do WordPress (ex.: em
+	 * teste) — os três só agem quando reconhecem um WordPress de verdade
+	 * por baixo.
 	 *
 	 * Não inclui a AdminPage: ela é opcional (docs/api-contract.md §8,
 	 * critério "um plugin sem SPA própria decide se a registra"). O plugin
 	 * hospedeiro que quiser a tela padrão chama
 	 * `$bootstrap->createAdminPage()->register()` explicitamente.
+	 *
+	 * @throws \LogicException Se `withCapabilityDecider()` não foi
+	 *                          chamado antes. Deliberadamente um erro
+	 *                          alto e imediato (V3RCore-Code#12) — sem a
+	 *                          função de decisão a biblioteca não tem
+	 *                          como conceder as capabilities de forma
+	 *                          segura, e "simplesmente não concede" é
+	 *                          exatamente o caminho silencioso que esta
+	 *                          issue existe para fechar.
 	 */
 	public function boot(): void {
+		if ( null === $this->capabilityGate ) {
+			throw new \LogicException(
+				'Bootstrap::boot() chamado sem Bootstrap::withCapabilityDecider() antes. ' .
+				'A biblioteca não concede mais as capabilities de licença por conta própria do ' .
+				'plugin (V3RCore-Code#12); chame withCapabilityDecider() informando a função de ' .
+				'decisão antes de boot().'
+			);
+		}
+
+		$this->capabilityGate->register();
 		$this->updateChecker->register();
 		$this->restRouter->register();
 	}

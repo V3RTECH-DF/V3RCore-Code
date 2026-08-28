@@ -508,7 +508,17 @@ add_action( 'plugins_loaded', function () {
         'meuplugin_settings_manage'                             // capability de gestão — ver nota abaixo
     );
 
-    $v3rCore->boot(); // updater + 4 endpoints REST internos (docs/api-contract.md §8)
+    // A biblioteca concede as duas capabilities sozinha via user_has_cap
+    // (V3RCore-Code#12) — o plugin NUNCA registra esse filtro. $decider só
+    // é chamado quando a pergunta já é sobre uma das duas capabilities
+    // acima; dentro dele, chame user_can()/current_user_can() à vontade —
+    // não cria recursão, a guarda de saída antecipada é da biblioteca.
+    // Ver §7.2.
+    $v3rCore->withCapabilityDecider( function ( int $userId, string $capability ): bool {
+        return MeuPlugin\Rbac::userCan( $userId, $capability );
+    } );
+
+    $v3rCore->boot(); // grant das capabilities + updater + 4 endpoints REST internos (docs/api-contract.md §8)
 } );
 ```
 
@@ -525,16 +535,43 @@ comportamento de antes da issue #9, com uma capability só).
 
 **Quando o plugin já tiver um RBAC próprio** (papéis/capabilities
 data-driven do próprio produto), as duas capabilities aqui costumam ser
-**sintéticas** — pontes criadas pelo próprio plugin via filtro
-`user_has_cap`, uma por nível de permissão que já existe no RBAC (ex.:
-`settings.view`/`settings.manage`), não capabilities nativas do
-WordPress. Nunca fixe `manage_options` nas duas nem invente uma
-capability nova só para o v3r-core; use as que já existem no plugin para
-a mesma responsabilidade (consultar licença / gerir licença).
-`manage_options` continua sendo aceitável só para o plugin que não tem
-RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de errar:
-estreita demais exclui quem administra o plugin sem ser administrador do
-site.
+**sintéticas** — não capabilities nativas do WordPress, mas pontes para
+um nível de permissão que já existe no RBAC (ex.:
+`settings.view`/`settings.manage`). Nunca fixe `manage_options` nas duas
+nem invente uma capability nova só para o v3r-core; use as que já existem
+no plugin para a mesma responsabilidade (consultar licença / gerir
+licença). `manage_options` continua sendo aceitável só para o plugin que
+não tem RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de
+errar: estreita demais exclui quem administra o plugin sem ser
+administrador do site.
+
+## 7.1 Quem concede as duas capabilities é a biblioteca, não o plugin (V3RCore-Code#12)
+
+**Até a v0.3.1**, cada plugin hospedeiro precisava registrar o próprio
+filtro `user_has_cap` para conceder as duas capabilities de licença — e
+precisava lembrar de fazer esse filtro **sair cedo** quando as
+capabilities pedidas na chamada corrente não eram as de licença. Esquecer
+essa saída antecipada fecha o ciclo `user_has_cap → user_can →
+user_has_cap`: infinito, e derruba **toda requisição de usuário logado**
+por memória esgotada — inclusive `wp-login.php`. Foi o que aconteceu de
+verdade em produção (`V3RLGPD-Code#74`).
+
+**Desde a v0.4.0, isso não é mais tarefa do plugin.** `Bootstrap` registra
+o filtro `user_has_cap` sozinho, com a guarda embutida e inescapável — ela
+roda **antes** de chamar `$decider`, não depois. `$decider` só é invocado
+quando a capability pedida já é a de leitura ou a de gestão desta licença;
+para qualquer outra (`manage_options` incluída — a que o RBAC do plugin
+tipicamente consulta por dentro do próprio `$decider`), o filtro devolve
+`$allcaps` sem tocar em `$decider`. É essa saída antecipada, e não o
+código dentro de `$decider`, que impede a recursão — por isso é seguro
+chamar `user_can()`/`current_user_can()` dentro dele.
+
+`Bootstrap::withCapabilityDecider(callable $decider)` — assinatura de
+`$decider`: `function( int $userId, string $capability ): bool`. Chame
+antes de `boot()`, sempre: `boot()` lança `\LogicException` se
+`withCapabilityDecider()` não foi chamado — erro alto e imediato, de
+propósito, para nunca cair no caminho silencioso de "a capability
+simplesmente não é concedida e a tela de licença só não aparece".
 
 > **Chamar o `LicenseManager` fora do endpoint REST exige `try/catch` —
 > achado da execução real (V3RLGPD, 27/08/2026).** No fluxo normal, o
@@ -548,7 +585,7 @@ site.
 > Mas a descoberta costuma acontecer do jeito mais caro, com a tela branca
 > aparecendo em ambiente de quem estava só investigando.
 
-## 7.1 A tela de licença não é opcional na prática — achado da execução real (V3REvent, 27/08/2026)
+## 7.2 A tela de licença não é opcional na prática — achado da execução real (V3REvent, 27/08/2026)
 
 **Integração sem tela de licença é integração pela metade.** A receita
 acima cobre `boot()` corretamente, mas chamar `boot()` sem registrar

@@ -2,6 +2,39 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.4.0] — 2026-08-27
+
+### Alterado (BREAKING)
+- **A biblioteca passa a conceder ela mesma as capabilities de licença
+  (#12).** Até a v0.3.1, `Bootstrap` exigia as duas capabilities
+  (`$readCapability`/`$manageCapability`) e deixava cada plugin
+  hospedeiro registrar o próprio filtro `user_has_cap` para concedê-las —
+  e lembrar, por conta própria, de sair cedo quando as capabilities
+  pedidas não eram as de licença. Esquecer essa guarda fecha o ciclo
+  `user_has_cap → user_can → user_has_cap`, infinito, e derruba toda
+  requisição de usuário logado por memória esgotada; foi o que aconteceu
+  de verdade em produção (V3RLGPD-Code#74). Um plugin esqueceu, o outro só
+  não esqueceu por acaso.
+- `Bootstrap` agora registra o filtro sozinho (`Licensing\CapabilityGate`),
+  com a guarda de saída antecipada embutida e inescapável, rodando antes
+  de qualquer consulta ao plugin. O plugin fornece só a função de decisão,
+  via `Bootstrap::withCapabilityDecider(callable $decider)` — chamada
+  exclusivamente quando a capability pedida já é a de leitura ou a de
+  gestão da licença; dentro dela, o plugin chama
+  `user_can()`/`current_user_can()` livremente, sem risco de recursão.
+- `Bootstrap::boot()` agora lança `\LogicException` se
+  `withCapabilityDecider()` não foi chamado antes — deliberado: sem função
+  de decisão a biblioteca não tem como conceder as capabilities com
+  segurança, e "simplesmente não concede" é o caminho silencioso que esta
+  mudança existe para fechar.
+- Migração incompatível de propósito (nova versão MINOR por ainda estar
+  em `0.x`, SemVer). V3RLGPD e V3REvent seguem com o filtro próprio até
+  migrarem em issue dedicada; `composer.json` de cada um fixa `^0.3.0` e
+  não puxa esta versão sozinho.
+- Documentação: `docs/integracao-em-plugin.md` §7 (assinatura nova no
+  exemplo) e novo §7.1; `docs/ARCHITECTURE.md` ADR-012 e a seção
+  "Armadilha conhecida" atualizada para "corrigida".
+
 ## [0.3.1] — 2026-08-27
 
 ### Corrigido
