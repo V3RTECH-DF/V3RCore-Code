@@ -546,13 +546,36 @@ comportamento de antes da issue #9, com uma capability só).
 data-driven do próprio produto), as duas capabilities aqui costumam ser
 **sintéticas** — não capabilities nativas do WordPress, mas pontes para
 um nível de permissão que já existe no RBAC (ex.:
-`settings.view`/`settings.manage`). Nunca fixe `manage_options` nas duas
-nem invente uma capability nova só para o v3r-core; use as que já existem
-no plugin para a mesma responsabilidade (consultar licença / gerir
-licença). `manage_options` continua sendo aceitável só para o plugin que
-não tem RBAC nenhum — e mesmo assim, larga demais é só um dos jeitos de
-errar: estreita demais exclui quem administra o plugin sem ser
-administrador do site.
+`settings.view`/`settings.manage`). Use as que já existem no plugin para a
+mesma responsabilidade (consultar licença / gerir licença), em vez de
+inventar capability nova só para o v3r-core.
+
+⚠️ **E NUNCA use `manage_options` — nem no plugin que não tem RBAC
+nenhum.** Isto não é preferência de estilo: é a premissa de que a guarda
+anti-recursão da §7.1 depende, e ela não se declara sozinha.
+
+A guarda só chama o decisor do plugin quando a capability perguntada é uma
+das duas de licença. Isso protege **enquanto elas tiverem nome próprio**,
+que mais nada no WordPress consulta. Se a ponte *for* `manage_options` —
+que o núcleo pergunta em toda requisição autenticada — a guarda reconhece
+como ponte, chama o decisor, o decisor pergunta `manage_options` por
+dentro, e o ciclo fecha: **erro fatal por estouro de pilha em toda
+requisição de usuário logado**.
+
+Aconteceu em 28/08/2026 no RIT360 Solidário, que passou `manage_options`
+como o nome das duas pontes. O site anônimo seguia respondendo
+normalmente — o defeito só aparece entrando no wp-admin.
+
+**A régua, então:** a capability-ponte tem nome próprio do plugin
+(`meuplugin_license_view` / `meuplugin_license_manage` ou equivalente do
+RBAC dele), existe para ser perguntada **só pela biblioteca**, e a
+tradução para a permissão real acontece **dentro** do decisor. Um plugin
+sem RBAC traduz ali para `manage_options` — o que é seguro, porque a
+capability perguntada por dentro é diferente da que está sendo decidida.
+É o que o RIT360 Premiado faz, e é o modelo a copiar.
+
+Vale lembrar o outro jeito de errar, na direção oposta: ponte estreita
+demais exclui quem administra o plugin sem ser administrador do site.
 
 ## 7.1 Quem concede as duas capabilities é a biblioteca, não o plugin (V3RCore-Code#12)
 
