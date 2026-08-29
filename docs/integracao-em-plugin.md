@@ -181,13 +181,31 @@ container):
 > sozinha (era verdade enquanto existiam os hooks). Agora inclui o
 > `composer run prefix` explícito e a ressalva do `.phar`.
 
+> **O Strauss cria os diretórios de `vendor-prefixed/` com modo `700`
+> (`V3RCore-Code#20`, achado do V3RProp, 28/08/2026).** Qualquer caminho de
+> implantação que preserve permissão (`rsync -a`, `cp -a`, `tar` sem
+> normalizar) entrega a árvore ilegível para o servidor web: o autoloader
+> falha ao incluir a classe, `class_exists()` devolve `false`, e o plugin
+> se comporta **exatamente como se a biblioteca não estivesse no pacote** —
+> sem erro, sem log, e funcionando em CLI (que roda como o dono dos
+> arquivos), o que engana o diagnóstico. O `chmod` abaixo entra no próprio
+> script `prefix` — o único ponto que **todo** consumidor (prefixação local
+> e `build-zip.sh`, via `composer run prefix`/`composer prefix`) atravessa
+> — para que nenhum plugin precise lembrar disso no próprio script de
+> sincronização/empacotamento.
+
 ```json
 {
     "autoload": {
         "classmap": ["vendor-prefixed/"]
     },
     "scripts": {
-        "prefix": ["php .tooling/strauss.phar compose", "composer dump-autoload"]
+        "prefix": [
+            "php .tooling/strauss.phar compose",
+            "find vendor-prefixed -type d -exec chmod 755 {} +",
+            "find vendor-prefixed -type f -exec chmod 644 {} +",
+            "composer dump-autoload"
+        ]
     },
     "extra": {
         "strauss": {

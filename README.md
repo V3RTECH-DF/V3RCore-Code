@@ -48,6 +48,12 @@ Composer — e isso tira os hooks `post-install-cmd`/`post-update-cmd` que
 antes disparavam a prefixação sozinhos. `composer install` sozinho deixa
 `vendor-prefixed/` vazio; é preciso rodar `composer run prefix` depois.
 
+**O script `prefix` também normaliza permissão** (`V3RCore-Code#20`): o
+Strauss cria `vendor-prefixed/` com diretórios em modo `700`, ilegíveis
+pelo servidor web quando o caminho de implantação preserva permissão
+(`rsync -a`, `cp -a`) — o plugin passa a se comportar como se a biblioteca
+não estivesse no pacote, sem erro. Ver `docs/integracao-em-plugin.md` §3.
+
 ```bash
 composer require v3rtech/v3r-core:^0.2.0 --dev
 # Strauss: .phar standalone, não dependência do Composer — ver
