@@ -20,7 +20,11 @@ final class BootstrapTest extends TestCase {
 			__FILE__,
 			'https://licencas.example.com/wp-json/v3r-license/v1',
 			'chave-publica-fake-base64',
-			'1.0.0'
+			'1.0.0',
+			// Capability-ponte com nome próprio (V3RCore-Code#18) — o default
+			// 'manage_options' é rejeitado por Bootstrap::withCapabilityDecider(),
+			// ver os testes dedicados abaixo.
+			'v3rlgpd_license_manage'
 		);
 
 		$bootstrap->withCapabilityDecider(
@@ -101,7 +105,7 @@ final class BootstrapTest extends TestCase {
 
 	/** WithCapabilityDecider() devolve $this — chamada fluente com boot(). */
 	public function test_with_capability_decider_is_fluent(): void {
-		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
+		$bootstrap = new Bootstrap( 'v3rlgpd', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0', 'v3rlgpd_license_manage' );
 
 		$returned = $bootstrap->withCapabilityDecider(
 			static function ( int $userId, string $capability ): bool {
@@ -112,6 +116,81 @@ final class BootstrapTest extends TestCase {
 		self::assertSame( $bootstrap, $returned );
 
 		// Não lança mais, agora que a função de decisão foi configurada.
+		$returned->boot();
+		$this->addToAssertionCount( 1 );
+	}
+
+	/**
+	 * V3RCore-Code#18: a biblioteca recusa, no momento de declarar a
+	 * ponte, uma capability que o WordPress consulta sozinho — nunca
+	 * deixa a configuração chegar a `boot()` para só então derrubar o
+	 * site na primeira requisição autenticada. `manage_options` é o
+	 * default de `Bootstrap::DEFAULT_CAPABILITY`, e é exatamente por isso
+	 * que continuar aceitando-o sem override seria reabrir o incidente
+	 * (RIT360 Solidário, 28/08/2026).
+	 */
+	public function test_boot_rejects_native_wordpress_capability_as_bridge(): void {
+		$bootstrap = new Bootstrap( 'rit360-solidario', __FILE__, 'https://licencas.example.com', 'chave', '1.0.0' );
+
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'rit360-solidario' );
+
+		$bootstrap->withCapabilityDecider(
+			static function ( int $userId, string $capability ): bool {
+				return true; // Nunca chega a rodar — a exceção nasce antes do decider ser guardado.
+			}
+		);
+	}
+
+	/**
+	 * V3RCore-Code#18: a recusa é específica de capability nativa — a
+	 * capability de gestão, quando é a nativa e a de leitura não é,
+	 * também precisa ser pega (controle negativo do outro papel).
+	 */
+	public function test_boot_rejects_native_wordpress_capability_as_manage_bridge(): void {
+		$bootstrap = new Bootstrap(
+			'rit360-solidario',
+			__FILE__,
+			'https://licencas.example.com',
+			'chave',
+			'1.0.0',
+			'rit360sol_license_view',
+			'manage_options'
+		);
+
+		$this->expectException( \InvalidArgumentException::class );
+
+		$bootstrap->withCapabilityDecider(
+			static function ( int $userId, string $capability ): bool {
+				return true;
+			}
+		);
+	}
+
+	/**
+	 * Controle negativo de V3RCore-Code#18: capability de nome próprio
+	 * continua funcionando exatamente como antes — a recusa é específica
+	 * de capability nativa, não uma restrição nova sobre nome de
+	 * capability em geral.
+	 */
+	public function test_boot_accepts_plugin_own_capability_as_bridge(): void {
+		$bootstrap = new Bootstrap(
+			'rit360-solidario',
+			__FILE__,
+			'https://licencas.example.com',
+			'chave',
+			'1.0.0',
+			'rit360sol_license_view',
+			'rit360sol_license_manage'
+		);
+
+		$returned = $bootstrap->withCapabilityDecider(
+			static function ( int $userId, string $capability ): bool {
+				return true;
+			}
+		);
+
+		self::assertSame( $bootstrap, $returned );
 		$returned->boot();
 		$this->addToAssertionCount( 1 );
 	}

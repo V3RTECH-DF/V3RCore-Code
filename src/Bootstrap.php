@@ -156,9 +156,41 @@ final class Bootstrap {
 	 *
 	 * @param callable $decider `function( int $userId, string $capability ): bool`.
 	 * @return $this Fluente, para encadear com `boot()`.
+	 *
+	 * @throws \InvalidArgumentException Se a capability de leitura ou a de
+	 *                                    gestão for uma capability nativa
+	 *                                    do WordPress (ex.: `manage_options`)
+	 *                                    — V3RCore-Code#18. Ver o docblock
+	 *                                    de `Licensing\CapabilityGate` para
+	 *                                    o porquê: essa configuração fecha
+	 *                                    um ciclo em `user_has_cap` que
+	 *                                    derruba o site inteiro para
+	 *                                    usuário logado, e a biblioteca
+	 *                                    recusa aceitá-la em vez de deixar
+	 *                                    o defeito aparecer depois, em
+	 *                                    produção.
 	 */
 	public function withCapabilityDecider( callable $decider ): self {
-		$this->capabilityGate = new CapabilityGate( $this->readCapability, $this->manageCapability, $decider );
+		try {
+			$this->capabilityGate = new CapabilityGate( $this->readCapability, $this->manageCapability, $decider );
+		} catch ( \InvalidArgumentException $e ) {
+			// DEFAULT_CAPABILITY é `manage_options`, que a guarda acima
+			// recusa — de propósito. Quem não declarou capability própria
+			// cai aqui sem nunca ter escrito `manage_options` em lugar
+			// nenhum, e a mensagem da guarda, sozinha, mandaria procurar
+			// um nome que não está no código do plugin. Diga o que de fato
+			// aconteceu: faltou declarar.
+			$naoDeclarou = self::DEFAULT_CAPABILITY === $this->readCapability
+				&& self::DEFAULT_CAPABILITY === $this->manageCapability;
+
+			$contexto = $naoDeclarou
+				? "Bootstrap do plugin '{$this->productSlug}': nenhuma capability-ponte foi "
+					. 'declarada, e o padrão da biblioteca não serve como ponte. Passe os nomes '
+					. 'próprios ao construtor de Bootstrap. Detalhe: '
+				: "Bootstrap do plugin '{$this->productSlug}': ";
+
+			throw new \InvalidArgumentException( $contexto . $e->getMessage(), 0, $e );
+		}
 
 		return $this;
 	}
