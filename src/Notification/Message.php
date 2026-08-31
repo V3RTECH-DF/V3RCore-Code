@@ -14,6 +14,11 @@ namespace V3R\Core\Notification;
  * mesmo evento de negócio (ex.: "credencial-revogada:{$personId}"), nunca
  * gerado aleatoriamente a cada tentativa — um id aleatório tornaria a
  * proteção contra duplicidade inoperante.
+ *
+ * $attachments (RIT360 Flow, issue #23) é OPCIONAL e aditivo — toda
+ * mensagem existente antes desta issue nasce sem anexo (`[]`), sem mudar
+ * nenhum ponto de chamada já em produção. O anexo é capacidade do CANAL,
+ * não da mensagem: ver AttachmentCapableInterface.
  */
 final class Message {
 
@@ -35,13 +40,27 @@ final class Message {
 	/** @var string */
 	private $dispatchId;
 
+	/** @var Attachment[] */
+	private $attachments;
+
+	/**
+	 * @param string       $channel
+	 * @param string       $recipient
+	 * @param string       $subject
+	 * @param string       $body
+	 * @param string       $category
+	 * @param string       $dispatchId
+	 * @param Attachment[] $attachments
+	 * @throws \InvalidArgumentException Categoria inválida, ou dispatchId vazio.
+	 */
 	public function __construct(
 		string $channel,
 		string $recipient,
 		string $subject,
 		string $body,
 		string $category,
-		string $dispatchId
+		string $dispatchId,
+		array $attachments = array()
 	) {
 		if ( ! MessageCategory::isValid( $category ) ) {
 			throw new \InvalidArgumentException( "Categoria de mensagem inválida: {$category}" );
@@ -51,12 +70,13 @@ final class Message {
 			throw new \InvalidArgumentException( 'dispatchId não pode ser vazio — é a chave que impede reenvio duplicado.' );
 		}
 
-		$this->channel    = $channel;
-		$this->recipient  = $recipient;
-		$this->subject    = $subject;
-		$this->body       = $body;
-		$this->category   = $category;
-		$this->dispatchId = $dispatchId;
+		$this->channel     = $channel;
+		$this->recipient   = $recipient;
+		$this->subject     = $subject;
+		$this->body        = $body;
+		$this->category    = $category;
+		$this->dispatchId  = $dispatchId;
+		$this->attachments = $attachments;
 	}
 
 	public function getChannel(): string {
@@ -81,5 +101,16 @@ final class Message {
 
 	public function getDispatchId(): string {
 		return $this->dispatchId;
+	}
+
+	/**
+	 * @return Attachment[]
+	 */
+	public function getAttachments(): array {
+		return $this->attachments;
+	}
+
+	public function hasAttachments(): bool {
+		return array() !== $this->attachments;
 	}
 }
