@@ -2,6 +2,42 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.8.0] — 2026-09-03
+
+### Adicionado
+- **Namespace novo `V3R\Core\Access\` — segredo de link temporário e
+  limitador de tentativas (#24).** Duas peças agnósticas da mecânica de
+  acesso por link temporário verificado por e-mail, escolhidas por um
+  critério duplo: não tocam identidade nenhuma, e errar tem consequência
+  de segurança. `AccessToken` gera 32 bytes aleatórios em base64url,
+  mantém o texto puro só como valor efêmero (o que viaja no e-mail/URL) e
+  persiste apenas o `sha256`; `fromPlaintext()` recusa string vazia (o
+  hash de `""` é válido e não pode virar consulta), e `matches()` compara
+  com `hash_equals()` — tempo constante. `AttemptLimiter` limita
+  tentativas por duas chaves (identificador/e-mail e origem/IP) sobre
+  `Licensing\Storage\KeyValueStoreInterface`, com janela deslizante e
+  teto configuráveis (padrões 900s / 3 tentativas) e
+  `resetIdentifier()`/`resetOrigin()` para a tela de suporte.
+- `AttemptLimiter::registerAttempt()` é o único método de decisão, e
+  incrementa as duas chaves incondicionalmente — lê os contadores antes
+  de incrementar, nunca no lugar do incremento. Não existe `check()`
+  público separado de propósito: com dois métodos, o ponto de chamada
+  poderia incrementar dentro do `if`, e o próprio bloqueio viraria
+  oráculo de existência de e-mail (por comportamento ou por
+  temporização). A leitura dos dois contadores também não tem
+  curto-circuito, para o número de leituras/escritas no armazenamento
+  ser idêntico numa tentativa permitida e numa recusada.
+- Catálogo do componente, incluindo o que fica de fora e por quê:
+  `docs/acesso-por-link-temporario.md`. Ver também ADR-013.
+- 20 testes novos em `tests/Access/` (suíte completa: 203 testes verdes),
+  incluindo o teste que prende o incremento fora da checagem
+  (`testTentativaRecusadaTambemIncrementaAOutraChave`).
+- Consumidores: RIT360 Solidário migra o que já tem em produção
+  (RIT360-Solidario-Code#66); V3REvent nasce consumindo
+  (V3REvent-Code#151, que estava bloqueada por esta issue).
+- Migração retrocompatível — MINOR, não MAJOR: acréscimo de namespace e
+  classes novas, nenhuma API existente muda.
+
 ## [0.7.0] — 2026-08-28
 
 ### Adicionado
