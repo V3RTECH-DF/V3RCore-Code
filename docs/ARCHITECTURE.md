@@ -264,12 +264,45 @@ para `withCapabilityDecider()` em issue própria, depois desta versão
 publicada; até lá seguem presos em `^0.3.0` no `composer.json` de cada um,
 que não puxa a v0.4.0 sozinho.
 
+### ADR-013 — Acesso por link temporário: só as duas peças que não tocam identidade (V3RCore-Code#24, v0.8.0)
+
+Dois consumidores (RIT360 Solidário e V3REvent) precisam da mesma mecânica
+de acesso por link temporário verificado por e-mail. O levantamento
+considerou subir o serviço de link inteiro — sessão, tabela de tokens,
+consumo atômico, conceito genérico de "sujeito" — e não só o segredo e o
+limitador.
+
+**Decisão:** sobem para `V3R\Core\Access\` apenas `AccessToken` (segredo,
+hash, comparação em tempo constante) e `AttemptLimiter` (limite de
+tentativas por duas chaves, sobre `Licensing\Storage\KeyValueStoreInterface`).
+Critério de corte duplo: a peça não pode tocar identidade nenhuma, e o erro
+nela tem que ter consequência de segurança — é o que distingue o que sobe
+do que fica em cada produto.
+
+**Por quê não generalizar mais:** os dois consumidores divergem exatamente
+no ponto que uma abstração de "sessão" ou "sujeito do acesso" precisaria
+fixar. Solidário tem doador com id estável — a sessão carrega uma pessoa.
+V3REvent não tem equivalente — o mesmo e-mail pode ser responsável de N
+inscrições e participante de M inscritos, então a sessão carrega um
+conjunto. Generalizar a partir de dois casos que discordam no ponto que a
+abstração fixaria produz a abstração errada: serve mal aos dois e é cara
+de desfazer depois. Pelo mesmo motivo não sobem a tabela de tokens nem o
+consumo atômico (UPDATE condicional) — dependem da tabela do produto, e um
+armazenamento chave/valor não dá a mesma garantia de atomicidade.
+
+**Consequência prática:** `AttemptLimiter::registerAttempt()` é o único
+método de decisão, e incrementa as duas chaves incondicionalmente — lida
+antes do incremento, nunca dentro dele — para o bloqueio não virar oráculo
+de existência de e-mail. Catálogo completo, com exemplos de uso e o que
+continua sendo do produto: `docs/acesso-por-link-temporario.md`.
+
 ---
 
 ## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.4.0)
 
 > Estado em 26/08/2026, atualizado em 27/08/2026 (v0.4.0: `Licensing\CapabilityGate`,
-> ADR-012/#12; v0.3.1: fixes #8/#10, repositório público). Fatia 2 (issue #3)
+> ADR-012/#12; v0.3.1: fixes #8/#10, repositório público) e em 03/09/2026
+> (v0.8.0: namespace novo `V3R\Core\Access\`, ADR-013/#24). Fatia 2 (issue #3)
 > concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -290,6 +323,8 @@ que não puxa a v0.4.0 sozinho.
 | `Updater\UpdateChecker` / `PucBridge` | Liga ao mecanismo de atualização do WP via Plugin Update Checker | completo |
 | `Rest\LicenseController` / `LicenseRestRouter` | Quatro rotas REST internas tela↔biblioteca, capability por operação (ADR-008) | completo |
 | `Bootstrap` | Ponto de entrada do plugin hospedeiro | completo |
+| `Access\AccessToken` | Segredo de link temporário: geração, hash, comparação em tempo constante (ADR-013) | completo |
+| `Access\AttemptLimiter` | Limite de tentativas por duas chaves, incremento incondicional (ADR-013) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 7.4–8.0–8.1–8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:
