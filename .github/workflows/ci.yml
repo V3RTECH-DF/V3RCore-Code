@@ -99,3 +99,22 @@ jobs:
 
       - name: Run PHPStan
         run: ./vendor/bin/phpstan analyse --memory-limit=2G --no-progress
+
+  test-js:
+    name: Test (espelho JS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Sem `npm ci`: os testes do espelho JS não têm dependência alguma —
+      # rodam no runner nativo do Node sobre o mesmo conjunto de casos que
+      # a metade PHP (src/Assets/data/email-suggestion-cases.json).
+      - name: Run node --test
+        run: npm test

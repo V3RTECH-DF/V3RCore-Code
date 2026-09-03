@@ -296,6 +296,44 @@ antes do incremento, nunca dentro dele — para o bloqueio não virar oráculo
 de existência de e-mail. Catálogo completo, com exemplos de uso e o que
 continua sendo do produto: `docs/acesso-por-link-temporario.md`.
 
+### ADR-014 — Ativo de front-end da biblioteca mora dentro de `src/`, e o hospedeiro enfileira (V3RCore-Code#23, v0.9.0)
+
+A v3r-core nasceu como biblioteca PHP embutida por Strauss. A promoção do
+sugeridor de domínio de e-mail (#23) forçou a decisão que faltava: **algumas
+peças só entregam valor com uma metade no navegador** — a sugestão aparece
+enquanto a pessoa digita, ou não serve para nada. Distribuir só o PHP entrega
+metade do serviço; deixar o JS em cada plugin faz as duas metades descolarem,
+que é exatamente o que a promoção existe para evitar.
+
+**Decisão, em quatro partes:**
+
+1. **Os ativos moram dentro de `src/`** (`src/Assets/js`, `src/Assets/data`), e
+   não numa pasta irmã na raiz. Não é organização — é mecânica: o Strauss copia
+   para `vendor-prefixed/` o que está sob o caminho do autoload PSR-4 do
+   pacote, **inclusive arquivos que não são PHP**, e ignora o que está fora.
+   Ativo em `assets/` na raiz simplesmente não chega ao plugin empacotado.
+   Verificado executando o Strauss contra um pacote de teste e contra a
+   própria biblioteca: o `.js` e o `.json` chegam intactos (o prefixador não os
+   toca) ao lado do PHP já prefixado.
+2. **A URL é derivada do caminho real do arquivo**, nunca fixa: ela depende de
+   onde o hospedeiro instalou a biblioteca. `Frontend\AssetLocator` resolve via
+   `plugins_url()` a partir do próprio caminho; hospedeiro fora de
+   `wp-content/plugins` (mu-plugin, tema) informa a base no construtor.
+3. **A versão do ativo é a data de modificação do arquivo**, não a versão do
+   plugin — a versão do plugin identifica a release, não o pacote gerado, e já
+   produziu na casa cache servindo o arquivo anterior. Ativo ausente devolve
+   versão nula em vez de uma constante: versão inventada congelaria o cache num
+   arquivo que mudou.
+4. **Nada é enfileirado sozinho.** O `AssetLocator` não registra hook nenhum;
+   quem quer o ativo chama `enqueueScript()`. Plugin que não quer o front não
+   paga nada — a distribuição da biblioteca continua opt-in por desenho.
+
+**Consequência que atravessa as próximas peças:** toda peça com lado de
+navegador segue este caminho, e o par PHP/JS é exercitado por um **conjunto de
+casos compartilhado**, versionado junto do ativo (`src/Assets/data/`), para que
+uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
+
+
 ---
 
 ## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.4.0)

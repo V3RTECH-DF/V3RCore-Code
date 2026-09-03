@@ -658,6 +658,37 @@ rótulo "Licença" sem identificar o produto, indistinguível num site com
 mais de um plugin da casa; **corrigida na v0.5.0** — `Bootstrap::withProductName()`
 nomeia o produto no rótulo e no título, ver §7).
 
+## 7.3 Ativos de front distribuídos pela biblioteca (V3RCore-Code#23, v0.9.0)
+
+Algumas peças da biblioteca têm metade no navegador — hoje a sugestão de
+correção de domínio de e-mail. Os ativos moram **dentro de `src/`**
+(`src/Assets/js`, `src/Assets/data`), e é isso que faz o Strauss copiá-los:
+ele leva para `vendor-prefixed/` o que está sob o caminho do autoload PSR-4 do
+pacote, **inclusive arquivos que não são PHP**, e ignora o que está fora. O
+prefixador não toca no conteúdo do `.js` — ele chega idêntico ao original.
+(Verificado executando; ver ADR-014 em `docs/ARCHITECTURE.md`.)
+
+Nada é enfileirado sozinho — o hospedeiro pede:
+
+```php
+use V3RTECH\MeuPlugin\Vendor\V3R\Core\Frontend\AssetLocator;
+
+$assets = new AssetLocator();
+$assets->enqueueScript( 'meuplugin-email-suggestion', 'js/email-suggestion.js' );
+```
+
+A URL sai do caminho real do arquivo (`plugins_url()`), então funciona
+qualquer que seja o diretório em que o plugin instalou a biblioteca. A versão
+do script é a **data de modificação do arquivo**, não a versão do plugin — é o
+que evita cache servindo o arquivo anterior depois de um build.
+
+⚠️ Plugin instalado fora de `wp-content/plugins` (mu-plugin, tema) precisa
+informar a base no construtor: `new AssetLocator( $urlBaseDosAssets )`.
+
+⚠️ Como todo o resto da integração, isto vai sob `class_exists()` — depois de
+um `composer install` limpo, `vendor-prefixed/` pode não existir ainda (§3,
+§7).
+
 ## 8. Configuração de produção: URL e chave pública via constantes
 
 > **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,

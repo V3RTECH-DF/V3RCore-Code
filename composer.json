@@ -47,10 +47,12 @@
         "lint": "phpcs",
         "analyse": "phpstan analyse --memory-limit=1G",
         "test": "phpunit",
+        "test:js": "node --test \"tests/js/**/*.test.js\"",
         "check": [
             "@lint",
             "@analyse",
-            "@test"
+            "@test",
+            "@test:js"
         ]
     }
 }

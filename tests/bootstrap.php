@@ -141,6 +141,7 @@ require_once __DIR__ . '/Support/CapabilityFunctionStubs.php';
 // (rótulo do menu por produto, V3RCore-Code#11) sem WordPress carregado.
 // Ver o docblock do próprio arquivo.
 require_once __DIR__ . '/Support/AdminMenuFunctionStubs.php';
+require_once __DIR__ . '/Support/FrontendAssetFunctionStubs.php';
 
 // Stub de get_file_data(), só para testar Support\PluginVersion::resolve()
 // (v3rtech-scripts#32) sem WordPress carregado. Ver o docblock do próprio
