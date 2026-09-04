@@ -2,6 +2,58 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.9.0] — 2026-09-03
+
+### Adicionado
+- **`Support\EmailSuggestion` — sugestão de correção de domínio de e-mail,
+  promovida do V3REvent (V3REvent-Code#157, v1.76.0; #23).** `defaultDomains()`
+  devolve uma lista embutida de 13 domínios comuns no Brasil; `suggest(string
+  $email, array $knownDomains): ?string` compara o domínio digitado contra a
+  lista e devolve a correção provável, ou `null`. Regra inegociável: **sugere,
+  nunca bloqueia** — quem chama nunca troca o valor sozinho. Validação
+  agressiva rejeitaria endereço legítimo e impediria o cadastro, erro pior que
+  o que se corrige. Diferença em relação à origem: a biblioteca não aplica
+  filtro do WordPress (o hook é do produto) — entrega a lista de domínios e
+  recebe de volta a lista já resolvida pelo chamador.
+- **`src/Assets/js/email-suggestion.js` — espelho no navegador** (UMD, global
+  `V3RCoreEmailSuggestion`, sem DOM e sem jQuery). É a metade com valor real
+  da peça: a sugestão aparece enquanto a pessoa digita, não só depois do
+  envio do formulário.
+- **`src/Assets/data/email-suggestion-cases.json`** — 34 casos exercitados
+  pelas duas implementações (PHP e JS), mais o teste que prende
+  `dominiosPadrao` (do conjunto) a `defaultDomains()` (do núcleo PHP). É o que impede as duas
+  metades de descolarem: uma correção aplicada em só um lado quebra o outro
+  no mesmo commit.
+- **`Frontend\AssetLocator` — capacidade nova da biblioteca: distribuir ativo
+  de front-end** (ADR-014). Quatro decisões: os ativos moram dentro de `src/`
+  porque o Strauss só copia para o pacote empacotado o que está sob o
+  autoload PSR-4 do pacote (inclusive arquivo não-PHP), e ignora o que está
+  fora — verificado executando o Strauss, não suposto; a URL é derivada do
+  caminho real do arquivo via `plugins_url()`, com base explícita opcional
+  para hospedeiro fora de `wp-content/plugins` (mu-plugin, tema); a versão do
+  ativo é a data de modificação do arquivo, não a versão do plugin — a versão
+  do plugin identifica a release, não o pacote gerado, e já produziu na casa
+  cache servindo arquivo anterior; e nada é enfileirado sozinho — só quando o
+  hospedeiro chama `enqueueScript()`, preservando o opt-in da distribuição.
+- **Infraestrutura de teste JS**: `package.json` sem dependências (runner
+  nativo `node --test`), `tests/js/`, script `composer test:js`, alvo `make
+  test-js`, `make check` passa a rodar os dois, e job `test-js` no CI.
+- Dois achados corrigidos em relação à implementação de origem, ambos com
+  teste: a calibração do limiar pelo comprimento do rótulo **não** separa
+  vizinhos que distam uma edição (`uol`/`bol`/`aol`/`sol`) — quem separa é a
+  exclusão desses domínios da lista padrão, e são duas guardas distintas que
+  o comentário de origem fundia; e a guarda "domínio já exato na lista nunca
+  sugere" era redundante com a lista padrão (nenhum par dela dista ≤2) e por
+  isso não tinha teste que a prendesse — agora tem, com lista estendida, que
+  é quando ela passa a valer.
+- Catálogo do componente: `docs/sugestao-de-dominio-de-email.md`. Receita de
+  integração ganhou a §7.3 (`docs/integracao-em-plugin.md`).
+- Suíte: 250 testes PHPUnit (535 asserções) + 40 testes no espelho JS, todos
+  verdes.
+- Consumidor: o V3REvent passa a consumir pela biblioteca fixando `^0.9.0`, substituindo a cópia local de `Core\Support\EmailSuggestion` e do espelho JS — migração ainda não feita neste commit.
+- Migração retrocompatível — MINOR, não MAJOR: só acréscimo de namespace,
+  classes e infraestrutura de teste; nenhuma API existente muda.
+
 ## [0.8.0] — 2026-09-03
 
 ### Adicionado
