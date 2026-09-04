@@ -1,0 +1,100 @@
+{
+  "descricao": "Casos compartilhados do sugeridor de correção de domínio de e-mail (V3RCore-Code#23). Exercitados PELAS DUAS metades — Support\\EmailSuggestion (PHP) e Assets/js/email-suggestion.js — para que servidor e navegador não descolem. Caso sem 'dominios' usa 'dominiosPadrao', que precisa ser idêntico a EmailSuggestion::defaultDomains().",
+  "dominiosPadrao": [
+    "gmail.com",
+    "hotmail.com",
+    "hotmail.com.br",
+    "outlook.com",
+    "outlook.com.br",
+    "yahoo.com",
+    "yahoo.com.br",
+    "live.com",
+    "live.com.br",
+    "icloud.com",
+    "terra.com.br",
+    "globo.com",
+    "globomail.com"
+  ],
+  "casos": [
+    { "grupo": "sugere", "nome": "extensão trocada", "email": "fulano@gmail.con", "esperado": "fulano@gmail.com" },
+    { "grupo": "sugere", "nome": "transposição no rótulo", "email": "fulano@gmial.com", "esperado": "fulano@gmail.com" },
+    { "grupo": "sugere", "nome": "transposição em rótulo longo", "email": "fulano@hotmial.com", "esperado": "fulano@hotmail.com" },
+    { "grupo": "sugere", "nome": "letra faltando", "email": "fulano@outlok.com", "esperado": "fulano@outlook.com" },
+    { "grupo": "sugere", "nome": "letra faltando em rótulo curto", "email": "fulano@yaho.com", "esperado": "fulano@yahoo.com" },
+    { "grupo": "sugere", "nome": "sufixo com letra a mais", "email": "fulano@gmail.como", "esperado": "fulano@gmail.com" },
+    { "grupo": "sugere", "nome": "preserva a parte local inteira", "email": "joao.silva+teste@gmail.con", "esperado": "joao.silva+teste@gmail.com" },
+    { "grupo": "sugere", "nome": "domínio digitado em maiúsculas", "email": "fulano@GMAIL.CON", "esperado": "fulano@gmail.com" },
+    { "grupo": "sugere", "nome": "espaços em volta do endereço", "email": "  fulano@gmail.con  ", "esperado": "fulano@gmail.com" },
+
+    { "grupo": "ja-correto", "nome": "domínio exato da lista", "email": "fulano@gmail.com", "esperado": null },
+    { "grupo": "ja-correto", "nome": "domínio exato com sufixo br", "email": "fulano@hotmail.com.br", "esperado": null },
+    { "grupo": "ja-correto", "nome": "exato, mas perto de outro da lista", "email": "fulano@live.com", "esperado": null },
+
+    {
+      "grupo": "ja-correto",
+      "nome": "exato na lista, com vizinho a uma edição DEPOIS dele",
+      "email": "fulano@aaab.com",
+      "dominios": ["aaab.com", "aaac.com"],
+      "esperado": null
+    },
+    {
+      "grupo": "ja-correto",
+      "nome": "exato na lista, com vizinho a uma edição ANTES dele",
+      "email": "fulano@aaab.com",
+      "dominios": ["aaac.com", "aaab.com"],
+      "esperado": null
+    },
+
+    { "grupo": "falso-positivo", "nome": "domínio próprio .adv.br", "email": "fulano@dominioproprio.adv.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "domínio corporativo", "email": "contato@v3rtech.com.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "subdomínio de universidade", "email": "aluno@alunos.ufrj.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "órgão público", "email": "servidor@fazenda.gov.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "provedor regional", "email": "fulano@click21.com.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "extensão nova", "email": "contato@minhamarca.tech", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "rótulo curto fora do padrão (uol)", "email": "fulano@uol.com.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "rótulo curto parecido com outro (sol)", "email": "fulano@sol.com.br", "esperado": null },
+    { "grupo": "falso-positivo", "nome": "rótulo curto vizinho (bol)", "email": "fulano@bol.com.br", "esperado": null },
+
+    { "grupo": "formato", "nome": "sem arroba", "email": "fulanogmail.com", "esperado": null },
+    { "grupo": "formato", "nome": "domínio sem ponto", "email": "fulano@localhost", "esperado": null },
+    { "grupo": "formato", "nome": "string vazia", "email": "", "esperado": null },
+    { "grupo": "formato", "nome": "só o arroba", "email": "@", "esperado": null },
+    { "grupo": "formato", "nome": "parte local vazia", "email": "@gmail.con", "esperado": null },
+    { "grupo": "formato", "nome": "domínio vazio", "email": "fulano@", "esperado": null },
+
+    {
+      "grupo": "lista-estendida",
+      "nome": "domínio local acrescentado passa a ser reconhecido",
+      "email": "fulano@minhaempresa.con.br",
+      "dominios": ["gmail.com", "minhaempresa.com.br"],
+      "esperado": "fulano@minhaempresa.com.br"
+    },
+    {
+      "grupo": "lista-estendida",
+      "nome": "o mesmo erro não sugere nada sem o domínio na lista",
+      "email": "fulano@minhaempresa.con.br",
+      "esperado": null
+    },
+    {
+      "grupo": "lista-estendida",
+      "nome": "lista vazia nunca sugere",
+      "email": "fulano@gmail.con",
+      "dominios": [],
+      "esperado": null
+    },
+    {
+      "grupo": "lista-estendida",
+      "nome": "entradas vazias na lista são ignoradas sem quebrar",
+      "email": "fulano@gmail.con",
+      "dominios": ["", "   ", "gmail.com"],
+      "esperado": "fulano@gmail.com"
+    },
+    {
+      "grupo": "lista-estendida",
+      "nome": "empate de distância resolve pelo primeiro da lista",
+      "email": "fulano@aaaa.com",
+      "dominios": ["aaab.com", "aaac.com"],
+      "esperado": "fulano@aaab.com"
+    }
+  ]
+}
