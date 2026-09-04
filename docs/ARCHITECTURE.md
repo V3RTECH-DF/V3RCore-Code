@@ -340,8 +340,10 @@ uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
 
 > Estado em 26/08/2026, atualizado em 27/08/2026 (v0.4.0: `Licensing\CapabilityGate`,
 > ADR-012/#12; v0.3.1: fixes #8/#10, repositório público), em 03/09/2026
-> (v0.8.0: namespace novo `V3R\Core\Access\`, ADR-013/#24) e em 03/09/2026
-> (v0.9.0: `Support\EmailSuggestion` e `Frontend\AssetLocator`, ADR-014/#23).
+> (v0.8.0: namespace novo `V3R\Core\Access\`, ADR-013/#24), em 03/09/2026
+> (v0.9.0: `Support\EmailSuggestion` e `Frontend\AssetLocator`, ADR-014/#23)
+> e em 04/09/2026 (v0.10.0: namespace novo `V3R\Core\Documents\`, `Cnpj` e
+> `Cpf`, #22).
 > Fatia 2 (issue #3) concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -366,6 +368,8 @@ uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
 | `Access\AttemptLimiter` | Limite de tentativas por duas chaves, incremento incondicional (ADR-013) | completo |
 | `Support\EmailSuggestion` | Sugestão de correção de domínio de e-mail (nunca bloqueia), promovida do V3REvent (ADR-014) | completo |
 | `Frontend\AssetLocator` | Distribuição de ativo de front-end da biblioteca (URL e versão derivadas do arquivo, opt-in) (ADR-014) | completo |
+| `Documents\Cnpj` | Validação de CNPJ numérico e alfanumérico (`normalize()`/`isValid()`/`format()`), promovida de quatro cópias (#22) | completo |
+| `Documents\Cpf` | Validação de CPF, mesma API de `Documents\Cnpj` (#22) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 7.4–8.0–8.1–8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:

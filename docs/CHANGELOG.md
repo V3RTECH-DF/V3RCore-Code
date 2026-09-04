@@ -2,6 +2,59 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.10.0] — 2026-09-04
+
+### Adicionado
+- **Namespace novo `V3R\Core\Documents\` — `Cnpj` e `Cpf`, promovidos de
+  quatro cópias na casa** (GE Associados, V3REvent, V3RLGPD, RIT360 Flow; o
+  RIT360 Solidário tinha a sua de CPF; #22). Classes puras, sem WordPress,
+  com a mesma API nas duas: `normalize()`, `isValid()`, `format()`. Divergir
+  no dialeto entre elas reintroduziria dentro da biblioteca a diferença que
+  a promoção veio eliminar. Motivo da promoção: o CNPJ alfanumérico muda a
+  regra de formação, e cada cópia era uma chance de ficar para trás e passar
+  a recusar CNPJ válido (ou aceitar inválido) calada, num campo que alimenta
+  documento com validade jurídica.
+- **CNPJ alfanumérico** (regra da Receita Federal, produção a partir de
+  julho de 2026): as 12 primeiras posições aceitam `0-9` e `A-Z`, os dois
+  dígitos verificadores continuam numéricos, máscara inalterada. O DV é
+  módulo 11 com os pesos clássicos sobre `ASCII(c) - 48` (`0-9` → 0-9, `A-Z`
+  → 17-42); como para dígito esse valor é o próprio dígito, o CNPJ numérico
+  é caso particular do alfanumérico — uma implementação valida os dois, e a
+  retrocompatibilidade é por construção, sem ramo separado que possa ficar
+  para trás.
+- A biblioteca entrega a regra, não o modelo: quem tem objeto-valor no
+  próprio domínio (GE Associados, com `from()`/`equals()`) mantém a classe e
+  passa a delegar só a validação — não precisa reescrever domínio para
+  consumir.
+- Três decisões de comportamento registradas em
+  `docs/documentos-cnpj-cpf.md`: (a) "todos os caracteres iguais" é
+  recusado — convenção da casa, não regra da Receita, e por construção não
+  alcança alfanumérico legítimo, já que os verificadores numéricos impedem
+  que um CNPJ com letra tenha os 14 caracteres iguais; (b) `format()` de
+  entrada incompleta devolve o normalizado, nunca o texto cru — **única
+  mudança de comportamento da migração**, porque a cópia de CPF do RIT360
+  Solidário devolvia a entrada original; (c) a normalização remove o que não
+  é dígito/letra em vez de recusar a entrada — herdado das quatro cópias,
+  mantido de propósito, e o preço é aceitar caractere grudado.
+- Comparação das quatro cópias antes da promoção, pelo risco de divergirem
+  (exigida pela issue): 200 mil entradas (aleatórias, documentos válidos
+  gerados e vizinhos com um caractere trocado) passadas pelas quatro
+  implementações e pela nova — zero divergências de validade. O que
+  divergia era a forma da API (objeto-valor vs. estático; `is_valid` vs.
+  `isValid`) e o `format()` citado acima. O risco registrado na issue era
+  prospectivo, não uma divergência já instalada.
+- Testes: vetores oficiais do documento da Receita (`12.ABC.345/01DE-35`,
+  com o cálculo demonstrado passo a passo, e `12.345.678/0001-95`), mais
+  vetores de borda do módulo 11 com resto 0 e resto 1 para cada
+  verificador — sem o caso de resto 1, `resto < 2` e `resto === 0` são
+  indistinguíveis e a versão errada recusa calada um documento legítimo.
+  Suíte: 304 testes PHPUnit (646 asserções) + 40 no espelho JS, verdes.
+- Catálogo do componente: `docs/documentos-cnpj-cpf.md`.
+- Consumidor imediato: RIT360 Flow (formulário público de cadastro de
+  organizações), que deixa de criar a quinta cópia.
+- Migração retrocompatível — MINOR, não MAJOR: só acréscimo de namespace e
+  classes; nenhuma API existente muda.
+
 ## [0.9.0] — 2026-09-03
 
 ### Adicionado
