@@ -356,7 +356,8 @@ inválido dela, `isAvailable()` responde falso — o cofre recusa cifrar ou
 decifrar, nunca grava a senha em texto claro como alternativa. Cabe ao
 plugin hospedeiro gerar essa chave por site (ex.:
 `base64_encode(random_bytes(32))`) e orientar o administrador a configurá-la
-— ver `docs/integracao-em-plugin.md` §7.4.
+— ver `docs/integracao-em-plugin.md` §7.4. Catálogo completo do namespace
+`Signing\`: `docs/assinatura-com-certificado.md`.
 
 **Por que isto não contradiz a recusa de cifrar documentos em repouso no
 RIT360 Flow:** perder esta chave é degradação **recuperável**, não perda
