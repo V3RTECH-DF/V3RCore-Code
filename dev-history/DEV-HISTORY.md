@@ -1,5 +1,77 @@
 # Histórico de Desenvolvimento — V3RCore
 
+## 2026-09-03/04 — Três promoções seguidas: v0.8.0, v0.9.0 e v0.10.0
+
+### Contexto
+Três peças que já existiam duplicadas nos produtos subiram para a
+biblioteca, cada uma com um consumidor esperando. O fio comum das três
+foi o critério de corte: **sobe a regra, não o modelo**.
+
+### v0.8.0 — Acesso por link temporário (#24)
+`Access\AccessToken` (32 bytes em base64url, texto puro efêmero, só o
+sha256 persistido, comparação por `hash_equals`) e `Access\AttemptLimiter`
+(duas chaves, janela deslizante, teto configurável).
+
+Fora de escopo de propósito: serviço de link inteiro, sessão, tabela e
+consumo atômico. RIT360 Solidário e V3REvent discordam no modelo de
+identidade — lá a sessão carrega uma pessoa, aqui um conjunto —, e
+generalizar a partir dessa divergência produziria a abstração errada.
+
+**A decisão que virou estrutura:** o limitador não expõe `check()`
+separado. `registerAttempt()` decide e incrementa numa chamada, sempre —
+com dois métodos públicos, o ponto de chamada pode incrementar dentro do
+`if` e transformar o bloqueio em oráculo de existência de e-mail. Duas
+assimetrias que a versão de origem tinha foram fechadas na extração: o
+curto-circuito na leitura dos contadores (que fazia uma tentativa
+recusada ler uma chave a menos que uma permitida) e a falta de teste
+prendendo o incremento.
+
+⚠️ **Critério de aceite 3 da issue não é cumprível dentro desta
+fronteira:** uso único sob corrida depende do UPDATE condicional sobre a
+tabela, que é do produto. O teste concorrente é de cada consumidor.
+
+### v0.9.0 — Sugestão de domínio de e-mail, e a convenção de ativo de front (#23)
+`Support\EmailSuggestion` (núcleo puro, sem hook de produto), o espelho
+JS em `src/Assets/js/`, e 34 casos compartilhados em
+`src/Assets/data/email-suggestion-cases.json` exercitados pelas duas
+metades — é o que impede navegador e servidor de descolarem.
+
+A decisão de arquitetura que veio junto (ADR-014) vale mais que a peça:
+**onde mora ativo de front na biblioteca**. Medido executando o Strauss —
+ele copia o que está sob o autoload PSR-4, inclusive não-PHP, e ignora o
+resto; ativo em `assets/` na raiz não chegaria ao plugin empacotado.
+
+Dois defeitos de racional corrigidos em relação à origem: a calibração do
+limiar **não** separa vizinhos que distam uma edição (`uol`/`bol`/`aol`/
+`sol`) — quem separa é a exclusão deles da lista padrão, guarda distinta;
+e a guarda "domínio já exato nunca sugere" era redundante com a lista
+padrão e por isso não tinha teste que a prendesse.
+
+### v0.10.0 — CNPJ e CPF (#22)
+`Documents\Cnpj` e `Documents\Cpf`, com CNPJ alfanumérico. Vetores
+oficiais da Receita na suíte, mais vetores de borda do módulo 11 com
+resto 0 **e resto 1** para cada verificador — lacuna que as quatro cópias
+da casa tinham em comum, e sem a qual `resto < 2` e `resto === 0` são
+indistinguíveis.
+
+### Premissa que caiu
+A #22 previa que as cópias pudessem discordar em borda e normalização, e
+que unificar sem olhar faria a mais restritiva vencer em silêncio.
+**Medido: 200 mil entradas pelas quatro implementações e pela nova, zero
+divergências de validade.** O que divergia era a forma da API — e o
+`Cpf::format()` do RIT360 Solidário, que devolvia a entrada crua em vez
+do normalizado. A biblioteca adotou o normalizado (decisão do Bruno,
+05/09), e é o único ponto em que o Solidário muda ao migrar.
+
+### Descartado
+**Enriquecimento de cadastro por CNPJ** (consulta a serviço público para
+preencher razão social e endereço), levantado pela sessão do RIT360 Flow:
+não existe em nenhum plugin da casa, e o Bruno pesquisou as APIs
+disponíveis e concluiu que o esforço não paga o benefício. Não nasce na
+biblioteca nem no produto — avaliado e recusado, não esquecido.
+
+---
+
 ## 2026-08-27 — v0.3.1, repositório público, segundo plugin integrado (V3REvent)
 
 ### Contexto
