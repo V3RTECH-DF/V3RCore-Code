@@ -2,7 +2,8 @@
 
 > Catálogo do namespace `V3R\Core\Signing\`, promovido em `V3RCore-Code#27` e
 > corrigido em `V3RCore-Code#28`. Disponível a partir da tag `v0.11.0`
-> (correção de `issue()`/`seal()` na `v0.12.0`).
+> (correção de `issue()`/`seal()` na `v0.12.0`; leitor de certificado na
+> `v0.13.0`, `#29`).
 
 ## 1. Por que a peça existe
 
@@ -159,6 +160,47 @@ código, que torna o código verificável de verdade: quem só olha o documento
 não reproduz o código, e quem só tem o código não aprende nada sobre o
 documento sem consultar o registro.
 
+### 3.4 Leitor de certificado
+
+`SigningModeResolver::decide()` já recebia `?DateTimeImmutable $expiresAt`
+como fato apurado desde a v0.11.0 — mas até a `v0.12.0` **nada na
+biblioteca apurava esse fato**. Quem chamava tinha de abrir o PKCS#12 por
+conta própria, ou copiar a lógica de quem já tinha feito isso, para
+responder à pergunta que a própria biblioteca faz. `CertificateInspector`
+(`#29`, promovido do RIT360 Flow) fecha essa lacuna.
+
+```php
+use V3R\Core\Signing\CertificateInspector;
+use V3R\Core\Signing\SigningModeResolver;
+
+$inspector  = new CertificateInspector();
+$inspection = $inspector->inspect( $material ); // o mesmo CertificateMaterial de SignerInterface::sign()
+
+$decision = SigningModeResolver::decide(
+    hasCertificateFile: true,
+    expiresAt: $inspection->expiresAt(),
+    now: new DateTimeImmutable(),
+);
+
+$titular = $inspection->subject(); // CertificateSubject|null
+```
+
+`inspect()` é o único ponto da biblioteca que chama
+`openssl_pkcs12_read()` — a mesma abertura confirma duas coisas de uma
+vez: que a senha bate (senão a extensão recusa abrir) e que o conteúdo é
+mesmo um certificado com chave privada. O resultado, `CertificateInspection`
+(`expiresAt()` + `subject()`), segue o dialeto que o módulo já usa para
+resultado de operação (`AuthenticityVerification`) e alimenta
+`SigningModeResolver::decide()` sem tradução no meio.
+
+`CertificateSubject` é o titular lido do certificado: nome, tipo e
+dígitos do documento (CNPJ ou CPF), emissor, e se a identidade é
+`isAttested()` ou apenas declarada. `maskedDocument()` é o único acessor
+pensado para exibição — CNPJ sai inteiro e formatado, delegando a
+`Documents\Cnpj::format()` (nunca reimplementa a máscara); CPF sai
+mascarado (`***.982.247-**`). Os dígitos crus, em `documentDigits()`,
+existem para persistência, nunca para tela, log ou URL.
+
 ## 4. A ordem emitir → imprimir → selar
 
 **Esta é a parte mais importante para quem for consumir.** O código de
@@ -226,7 +268,7 @@ recebeu o documento —, duas guardas são do consumidor, não da biblioteca:
 
 ## 5. Decisões de comportamento
 
-Quatro escolhas que quem consome precisa conhecer, cada uma com o porquê:
+Sete escolhas que quem consome precisa conhecer, cada uma com o porquê:
 
 1. **Degradação é sempre conservadora, nunca o contrário.** Qualquer
    incerteza sobre o certificado (sem arquivo, validade desconhecida,
@@ -267,6 +309,49 @@ Quatro escolhas que quem consome precisa conhecer, cada uma com o porquê:
    tinha o campo, porque a versão antiga exigia o arquivo em `issue()` —
    continua lendo exatamente como antes: a mudança é aditiva na leitura,
    mesmo mudando a API de escrita.
+
+5. **Sem validade reconhecida no certificado, `CertificateInspection::expiresAt()`
+   é sempre `null` — nunca uma data inventada** (`#29`). Campo ausente,
+   ilegível, ou a extensão `openssl` indisponível no ambiente: todos caem
+   no mesmo `null`. É esse `null` que faz `SigningModeResolver::decide()`
+   cair em `SigningModeReason::SEM_VALIDADE_CONHECIDA` — degradar com
+   honestidade, nunca chutar uma validade que o certificado não confirmou.
+
+6. **`subjectAltName` não é usada para extrair o documento do titular**
+   (`#29`). É onde a ICP-Brasil guarda CPF/CNPJ de forma canônica, mas
+   dentro de um `othername` com OID próprio que o PHP não decodifica
+   (aparece como `othername:<unsupported>`); varrer aquele bloco atrás de
+   uma sequência de 11 dígitos pegaria o NIS ou o RG do responsável no
+   lugar do CPF do titular — documento errado impresso é pior que nenhum.
+   As fontes usadas são, nesta ordem: o nome comum no formato
+   `NOME:DOCUMENTO` (`RIT:12345678000195`) e, quando ele não traz o
+   documento, `serialNumber`/`organizationIdentifier` — só aceitos como
+   campo **inteiro**, com exatamente 11 ou 14 dígitos, nunca um trecho
+   extraído de uma cadeia maior.
+
+7. **"Atestado" significa "não autoassinado", não "emitido pela
+   ICP-Brasil"** (`#29`). Um certificado emitido por autoridade
+   certificadora teve o nome do titular conferido por alguém antes de
+   virar certificado; um autoassinado só tem o que quem gerou o arquivo
+   digitou, e fabricar um `CN=RIT:12345678000195` autoassinado é trivial.
+   Restringir a uma lista de emissores confiáveis da ICP-Brasil exigiria
+   essa lista, e é decisão de produto que não foi tomada aqui — um
+   certificado de AC privada conta como atestado do mesmo jeito. Emissor
+   ausente ou ilegível é tratado como declarado (`isAttested() === false`),
+   o lado conservador.
+
+## 5.1 A extensão `openssl` é sugerida, nunca exigida
+
+`ext-openssl` **não** entra no `require` do `composer.json` — entraria no
+pacote de todo plugin que carrega a v3r-core, e boa parte deles nunca
+assina documento; quebrar a instalação desses por uma dependência que não
+usam não compensa. Ela vive em `suggest`, e `CertificateInspector`
+verifica a disponibilidade em tempo de execução: sem a extensão,
+`inspect()` devolve `CertificateInspection::failure()` — o mesmo caminho
+degradado de qualquer outra causa de "não deu para ler o certificado",
+nunca um erro fatal. Quem consome precisa saber que esse caminho existe e
+é o comportamento pretendido: um site sem `openssl` não quebra ao tentar
+assinar, apenas cai para `SigningMode::REGISTRO_ELETRONICO`.
 
 ## 6. Chave do cofre — por que não é como a de licenciamento
 
