@@ -11,16 +11,32 @@ que se usa tudo isto no dia a dia.
 
 | Script | Para que serve |
 |---|---|
-| `sync-all.sh` | Orquestrador. Liga só as etapas cujo script existe aqui. |
+| `sync-all.sh` | Orquestrador. Liga só as etapas cujo script existe aqui, na ordem canônica abaixo. |
 | `config.sh` | Caminhos, repositórios, token, domínio do manual. Ponto único. |
 | `git-safe.sh` | **Atalho** para `v3rtech-scripts/lib/git-safe.sh`, a camada que nunca descarta trabalho. Usado pelos sync-*. |
 | `sync-code.sh` | Envia o repositório do código (quando o código é nosso). |
 | `pull-code.sh` | Traz o espelho somente-leitura do código (quando é do Lovable). |
+| `sync-tag.sh` | Publica a tag da versão corrente (`git describe --tags` a partir de HEAD) — nunca cria tag, nunca força, e só publica quando o servidor já tem o commit por trás (#30). |
 | `sync-project.sh` | Envia documentação, decisões e backlog. |
 | `publish-manual.sh` | Publica o manual do usuário no GitHub Pages. |
 
 `sync-code.sh` e `pull-code.sh` são excludentes: o código é nosso **ou** é
 espelho, nunca os dois. O `sync-all.sh` usa o que encontrar.
+
+## Ordem canônica da cadeia (`sync-all.sh -a`)
+
+1. `sync-code` (ou `pull-code`) — código primeiro: o que vai para produção é
+   o que está registrado no repositório, nunca uma versão só local.
+2. `sync-tag` — publica a tag, **só depois** do código já estar no servidor
+   (senão não há commit para a tag apontar).
+3. `sync-project` — docs, decisões e backlog.
+4. `sync-local` — espelha o plugin no WordPress local (DEV).
+5. `build-zip` — gera o ZIP instalável em `dist/`.
+6. `publish-manual` — publica o manual do usuário.
+7. `deploy` — atualiza os sites de PRODUÇÃO (pede confirmação).
+
+A ordem vem do cabeçalho de `sync-all.sh`, que é a fonte de verdade — releia
+lá se este README e o script divergirem.
 
 ⚠️ **Dependência externa assumida:** o `git-safe.sh` daqui só procura a
 biblioteca; o conteúdo vive no `v3rtech-scripts`. É de propósito — sete cópias

@@ -1,5 +1,94 @@
 # Histórico de Desenvolvimento — V3RCore
 
+## 2026-09-05 — v0.12.0, v0.13.0 e a publicação de tag no sync-all
+
+### Contexto
+Sessão de continuação do módulo `Signing\` (v0.11.0, dia anterior): duas
+correções no código de autenticidade e a promoção do leitor de certificado
+do RIT360 Flow, mais um passo novo na cadeia de sincronização do container.
+
+### v0.12.0 — emitir e selar em dois momentos (#28)
+`AuthenticityRegistry::issue()` exigia o arquivo final para calcular o
+resumo, mas o código de autenticidade é impresso *dentro* do documento —
+no instante da emissão, o arquivo final ainda não existe. Quem chamava
+era obrigado a selar um artefato intermediário sem o código impresso, e o
+resumo gravado nunca batia com o que a pessoa recebia depois:
+`verifyFile()` respondia "documento adulterado" sobre documentos íntegros.
+`issue( $mode )` passou a só sortear o código e gravar um registro sem
+resumo; `seal( $code, $absoluteFilePath )` recebe o arquivo já pronto (com
+o código já impresso) e calcula o resumo depois. Terceiro estado em
+`AuthenticityVerification` (`isAwaitingSeal()`) para registro emitido e
+ainda não selado, que nunca pode cair em `wasTampered() === true`.
+
+**A janela que fechava sozinha, e por que a ordem não era negociável.**
+Levantamento com a sessão do RIT360 Flow: todo registro emitido até então
+tinha sido selado com o resumo do artefato intermediário — não do PDF
+entregue. Depois da correção, esses registros não caem no estado novo
+"emitido e não selado" (são registros **selados**, com resumo que nunca
+vai bater); para eles `verifyFile()` continuaria acusando adulteração de
+documento íntegro, e a recusa deliberada de selar com resumo diferente
+(que é o que impede corromper um registro já selado) é exatamente o que
+impossibilita corrigi-los depois. A correção só valia enquanto nenhum
+documento real tivesse sido emitido — e o Flow ainda não tinha implantado
+a assinatura em produção. Registros de teste se apagam; documento real
+assinado teria tornado o defeito permanente.
+
+### v0.13.0 — leitor de certificado promovido do RIT360 Flow (#29)
+`Signing\CertificateInspector::inspect()` é o único ponto que chama
+`openssl_pkcs12_read()` — a mesma abertura confirma que a senha bate e que
+o conteúdo é certificado com chave privada — e devolve
+`CertificateInspection` (validade + `CertificateSubject`, que alimenta
+`SigningModeResolver::decide()` direto). Três decisões conservadoras do
+Flow vieram junto, deliberadamente: validade não reconhecida nunca vira
+data inventada (`null`, que leva a `SEM_VALIDADE_CONHECIDA`);
+`subjectAltName` não é fonte de documento (o PHP não decodifica o
+`othername` da ICP-Brasil, e varrer aquele bloco pegaria NIS/RG no lugar
+do CPF); e "atestado" significa não autoassinado, não "emitido pela
+ICP-Brasil" (restringir exigiria lista de emissores confiáveis, decisão de
+produto não tomada). `ext-openssl` entrou só em `suggest`, nunca em
+`require` — ausência degrada para validade nula, nunca falha.
+
+**Por que o registro de autenticidade continua mínimo, sem guardar o
+titular do certificado.** `CertificateSubject` agora sabe extrair nome,
+tipo e documento (CNPJ/CPF) de quem assinou — mas `AuthenticityRecord`
+(o que fica gravado por `issue()`/`seal()`) não ganhou um campo para isso,
+de propósito. Duas razões: a rota de conferência é pública e sem
+autenticação por design (é o próprio ponto do código — ser conferido por
+quem recebeu o documento), então qualquer dado do titular exposto ali
+vaza para qualquer um que peça o código, não só para quem tem o
+documento em mãos; e a distinção pessoa jurídica/pessoa física que a
+extração faz falha justamente nos casos mais comuns de titular
+individual — MEI e CNPJ com o responsável no nome comum do certificado,
+onde o "titular" formal (a pessoa) e o "titular" do documento (a empresa)
+não são a mesma coisa e a extração não tem como escolher com segurança
+qual dos dois é o que deveria aparecer numa página pública. Guardar
+errado numa rota que qualquer um acessa é pior que não guardar.
+
+### #30 — sync-all passa a publicar tag
+`git_safe_publish_tag` entrou na biblioteca compartilhada
+`v3rtech-scripts/lib/git-safe.sh` — não em `bin/` deste projeto — pelo
+mesmo motivo que todo o resto de `git-safe.sh` mora lá: o cabeçalho do
+`bin/git-safe.sh` (mero atalho de busca) documenta que até 08/2026 havia
+sete cópias idênticas da camada de segurança de git, uma por projeto, e
+corrigir uma falha exigia lembrar das outras seis — o que não acontecia
+na prática (duas correções, em datas diferentes, ficaram presas ao
+projeto onde nasceram). Publicar tag é a mesma categoria de lógica
+(nunca força, nunca sobrescreve o alvo de uma tag que o servidor já
+publicou) que as outras operações de git-safe já cobrem; separá-la num
+script local teria recriado o problema que a unificação resolveu, desta
+vez para uma peça nova. `bin/sync-tag.sh` só invoca a função; o passo
+entrou no `sync-all.sh` logo depois do `sync-code`, porque uma tag só faz
+sentido depois de o commit que ela aponta já estar no servidor.
+
+### Pendente para o próximo ciclo
+- RIT360 Flow trocar a implementação local de `CertificateInspector`/
+  `CertificateSubject` por fachada sobre esta peça (fora do escopo desta
+  entrega).
+- RIT360 Flow decidir quando implantar a assinatura em produção, agora
+  que a janela do #28 está fechada.
+
+---
+
 ## 2026-09-03/04 — Três promoções seguidas: v0.8.0, v0.9.0 e v0.10.0
 
 ### Contexto

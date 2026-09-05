@@ -96,13 +96,23 @@ reprefixação em dois níveis).
 
 ```
 src/
-  Bootstrap.php            — ponto de entrada único
+  Bootstrap.php             — ponto de entrada único
   Licensing/                — ativação, validação, cache, assinatura
   Updater/                  — encapsula o Plugin Update Checker + UpdateGate
   Support/                  — SiteIdentity, Logger, mascaramento de chave
+  Rest/                     — rotas REST internas de licenciamento
+  Access/                   — token de acesso por link temporário e limitador de tentativas
+  Documents/                — validação/formatação de CNPJ e CPF (alfanumérico incluído)
+  Notification/             — despacho de mensagem multi-canal (hoje: e-mail)
+  Frontend/                 — localizador de ativo de front (JS/CSS) empacotado com o Strauss
+  Assets/                   — ativos de front e dados compartilhados entre PHP e JS
+  Signing/                  — assinatura de documentos com certificado: código de
+                              autenticidade (emitir/selar), leitura do PKCS#12
+                              (validade e titular) e decisão de modo de assinatura
 docs/
-  api-contract.md           — spec do protocolo v3r-license/v1
-  integracao-em-plugin.md   — receita testada de consumo por um plugin
+  api-contract.md              — spec do protocolo v3r-license/v1
+  integracao-em-plugin.md      — receita testada de consumo por um plugin
+  assinatura-com-certificado.md — catálogo do namespace Signing\
 ```
 
 ### Documentação técnica
@@ -110,5 +120,8 @@ docs/
 - `docs/api-contract.md` — contrato completo cliente↔servidor.
 - `docs/integracao-em-plugin.md` — receita testada de integração num plugin
   hospedeiro (declaração da dependência, Strauss, empacotamento, verificação).
+- `docs/assinatura-com-certificado.md` — catálogo do namespace `Signing\`:
+  código de autenticidade, ordem emitir → imprimir → selar, e leitura de
+  validade/titular do certificado.
 - Guia de pesquisa que fundamenta as decisões desta lib:
   `V3RLicense/Projeto/dev-history/pesquisa-updater-licenciamento.md`.
