@@ -235,6 +235,35 @@ Ajuste por plugin: `MeuPlugin\Vendor\`, `MeuPlugin_Vendor_` e
 a colisão entre dois plugins com versões diferentes de v3r-core no mesmo
 WordPress). O resto do bloco é **genérico e idêntico em qualquer plugin**.
 
+> ⚠️ **A regra por trás dos overrides, que vale para toda biblioteca nova.**
+> O Strauss copia e prefixa **o que o `composer.json` do pacote declara no
+> `autoload`** — e nada além disso. Pacote que carrega classe por mecanismo
+> próprio, ou que lê **dado** em disco durante a execução (tabela de fonte,
+> arquivo de configuração, recurso), perde esses arquivos no caminho: a
+> árvore prefixada fica sem eles, e a falha só aparece quando aquele caminho
+> é exercitado.
+>
+> Antes de acrescentar uma biblioteca ao `packages`, abra o `composer.json`
+> **dela** e pergunte: o que ela usa em tempo de execução que não está
+> declarado ali? O que sobrar dessa pergunta vai para `override_autoload`.
+>
+> Dois casos reais, de 05/09/2026 (V3RCore-Code#15), que são a mesma coisa
+> por dois caminhos diferentes:
+>
+> - **GE Associados / `setasign/fpdf`** — o pacote declara só o arquivo
+>   principal no `autoload`. A pasta `font/` (tabelas de largura das fontes
+>   core, lidas por caminho de arquivo) não foi copiada, e **todo** PDF
+>   passou a falhar com `Could not include font definition file` assim que
+>   prefixado. Falha barulhenta, achada de imediato.
+> - **V3REvent / `mpdf/mpdf`** — sem `data/` e `ttfonts/`, o mPDF estourava
+>   ao embutir a fonte. Mas a exceção era capturada e o plugin caía no motor
+>   alternativo: o PDF **saiu**, com 2 KB em vez de 30 KB, e era HTML. Sem
+>   erro na tela, sem entrada visível no log. Falha silenciosa, e a
+>   comparação do artefato só a pegou porque alguém olhou o tamanho.
+>
+> É a mesma família do override do `plugin-update-checker` logo abaixo — a
+> diferença é que lá o que falta é código, e aqui é dado.
+
 **Três peças não-óbvias, todas obrigatórias:**
 
 - **`override_autoload` para `yahnis-elsts/plugin-update-checker` é
