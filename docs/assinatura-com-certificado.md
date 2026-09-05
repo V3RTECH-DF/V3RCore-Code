@@ -192,6 +192,38 @@ falhou entre emitir e selar) e **recusado com resumo diferente**
 (`AuthenticitySealingException::RESUMO_DIVERGENTE`) — uma vez selado, o
 registro não pode passar a provar outra coisa.
 
+### 4.1 Onde selar, exatamente: depois da assinatura
+
+O passo 3 não é "depois de montar o PDF" — é **depois de tudo o que ainda
+reescreve o arquivo**, e a assinatura digital reescreve. Assinadores
+costumam gravar o PDF assinado por cima do caminho recebido: selar logo
+depois da montagem grava o resumo de um arquivo que ninguém vai receber, e o
+sintoma é o mesmo do defeito da `#28` — `verifyFile()` acusando adulteração
+de documento íntegro. Sele no último ponto em que o arquivo já está na forma
+entregue.
+
+⚠️ **Este erro não aparece em teste cujo duplo de assinador não reescreve o
+arquivo.** Um duplo que só devolve o caminho recebido, sem tocar no
+conteúdo, faz o resumo de antes e o de depois coincidirem — e a suíte passa
+sobre uma implementação que sela cedo demais. Faça o duplo reescrever o
+arquivo; é o que transforma este defeito em teste vermelho. _(Achado do
+RIT360 Flow, primeiro consumidor, na adoção da v0.12.0.)_
+
+### 4.2 Expor a conferência numa rota pública
+
+Se a conferência for oferecida numa página aberta, sem autenticação — que é
+o caso de uso previsto, já que o ponto do código é ser conferido por quem
+recebeu o documento —, duas guardas são do consumidor, não da biblioteca:
+
+1. **Código desconhecido tem de responder a mesma coisa com e sem arquivo.**
+   Se a resposta mudar quando um arquivo é enviado, a rota vira oráculo de
+   quais códigos existem: basta enviar qualquer arquivo e ler a diferença.
+   `verifyFile()` já devolve `notFound()` sem olhar o arquivo; o cuidado é
+   não deixar a camada de apresentação vazar a distinção.
+2. **O arquivo apresentado é lido para calcular o resumo e nada mais** — não
+   é gravado, não é servido de volta, não vira anexo. A biblioteca só lê;
+   quem recebe o upload é que decide o resto.
+
 ## 5. Decisões de comportamento
 
 Quatro escolhas que quem consome precisa conhecer, cada uma com o porquê:
