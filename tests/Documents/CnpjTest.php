@@ -143,5 +143,4 @@ final class CnpjTest extends TestCase {
 			$this->assertFalse( Cnpj::isValid( $mutante ), "trocar a posição {$posicao} deveria invalidar: {$mutante}" );
 		}
 	}
-
 }
