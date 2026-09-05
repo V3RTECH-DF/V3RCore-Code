@@ -334,6 +334,21 @@ Sete escolhas que quem consome precisa conhecer, cada uma com o porquê:
    campo **inteiro**, com exatamente 11 ou 14 dígitos, nunca um trecho
    extraído de uma cadeia maior.
 
+   ⚠️ **Se um dia o PHP passar a decodificar o `othername` e alguém for
+   acrescentar essa fonte, duas coisas precisam ser sabidas antes.** A
+   primeira: no OID de pessoa física (`2.16.76.1.3.1`) o valor não é o
+   CPF, é uma cadeia combinada — data de nascimento, CPF, PIS, RG e a
+   sigla do órgão emissor —, e o CPF são as posições 8 a 19; ler a cadeia
+   inteira preenche o campo com um número errado, sem erro nenhum
+   aparecer. A segunda, mais importante: quando o nome comum e o
+   `othername` trouxerem documentos **diferentes**, isso é ausência, não
+   escolha — devolver nulo, nunca eleger uma das fontes. Duas leituras do
+   mesmo certificado que discordam e ambas afirmam produzem o pior
+   desfecho possível, que é uma tela dizendo que o certificado é da
+   organização X ao lado de um erro dizendo que não é.
+   _(Levantado pela sessão do V3RSigner, que lê os mesmos certificados
+   por OID, em Python, em 05/09/2026.)_
+
 7. **"Atestado" significa "não autoassinado", não "emitido pela
    ICP-Brasil"** (`#29`). Um certificado emitido por autoridade
    certificadora teve o nome do titular conferido por alguém antes de
