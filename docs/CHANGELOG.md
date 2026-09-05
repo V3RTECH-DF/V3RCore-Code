@@ -2,6 +2,58 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.13.0] — 2026-09-05
+
+### Adicionado
+- **`Signing\CertificateInspector` — o módulo `Signing\` ganha quem olha para
+  DENTRO do certificado (#29), promovido do RIT360 Flow.**
+  `SigningModeResolver::decide()` já recebia `?DateTimeImmutable $expiresAt`
+  como fato apurado, mas nada na biblioteca apurava esse fato — cada
+  consumidor teria de abrir o PKCS#12 por conta própria, ou copiar a lógica
+  do Flow, para responder à pergunta que a própria biblioteca faz.
+  `inspect( CertificateMaterial $material )` abre o arquivo com a senha do
+  material (o mesmo objeto que `SignerInterface::sign()` já recebe — sem
+  parâmetro novo), único ponto que chama `openssl_pkcs12_read()`: a mesma
+  abertura confirma que a senha bate e que o conteúdo é mesmo um
+  certificado com chave privada. Devolve `CertificateInspection`
+  (`expiresAt()` + `subject()`), no dialeto que o módulo já usa para
+  resultado de operação (`AuthenticityVerification`) — pronta para
+  alimentar `SigningModeResolver::decide()` direto.
+- **`Signing\CertificateSubject` — o titular lido do certificado**: nome,
+  tipo e dígitos do documento (CNPJ ou CPF), emissor, e se a identidade é
+  atestada ou apenas declarada. `maskedDocument()` delega a
+  `Documents\Cnpj::format()`/`Documents\Cpf` (nunca reimplementa a
+  máscara): CNPJ sai inteiro e formatado, CPF sai mascarado — a mesma
+  regra de exposição do Flow.
+- **Três decisões conservadoras preservadas na promoção, deliberadamente,
+  porque já foram compradas com erro evitado no Flow:**
+  1. Sem validade reconhecida no certificado, `expiresAt() === null` —
+     nunca uma data inventada; é esse `null` que faz o resolver cair em
+     `SEM_VALIDADE_CONHECIDA`.
+  2. `subjectAltName` NÃO é usada para extrair documento. O PHP não
+     decodifica o `othername` da ICP-Brasil, e varrer aquele bloco atrás
+     de 11 dígitos pegaria NIS ou RG no lugar do CPF. As fontes são o
+     nome comum no formato `NOME:DOCUMENTO` e, em seguida,
+     `serialNumber`/`organizationIdentifier` — só o campo inteiro, com
+     exatamente 11 ou 14 dígitos.
+  3. "Atestado" significa "não autoassinado", não "emitido pela
+     ICP-Brasil". Certificado de AC privada conta como atestado —
+     restringir à ICP-Brasil exigiria lista de emissores confiáveis, que
+     é decisão de produto não tomada. Emissor ausente ou ilegível é
+     tratado como declarado, o lado conservador.
+- **Ausência da extensão `openssl` degrada, nunca é fatal — o risco novo
+  que a promoção cria.** Hoje a chamada mora no plugin que sabe que
+  assina; na biblioteca, ela passa a viajar dentro de todo plugin que
+  carrega a v3r-core. `ext-openssl` NÃO entra no `require` do composer —
+  quebraria a instalação de quem nunca assina — só em `suggest`;
+  verificação em tempo de execução, e a ausência produz
+  `CertificateInspection::failure()`, mesmo caminho que qualquer outra
+  causa de "não deu para ler o certificado". É a quarta decisão
+  conservadora, e ela nasce nesta versão.
+- Depois desta promoção, o RIT360 Flow troca a implementação local por uma
+  fachada sobre esta peça, no padrão que já usa para outras integrações
+  com a biblioteca — fora do escopo desta entrega.
+
 ## [0.12.0] — 2026-09-05
 
 ### Corrigido

@@ -13,6 +13,9 @@
         "php": ">=8.2",
         "yahnis-elsts/plugin-update-checker": "^5.4"
     },
+    "suggest": {
+        "ext-openssl": "Necessária para Signing\\CertificateInspector ler validade e titular de certificados PKCS#12. Sem ela, o inspetor degrada (V3RCore-Code#29) em vez de falhar — a extensão continua opcional para quem não assina."
+    },
     "require-dev": {
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
         "paragonie/sodium_compat": "^1.24",

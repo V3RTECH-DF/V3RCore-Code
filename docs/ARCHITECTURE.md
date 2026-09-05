@@ -377,7 +377,9 @@ coisa ser "segredo" e a outra não.
 > (v0.8.0: namespace novo `V3R\Core\Access\`, ADR-013/#24), em 03/09/2026
 > (v0.9.0: `Support\EmailSuggestion` e `Frontend\AssetLocator`, ADR-014/#23)
 > e em 04/09/2026 (v0.10.0: namespace novo `V3R\Core\Documents\`, `Cnpj` e
-> `Cpf`, #22; v0.11.0: namespace novo `V3R\Core\Signing\`, ADR-015/#27).
+> `Cpf`, #22; v0.11.0: namespace novo `V3R\Core\Signing\`, ADR-015/#27) e em
+> 05/09/2026 (v0.12.0: `AuthenticityRegistry` emitir/selar em dois momentos,
+> #28; v0.13.0: `Signing\CertificateInspector`, promovido do RIT360 Flow, #29).
 > Fatia 2 (issue #3) concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -409,6 +411,7 @@ coisa ser "segredo" e a outra não.
 | `Signing\CertificateSecretVault` / `CertificateMaterial` / `CertificateVaultException` | Cofre da senha do certificado, cifrada com chave própria do site — nunca embutida no pacote (ADR-015) | completo |
 | `Signing\EphemeralSecretFile` | Material sensível em disco fora da área servida pela web, remoção garantida e varredura de sobras (#27) | completo |
 | `Signing\SignerInterface` / `SigningException` | Contrato do assinador — a biblioteca não gera PDF nem ganha dependência de terceiro (#27) | completo |
+| `Signing\CertificateInspector` / `CertificateInspection` / `CertificateSubject` | Abre o PKCS#12 a partir de `CertificateMaterial`, extrai validade e titular; alimenta `SigningModeResolver::decide()` direto; degrada (nunca fatal) sem `ext-openssl`, promovido do RIT360 Flow (#29) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:
