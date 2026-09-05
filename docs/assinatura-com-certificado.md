@@ -187,8 +187,13 @@ $titular = $inspection->subject(); // CertificateSubject|null
 
 `inspect()` é o único ponto da biblioteca que chama
 `openssl_pkcs12_read()` — a mesma abertura confirma duas coisas de uma
-vez: que a senha bate (senão a extensão recusa abrir) e que o conteúdo é
-mesmo um certificado com chave privada. O resultado, `CertificateInspection`
+vez: que a senha bate (senão a extensão recusa abrir) e que o arquivo é
+mesmo um PKCS#12 legível, de onde sai um certificado. Note o que ela
+**não** confirma: a presença da chave privada não é verificada, então um
+PKCS#12 só com certificados é lido como válido aqui e só falha na hora de
+assinar. É fiel à implementação de origem, e mudar isso seria endurecer o
+comportamento de um consumidor em produção — não uma correção de rota
+tomada de passagem. O resultado, `CertificateInspection`
 (`expiresAt()` + `subject()`), segue o dialeto que o módulo já usa para
 resultado de operação (`AuthenticityVerification`) e alimenta
 `SigningModeResolver::decide()` sem tradução no meio.
@@ -340,7 +345,7 @@ Sete escolhas que quem consome precisa conhecer, cada uma com o porquê:
    ausente ou ilegível é tratado como declarado (`isAttested() === false`),
    o lado conservador.
 
-## 5.1 A extensão `openssl` é sugerida, nunca exigida
+### 5.1 A extensão `openssl` é sugerida, nunca exigida
 
 `ext-openssl` **não** entra no `require` do `composer.json` — entraria no
 pacote de todo plugin que carrega a v3r-core, e boa parte deles nunca
