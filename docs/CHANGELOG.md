@@ -2,6 +2,69 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.11.0] — 2026-09-04
+
+### Adicionado
+- **Namespace novo `V3R\Core\Signing\` — primeira fatia da peça de
+  assinatura de documentos, para o RIT360 Flow e o V3RProp consumirem em
+  vez de manterem duas versões divergentes (#27).** O V3RProp já tem um
+  mecanismo próprio que funciona, e é dele que vêm os quatro defeitos que
+  esta peça existe para não repetir (V3RProp-Code#62, #63 e #64): (1) o
+  documento não dizia como foi assinado — a página era idêntica com e sem
+  certificado digital; (2) o "código de autenticidade" era derivado de
+  campos públicos, calculado diferente conforme o motor de PDF e guardado
+  em lugar nenhum — irreproduzível e inverificável; (3) não existia nada
+  que conferisse um documento emitido; (4) a senha do certificado ficava
+  em texto claro e a chave privada era escrita em pasta pública durante a
+  assinatura.
+- **O corte:** a biblioteca não gera PDF e não ganha dependência de
+  terceiro — bibliotecas de PDF são pesadas, trazem constantes globais e
+  brigariam com a prefixação feita pelo hospedeiro. Ela define o contrato
+  do assinador (`SignerInterface`) e guarda o que é sensível; a
+  implementação concreta e a geração do documento ficam com cada plugin.
+- **`AuthenticityCode` / `AuthenticityRecord` / `AuthenticityRegistry` /
+  `AuthenticityVerification`** — o código de autenticidade passa a ser
+  **emitido, não derivado**: imprevisível (CSPRNG sobre um alfabeto de 31
+  símbolos, sem os caracteres que se confundem à mão — `0/O`, `1/I/L`),
+  gerado na emissão e guardado junto do modo de assinatura e do resumo
+  sha256 do arquivo. A conferência é **consulta**, nunca recálculo, e
+  `verifyFile()` distingue "código nunca existiu" (`notFound()`) de "o
+  arquivo foi alterado depois de emitido" (`wasTampered()`).
+- **`SigningMode` / `SigningModeReason` / `SigningModeResolver` /
+  `SigningModeDecision`** — a decisão do modo de assinatura é uma função
+  pura e conservadora: qualquer incerteza (sem certificado, validade
+  desconhecida, certificado vencido) degrada para `REGISTRO_ELETRONICO`,
+  nunca o contrário, e o motivo (`SigningModeReason`) vem sempre junto —
+  nunca existe modo sem motivo. É o que explica ao administrador por que
+  a assinatura não saiu como ele esperava, em vez de degradar em silêncio.
+- **`CertificateSecretVault` / `CertificateMaterial` /
+  `CertificateVaultException`** — cofre da senha do certificado, cifrada
+  com `sodium_crypto_secretbox` (XSalsa20-Poly1305, autenticada) sob uma
+  chave que **não vem embutida no pacote do plugin** (ver ADR-015). Sem
+  chave configurada e utilizável, o cofre recusa operar
+  (`CHAVE_DE_CIFRAGEM_INDISPONIVEL`) — nunca grava em texto claro como
+  alternativa. Perder a chave é degradação recuperável, não perda de
+  dados: os documentos já emitidos continuam abrindo e o código de
+  autenticidade continua conferindo; só o certificado precisa ser
+  recadastrado.
+- **`EphemeralSecretFile`** — entrega do material sensível em disco (para
+  quando o assinador exigir arquivo, não bytes em memória) fora da área
+  servida pela web, com permissão restrita (`chmod 0600`), nome
+  imprevisível, remoção garantida no encerramento do processo
+  (`register_shutdown_function` + `__destruct()` como segunda rede) e
+  `sweepOrphans()` para o caso não coberto por nenhum dos dois — processo
+  morto por sinal não capturável (`kill -9`, OOM killer) — que o
+  hospedeiro roda periodicamente (ex.: cron).
+- **ADR-015**, registrada em `docs/ARCHITECTURE.md`: a chave que cifra a
+  senha do certificado **não segue** a convenção de constante embutida no
+  pacote usada pelo licenciamento (ADR-010). Catálogo completo do
+  namespace, com o que integrar e o que configurar:
+  `docs/integracao-em-plugin.md` §7.4.
+- Migração aditiva — MINOR, não MAJOR: só namespace e classes novos;
+  nenhuma API existente muda.
+- Suíte: 350 testes PHPUnit (1733 asserções), verdes — 46 deles (1087
+  asserções) exercitam só `Signing\`.
+
 ## [0.10.0] — 2026-09-04
 
 ### Adicionado

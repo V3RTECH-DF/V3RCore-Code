@@ -12,8 +12,11 @@ namespace V3R\Core\Signing;
  * sabe, sem perguntar a ninguém, se aquilo foi assinado com certificado
  * digital da organização ou apenas registrado eletronicamente.
  *
- * PHP 7.4 não tem enum — constantes de classe, o padrão da casa (ver
- * Licensing\LicenseStatus).
+ * Constantes de classe, e não enum: é o padrão que a biblioteca inteira
+ * usa (ver Licensing\LicenseStatus), e um dialeto novo aqui obrigaria
+ * quem consome a lidar com duas formas de dizer a mesma coisa. O piso da
+ * biblioteca é PHP 8.2 e comportaria enum — migrar TODAS de uma vez é
+ * assunto próprio, não decisão a tomar de passagem numa peça nova.
  */
 final class SigningMode {
 

@@ -1,6 +1,6 @@
 # Arquitetura — V3RCore
 
-> Biblioteca Composer (não é plugin), namespace `V3R\Core\`, PHP 7.4+, embutida em
+> Biblioteca Composer (não é plugin), namespace `V3R\Core\`, PHP 8.2+, embutida em
 > cada plugin da família via [Strauss](https://github.com/BrianHenryIE/strauss)
 > para prefixar código e dependências transitivas e evitar colisão entre plugins
 > com versões diferentes da lib no mesmo WordPress. Encapsula o
@@ -333,6 +333,39 @@ navegador segue este caminho, e o par PHP/JS é exercitado por um **conjunto de
 casos compartilhado**, versionado junto do ativo (`src/Assets/data/`), para que
 uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
 
+### ADR-015 — A chave de cifragem do cofre de certificado não segue a convenção de constante embutida no pacote (V3RCore-Code#27, v0.11.0)
+
+O licenciamento (ADR-010) embute um único par de constantes de produção no
+build do plugin, e isso é deliberado: a chave pública ali **não é segredo**
+— é a mesma em todo plugin da casa, e qualquer um que a tivesse não
+aprenderia nada de útil com ela.
+
+**Aqui a propriedade é o oposto, e é o que impede reaproveitar o mesmo
+padrão.** `CertificateSecretVault` cifra a senha do certificado digital de
+cada cliente antes de guardá-la, e a chave de cifragem **precisa ser
+secreta e própria de cada site**. Se ela viesse embutida no pacote do
+plugin — como o par de licenciamento — qualquer pessoa que baixasse o
+plugin teria a chave que decifra a senha de certificado de **qualquer**
+cliente que o rodasse, porque o pacote é o mesmo para todos.
+
+**Decisão:** não há default de produção, nem placeholder, nem função de
+fallback para essa chave. `CertificateSecretVault::fromConstant()` lê uma
+constante que o **próprio site** define no `wp-config.php`
+(`V3R_SIGNING_ENCRYPTION_KEY`, por convenção) e, na ausência ou no formato
+inválido dela, `isAvailable()` responde falso — o cofre recusa cifrar ou
+decifrar, nunca grava a senha em texto claro como alternativa. Cabe ao
+plugin hospedeiro gerar essa chave por site (ex.:
+`base64_encode(random_bytes(32))`) e orientar o administrador a configurá-la
+— ver `docs/integracao-em-plugin.md` §7.4.
+
+**Por que isto não contradiz a recusa de cifrar documentos em repouso no
+RIT360 Flow:** perder esta chave é degradação **recuperável**, não perda
+de dados — os documentos já emitidos continuam abrindo e o código de
+autenticidade (`AuthenticityRegistry`) continua conferindo, porque nenhum
+dos dois depende desta chave; só o certificado precisa ser recadastrado.
+Cifrar em repouso um documento cuja chave se perde de vez seria perda
+definitiva, e essa é a diferença que decide o corte, não o fato de uma
+coisa ser "segredo" e a outra não.
 
 ---
 
@@ -343,7 +376,7 @@ uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
 > (v0.8.0: namespace novo `V3R\Core\Access\`, ADR-013/#24), em 03/09/2026
 > (v0.9.0: `Support\EmailSuggestion` e `Frontend\AssetLocator`, ADR-014/#23)
 > e em 04/09/2026 (v0.10.0: namespace novo `V3R\Core\Documents\`, `Cnpj` e
-> `Cpf`, #22).
+> `Cpf`, #22; v0.11.0: namespace novo `V3R\Core\Signing\`, ADR-015/#27).
 > Fatia 2 (issue #3) concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -370,8 +403,13 @@ uma correção aplicada em só uma das metades quebre a outra no mesmo commit.
 | `Frontend\AssetLocator` | Distribuição de ativo de front-end da biblioteca (URL e versão derivadas do arquivo, opt-in) (ADR-014) | completo |
 | `Documents\Cnpj` | Validação de CNPJ numérico e alfanumérico (`normalize()`/`isValid()`/`format()`), promovida de quatro cópias (#22) | completo |
 | `Documents\Cpf` | Validação de CPF, mesma API de `Documents\Cnpj` (#22) | completo |
+| `Signing\AuthenticityCode` / `AuthenticityRecord` / `AuthenticityRegistry` / `AuthenticityVerification` | Código de autenticidade emitido (nunca derivado), guardado junto do modo e do resumo sha256 do arquivo; conferência por consulta (#27) | completo |
+| `Signing\SigningMode` / `SigningModeReason` / `SigningModeResolver` / `SigningModeDecision` | Decisão pura e conservadora do modo de assinatura, sempre com o motivo (#27) | completo |
+| `Signing\CertificateSecretVault` / `CertificateMaterial` / `CertificateVaultException` | Cofre da senha do certificado, cifrada com chave própria do site — nunca embutida no pacote (ADR-015) | completo |
+| `Signing\EphemeralSecretFile` | Material sensível em disco fora da área servida pela web, remoção garantida e varredura de sobras (#27) | completo |
+| `Signing\SignerInterface` / `SigningException` | Contrato do assinador — a biblioteca não gera PDF nem ganha dependência de terceiro (#27) | completo |
 
-CI: `.github/workflows/ci.yml`, matriz PHP 7.4–8.0–8.1–8.2–8.3–8.4, com
+CI: `.github/workflows/ci.yml`, matriz PHP 8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:
 CI não roda em branch de feature, só em `main` e PR para `main` (#7).
 

@@ -38,7 +38,7 @@ requisito da receita (§7).
 
 ## 1. Pré-requisitos
 
-- PHP ≥ 7.4 e Composer 2.x no ambiente que gera o pacote (dev e CI).
+- PHP ≥ 8.2 e Composer 2.x no ambiente que gera o pacote (dev e CI).
 - `GH_TOKEN` da casa (V3RTECH) exportado no ambiente — o repositório
   `V3RTECH-DF/V3RCore-Code` é **privado**. Nunca imprima o token; carregue-o
   via `.envrc` do repositório (`set -a; source .envrc; set +a`).
@@ -688,6 +688,60 @@ informar a base no construtor: `new AssetLocator( $urlBaseDosAssets )`.
 ⚠️ Como todo o resto da integração, isto vai sob `class_exists()` — depois de
 um `composer install` limpo, `vendor-prefixed/` pode não existir ainda (§3,
 §7).
+
+## 7.4 Assinatura de documentos — `V3R\Core\Signing\` (V3RCore-Code#27, v0.11.0)
+
+A biblioteca define o contrato e guarda o que é sensível; **não gera PDF e
+não implementa a assinatura em si** — isso é do plugin (ver ADR completo em
+`docs/ARCHITECTURE.md`). Integrar esta peça significa:
+
+1. **Implementar `SignerInterface::sign()`** com o motor de PDF do plugin
+   (TCPDF/FPDI ou outro), traduzindo qualquer falha do motor para um dos
+   três códigos de `SigningException` — nunca deixar passar a exceção
+   genérica do motor sem traduzir.
+2. **Decidir o modo antes de assinar**, com `SigningModeResolver::decide()`
+   — passando os fatos já apurados pelo plugin (há arquivo de certificado?
+   há validade conhecida? ela é futura?). A biblioteca não consulta disco
+   nem relógio sozinha.
+3. **Emitir o código de autenticidade** com `AuthenticityRegistry::issue()`
+   logo após gerar o arquivo final, passando o modo decidido no passo
+   anterior. Guardar (ou exibir) o código devolvido — é ele que o
+   destinatário do documento vai conferir depois.
+4. **Expor uma rota de conferência** que chame
+   `AuthenticityRegistry::find()` (só o registro) ou
+   `AuthenticityRegistry::verifyFile()` (registro + comparação de resumo
+   contra um arquivo apresentado) — rota é do plugin, a biblioteca só
+   responde à consulta.
+5. **Gerar e configurar a chave do cofre.** Ver o aviso abaixo — sem ela, o
+   cofre não guarda senha de certificado nenhuma.
+
+⚠️ **`V3R_SIGNING_ENCRYPTION_KEY` é uma constante que CADA SITE precisa
+gerar — nunca embutida no build do plugin.** Diferente do par de
+licenciamento (§8), esta chave não pode ser a mesma em todo plugin da casa:
+ela cifra a senha do certificado digital do cliente, e uma chave
+compartilhada no pacote decifraria a senha de **qualquer** cliente que
+rodasse aquele plugin (ADR-015 em `docs/ARCHITECTURE.md`). Sem a constante
+definida — ou com valor que não seja base64 de exatamente 32 bytes — o
+cofre (`CertificateSecretVault::isAvailable()`) responde falso e **recusa**
+cifrar ou decifrar; nunca grava a senha em texto claro como alternativa.
+
+```php
+// wp-config.php do site, uma vez por instalação — nunca no código do plugin.
+define( 'V3R_SIGNING_ENCRYPTION_KEY', 'BASE64_DE_32_BYTES_GERADOS_PELO_SITE' );
+```
+
+O plugin gera o valor (`base64_encode(random_bytes(32))`) e orienta o
+administrador a colar essa linha no `wp-config.php` do próprio site — quem
+não configurar simplesmente não consegue cadastrar certificado (o cofre
+recusa, o modo degrada para `REGISTRO_ELETRONICO` com o motivo
+`SEM_CERTIFICADO`, nunca falha em silêncio). Perder ou trocar essa chave não
+compromete documento já emitido — só exige recadastrar o certificado.
+
+Quando o assinador exigir o certificado como arquivo em disco (comum em
+TCPDF/FPDI), entregue-o via `EphemeralSecretFile::write()` — nunca grave o
+material sensível direto numa pasta do plugin — e chame `sweepOrphans()`
+periodicamente (ex.: um cron do WordPress) para cobrir o caso de processo
+morto por sinal não capturável.
 
 ## 8. Configuração de produção: URL e chave pública via constantes
 
