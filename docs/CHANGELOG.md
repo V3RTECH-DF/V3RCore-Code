@@ -2,6 +2,45 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.12.0] — 2026-09-05
+
+### Corrigido
+- **`AuthenticityRegistry::issue()` exigia o arquivo final para calcular o
+  resumo — mas o código de autenticidade é impresso DENTRO do documento,
+  então no instante da emissão o arquivo final ainda não existe (#28).**
+  Quem chamava era obrigado a calcular o resumo de um artefato
+  intermediário, sem o código impresso, e o resumo gravado nunca batia
+  com o arquivo que a pessoa recebia depois: `verifyFile()` respondia
+  "documento adulterado" para documentos íntegros. Emitir e selar agora
+  são dois momentos separados: `issue( $mode )` sorteia o código e grava
+  um registro sem resumo; `seal( $code, $absoluteFilePath )` recebe o
+  código e o caminho do arquivo já pronto (com o código já impresso
+  nele), calcula o sha256 e grava. É mudança de assinatura — a lib está
+  em 0.x e o único consumidor (RIT360 Flow) troca junto; não manteve o
+  parâmetro antigo por compatibilidade.
+- **Selar é uma vez só, sem entijolar:** selar de novo com o MESMO resumo
+  é aceito e não faz nada (permite refazer uma tentativa que falhou entre
+  emitir e selar); selar com um resumo DIFERENTE é recusado com
+  `AuthenticitySealingException` (`RESUMO_DIVERGENTE`), porque aceitar
+  trocaria o que o registro promete depois de já selado. A mesma exceção
+  cobre código inexistente (`CODIGO_INEXISTENTE`) e arquivo
+  inexistente/ilegível (`ARQUIVO_ILEGIVEL`) — nunca em silêncio, e nunca
+  gravando registro novo.
+- **`AuthenticityVerification` ganha um terceiro estado — "emitido e
+  ainda não selado" — ao lado de "não existe" e "existe e confere".**
+  Antes, um registro sem resumo caindo no `fileMatches` booleano teria
+  virado `wasTampered() === true`: a página teria afirmado "este
+  documento foi adulterado" sobre um documento intacto. Um registro não
+  selado agora nunca produz `wasTampered() === true`, e
+  `isAwaitingSeal()` deixa quem consome distinguir "não confere" de "não
+  há como conferir ainda" sem inspecionar campo nulo por conta própria.
+  `AuthenticityRegistry::verifyFile()` sobre um registro não selado
+  devolve `AuthenticityVerification::awaitingSeal()`.
+- **`AuthenticityRecord::fromArray()` aceita a ausência do resumo** — o
+  campo `file_hash` passa a ser opcional no formato persistido, refletindo
+  o registro emitido e ainda não selado. Registro gravado antes desta
+  versão (que sempre tem o campo) continua lendo exatamente como antes.
+
 ## [0.11.0] — 2026-09-04
 
 ### Adicionado

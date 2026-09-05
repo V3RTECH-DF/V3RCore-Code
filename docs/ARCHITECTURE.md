@@ -403,7 +403,7 @@ coisa ser "segredo" e a outra não.
 | `Frontend\AssetLocator` | Distribuição de ativo de front-end da biblioteca (URL e versão derivadas do arquivo, opt-in) (ADR-014) | completo |
 | `Documents\Cnpj` | Validação de CNPJ numérico e alfanumérico (`normalize()`/`isValid()`/`format()`), promovida de quatro cópias (#22) | completo |
 | `Documents\Cpf` | Validação de CPF, mesma API de `Documents\Cnpj` (#22) | completo |
-| `Signing\AuthenticityCode` / `AuthenticityRecord` / `AuthenticityRegistry` / `AuthenticityVerification` | Código de autenticidade emitido (nunca derivado), guardado junto do modo e do resumo sha256 do arquivo; conferência por consulta (#27) | completo |
+| `Signing\AuthenticityCode` / `AuthenticityRecord` / `AuthenticityRegistry` / `AuthenticityVerification` / `AuthenticitySealingException` | Código de autenticidade emitido (nunca derivado); `issue()`/`seal()` separam emitir de gravar o resumo sha256, porque o código é impresso dentro do documento (#28); conferência por consulta, com terceiro estado "emitido e ainda não selado" (#27, #28) | completo |
 | `Signing\SigningMode` / `SigningModeReason` / `SigningModeResolver` / `SigningModeDecision` | Decisão pura e conservadora do modo de assinatura, sempre com o motivo (#27) | completo |
 | `Signing\CertificateSecretVault` / `CertificateMaterial` / `CertificateVaultException` | Cofre da senha do certificado, cifrada com chave própria do site — nunca embutida no pacote (ADR-015) | completo |
 | `Signing\EphemeralSecretFile` | Material sensível em disco fora da área servida pela web, remoção garantida e varredura de sobras (#27) | completo |
