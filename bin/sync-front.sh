@@ -38,3 +38,11 @@ VALIDACAO=""
 
 git_safe_sync "$FRONT_DIR" "Pacote de front" "$COMMIT_MSG" "$VALIDACAO" || exit 1
 echo "${C_OK:-}✓${C_OFF:-} Pacote de front sincronizado → $FRONT_REPO"
+
+# A tag vai junto, e aqui isso NÃO é atalho preguiçoso: cada plugin declara a
+# dependência fixando uma tag (sem ela, o build de cada máquina pega um estado
+# diferente da branch principal). Código publicado sem a tag correspondente não
+# é alcançável por consumidor nenhum — separar os dois passos, como se faz no
+# Code/, só produziria pacote publicado que ninguém consegue instalar.
+# Quem confirma continua sendo o git-safe; nada é publicado em silêncio.
+git_safe_publish_tag "$FRONT_DIR" "Tag do pacote de front" || exit 1
