@@ -6,12 +6,13 @@
 # independente da ordem em que você passar as flags:
 #   1. sync-code      envia o código para o repositório
 #      (ou pull-code, quando o código é escrito fora e aqui é espelho)
-#   2. sync-tag       publica a tag da versão corrente (só depois do código)
-#   3. sync-project   envia docs, decisões e backlog
-#   4. sync-local     espelha o plugin no WordPress local (DEV)
-#   5. build-zip      gera o ZIP instalável em dist/
-#   6. publish-manual publica o manual do usuário
-#   7. deploy         atualiza os sites de PRODUÇÃO (pede confirmação)
+#   2. sync-front     envia o pacote de front da família (Front/)
+#   3. sync-tag       publica a tag da versão corrente (só depois do código)
+#   4. sync-project   envia docs, decisões e backlog
+#   5. sync-local     espelha o plugin no WordPress local (DEV)
+#   6. build-zip      gera o ZIP instalável em dist/
+#   7. publish-manual publica o manual do usuário
+#   8. deploy         atualiza os sites de PRODUÇÃO (pede confirmação)
 #
 # O commit vem antes do build e do deploy de propósito: o que vai para produção
 # é o que está registrado no repositório, nunca uma versão só sua.
@@ -29,6 +30,7 @@
 #   -a, --all       Executa todos os passos que existirem neste projeto.
 #   -c, --code      sync-code.sh      (commita e envia o repositório do código),
 #                   ou pull-code.sh quando é este que existe (espelho do Lovable).
+#   -f, --front     sync-front.sh     (commita e envia o pacote de front, Front/).
 #   -t, --tag       sync-tag.sh       (publica a tag da versão corrente, sem forçar).
 #   -p, --projeto   sync-project.sh   (commita e envia docs, decisões e backlog).
 #   -l, --local     sync-local.sh     (espelha o plugin no WordPress local/DEV).
@@ -69,7 +71,7 @@ ok()   { echo -e "${GREEN}$*${NC}"; }
 warn() { echo -e "${YELLOW}$*${NC}"; }
 err()  { echo -e "${RED}$*${NC}" >&2; }
 
-DO_CODE=0 DO_TAG=0 DO_PROJECT=0 DO_LOCAL=0 DO_ZIP=0 DO_MANUAL=0 DO_DEPLOY=0
+DO_CODE=0 DO_FRONT=0 DO_TAG=0 DO_PROJECT=0 DO_LOCAL=0 DO_ZIP=0 DO_MANUAL=0 DO_DEPLOY=0
 ALL=0 YES=0 DRY=0 SKIP_BUILD=0
 declare -a DEPLOY_EXTRA=()
 
@@ -82,6 +84,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     -a|--all)        ALL=1; shift ;;
     -c|--code)       DO_CODE=1; shift ;;
+    -f|--front)      DO_FRONT=1; shift ;;
     -t|--tag)        DO_TAG=1; shift ;;
     -p|--projeto)    DO_PROJECT=1; shift ;;
     -l|--local)      DO_LOCAL=1; shift ;;
@@ -103,6 +106,7 @@ done
 # tem deploy, e nenhum dos dois deve abortar por causa disso.
 if [ "$ALL" -eq 1 ]; then
   { [ -f bin/sync-code.sh ] || [ -f bin/pull-code.sh ]; } && DO_CODE=1
+  [ -f bin/sync-front.sh ]     && DO_FRONT=1
   [ -f bin/sync-tag.sh ]       && DO_TAG=1
   [ -f bin/sync-project.sh ]   && DO_PROJECT=1
   [ -f bin/sync-local.sh ]     && DO_LOCAL=1
@@ -112,7 +116,7 @@ if [ "$ALL" -eq 1 ]; then
 fi
 
 # Nada selecionado → ajuda.
-if [ $((DO_CODE + DO_TAG + DO_PROJECT + DO_LOCAL + DO_ZIP + DO_MANUAL + DO_DEPLOY)) -eq 0 ]; then
+if [ $((DO_CODE + DO_FRONT + DO_TAG + DO_PROJECT + DO_LOCAL + DO_ZIP + DO_MANUAL + DO_DEPLOY)) -eq 0 ]; then
   usage; exit 0
 fi
 
@@ -134,6 +138,7 @@ CODE_STEP=""
 # Pré-checagem: os scripts necessários existem neste projeto? (portabilidade na família)
 declare -a NEED=()
 [ "$DO_CODE"    -eq 1 ] && NEED+=("${CODE_STEP:-bin/sync-code.sh}")
+[ "$DO_FRONT"   -eq 1 ] && NEED+=("bin/sync-front.sh")
 [ "$DO_TAG"     -eq 1 ] && NEED+=("bin/sync-tag.sh")
 [ "$DO_PROJECT" -eq 1 ] && NEED+=("bin/sync-project.sh")
 [ "$DO_LOCAL"   -eq 1 ] && NEED+=("bin/sync-local.sh")
@@ -198,6 +203,9 @@ declare -a YARG=()
 if [ "$DO_CODE" -eq 1 ]; then
   _cl="$(basename "$CODE_STEP" .sh)"
   if [ "$DRY" -eq 1 ]; then dry_step "$_cl" "$CODE_STEP"; else run_step "$_cl" "$CODE_STEP" "${YARG[@]}"; fi
+fi
+if [ "$DO_FRONT" -eq 1 ]; then
+  if [ "$DRY" -eq 1 ]; then dry_step "sync-front" bin/sync-front.sh; else run_step "sync-front" bin/sync-front.sh "${YARG[@]}"; fi
 fi
 if [ "$DO_TAG" -eq 1 ]; then
   if [ "$DRY" -eq 1 ]; then dry_step "sync-tag" bin/sync-tag.sh; else run_step "sync-tag" bin/sync-tag.sh "${YARG[@]}"; fi

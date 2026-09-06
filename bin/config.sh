@@ -17,12 +17,14 @@ PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || dir
 ROOT="$(cd "$PROJECT_DIR/.." && pwd)"                           # …/V3RCore (container)
 
 CODE_DIR="$ROOT/Code"        # repositório do código (nosso, editável)
+FRONT_DIR="$ROOT/Front"      # pacote de front da família (npm), repositório próprio
 MANUAL_DIR="$ROOT/Manual"    # clone do repo do manual (edita direto ali)
 PORTAL_DIR="$ROOT/Portal"    # site institucional do projeto
 
 # ─── Repositórios (owner/slug) ───────────────────────────────────────────────
 GH_OWNER="V3RTECH-DF"
 CODE_REPO="V3RTECH-DF/V3RCore-Code"
+FRONT_REPO="V3RTECH-DF/V3RFront-Code"
 PROJECT_REPO=""
 MANUAL_REPO=""
 PORTAL_REPO=""
@@ -30,6 +32,7 @@ ISSUES_REPO="V3RTECH-DF/V3RCore-Code"   # onde vive o backlog vivo (fonte de ver
 
 # URLs completas, para quem clona (pull-code.sh, publish-manual.sh --clone).
 CODE_REMOTE="${CODE_REPO:+https://github.com/$CODE_REPO.git}"
+FRONT_REMOTE="${FRONT_REPO:+https://github.com/$FRONT_REPO.git}"
 PROJECT_REMOTE="${PROJECT_REPO:+https://github.com/$PROJECT_REPO.git}"
 MANUAL_REMOTE="${MANUAL_REPO:+https://github.com/$MANUAL_REPO.git}"
 PORTAL_REMOTE="${PORTAL_REPO:+https://github.com/$PORTAL_REPO.git}"

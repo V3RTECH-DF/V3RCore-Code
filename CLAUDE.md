@@ -13,7 +13,9 @@ global > container > repositório.
 
 A raiz **não é** repositório: é uma pasta que abriga repositórios independentes.
 
-- `Code/` — código do app — repositório do código (nosso, editável) (repo `V3RTECH-DF/V3RCore-Code`)
+- `Code/` — a biblioteca PHP — repositório do código (nosso, editável) (repo `V3RTECH-DF/V3RCore-Code`)
+- `Front/` — o pacote de front da família (npm), repositório **próprio**
+  (repo `V3RTECH-DF/V3RFront-Code`, público). Enviado por `./sync-all.sh -f`.
 - `Code/bin/` — ferramentas do container. Config central em `bin/config.sh`
   (caminhos derivados, repositórios, `ISSUES_REPO`, `MANUAL_CUSTOM_DOMAIN`).
   Ver `bin/README.md` para o que veio e o que se acrescenta depois.
@@ -49,10 +51,38 @@ qualquer repositório. **Nunca imprimir `.envrc` nem `.credentials*`.**
 
 ## A preencher
 
-- [ ] Stack e convenções do código
+- [x] Stack e convenções do código — `Code/`: PHP >=8.2, biblioteca Composer
+      embutida por Strauss, validação por `composer check` (phpunit, phpstan,
+      phpcs). `Front/`: React 19 + TypeScript estrito + Vite em modo biblioteca,
+      CSS próprio sem Tailwind.
 - [ ] Ambiente de desenvolvimento e como validar
 - [ ] Alvo de produção e como se deploya (ver `bin/README.md`)
 - [ ] Domínio do manual, quando existir (`MANUAL_CUSTOM_DOMAIN`)
+
+## Dois repositórios, uma família (a partir de 06/09/2026)
+
+O container abriga **dois** repositórios, e a divisão entre eles não é
+organizacional, é de responsabilidade:
+
+- **`Code/` governa** — declara telas, resolve permissão, entrega a árvore de
+  navegação filtrada e bloqueia o acesso direto (`docs/navegacao-do-painel.md`).
+- **`Front/` desenha** — cabeçalho, barra de navegação e área de avisos do
+  painel, consumidos pelos plugins como dependência do build deles.
+
+⚠️ **A fronteira entre os dois é dado, não código:** o PHP produz a árvore, o
+componente consome uma forma documentada. É o que permite versionarem em ritmos
+diferentes sem um arrastar o outro.
+
+**Por que o front NÃO viaja pela biblioteca PHP** (issue `#26`): no empacotamento
+dos plugins a tela em React é compilada **antes** de a biblioteca ser embutida —
+peça distribuída pelo caminho do PHP não existiria ainda na hora do build. E
+plugin instalando o pacote pelo gerenciador do JavaScript embute a própria cópia,
+então dois produtos nossos com versões diferentes no mesmo WordPress não colidem
+— o mesmo isolamento que a prefixação dá ao PHP.
+
+⚠️ **O pacote precisa ser a RAIZ do repositório**, porque o gerenciador de
+pacotes do JavaScript instala a raiz de um repositório git, nunca uma subpasta.
+É por isso que ele não mora dentro do `Code/`.
 
 ## Proteção da biblioteca (a partir da v0.2.0)
 
