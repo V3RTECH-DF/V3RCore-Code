@@ -100,6 +100,11 @@ if ( ! function_exists( 'get_transient' ) ) {
 // gestão).
 if ( ! function_exists( 'current_user_can' ) ) {
 	function current_user_can( string $capability ): bool {
+		// Contador só para Admin\Nav\CapabilityAccessTest (V3RCore-Code#35)
+		// provar o cache por permissão — nenhum outro teste depende dele.
+		$GLOBALS['v3r_core_test_current_user_can_calls']                              = ( $GLOBALS['v3r_core_test_current_user_can_calls'] ?? 0 ) + 1;
+		$GLOBALS['v3r_core_test_current_user_can_calls_by_capability'][ $capability ] = ( $GLOBALS['v3r_core_test_current_user_can_calls_by_capability'][ $capability ] ?? 0 ) + 1;
+
 		$granted = $GLOBALS['v3r_core_test_current_user_can'] ?? false;
 
 		if ( is_array( $granted ) ) {
@@ -142,6 +147,11 @@ require_once __DIR__ . '/Support/CapabilityFunctionStubs.php';
 // Ver o docblock do próprio arquivo.
 require_once __DIR__ . '/Support/AdminMenuFunctionStubs.php';
 require_once __DIR__ . '/Support/FrontendAssetFunctionStubs.php';
+
+// Stubs de add_menu_page()/add_submenu_page(), só para testar
+// Admin\Nav\Navigation::renderMenu() (V3RCore-Code#35) sem WordPress
+// carregado. Ver o docblock do próprio arquivo.
+require_once __DIR__ . '/Support/NavMenuFunctionStubs.php';
 
 // Stub de get_file_data(), só para testar Support\PluginVersion::resolve()
 // (v3rtech-scripts#32) sem WordPress carregado. Ver o docblock do próprio
