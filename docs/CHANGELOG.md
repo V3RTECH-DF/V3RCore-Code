@@ -2,6 +2,54 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.14.0] — 2026-09-06
+
+### Adicionado
+- **`Admin\Nav\` — camada de governo da navegação do painel (#35): entrada
+  única no menu do WordPress e navegação inteiramente interna à família.**
+  O modo de falha que o desenho fecha: alguém acrescenta tela nova à
+  navegação e esquece de proteger o endereço dela. A saída é **uma
+  declaração alimentando duas guardas** — o plugin declara cada tela uma
+  vez (`Screen`: identificação, rótulo, grupo e permissão), e a mesma
+  declaração monta a árvore filtrada (`Navigation::tree()`) **e** bloqueia
+  o acesso direto pela URL. Não há como declarar uma coisa e esquecer a
+  outra. Contrato completo em `docs/navegacao-do-painel.md`.
+- **`ScreenAccess` plugável, com `CapabilityAccess` (sobre
+  `current_user_can()`) como padrão.** A biblioteca não trava na
+  verificação nativa do WordPress porque V3RLGPD e RIT360 Premiado têm
+  matriz de papéis editável pelo cliente — travar rebaixaria os dois ao
+  adotar o componente.
+- **`NavCapabilityGate` — a capability sintética que faz o gate NATIVO do
+  WordPress valer também para motor de permissão próprio.** A tela é
+  registrada como página oculta com uma capability inventada
+  (`v3r_nav_<slug>`), respondida no filtro `user_has_cap` delegando ao
+  `ScreenAccess` do plugin — sem o plugin precisar inventar capabilities
+  de mentira, e sem a biblioteca depender de `current_user_can()`.
+- **Visibilidade derivada dos filhos, do grupo até a entrada raiz
+  (`TreeBuilder`).** Grupo aparece se ao menos uma tela dentro dele
+  aparecer; a entrada do produto no menu segue a mesma regra — quem não
+  enxerga tela nenhuma não vê a entrada, e não cai numa tela vazia.
+- **Declaração acumulativa: `Registry::add()` é chamado por qualquer parte
+  do plugin, sem lista central.** É o que o V3RHelp já faz hoje, e sem
+  isso perderia a modularidade que é a razão do desenho dele.
+- **Navegação plana é caso de primeira classe, não degenerado:** sem
+  grupos declarados, a árvore sai plana, sem caso especial em quem
+  consome.
+- **`Assets/brand/` — ícones de família para o menu do painel (#25):**
+  duplo V para a V3RTECH e rosa dos ventos (sem o anel) para a RIT,
+  silhueta monocromática em `currentColor`, sem fundo, desenhada para
+  20px — marca de produto reduzida a esse tamanho perde o que a
+  distingue. A arte é reconstrução, sem vetor oficial versionado na casa,
+  e será substituída pela oficial quando existir (ver `README.md` da
+  pasta).
+
+### Fora do escopo, por decisão
+- **A camada de desenho** (barra, cabeçalho, estilo, fonte) não existe:
+  depende da #26 — a biblioteca ainda não distribui peça de interface.
+  Quem adotar agora recebe a árvore pronta e desenha a própria barra.
+- **Posição na coluna do painel e reordenação** dos blocos da família:
+  é a #25, ainda não implementada — só o ícone entrou nesta versão.
+
 ## [0.13.0] — 2026-09-05
 
 ### Adicionado
