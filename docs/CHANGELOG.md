@@ -2,6 +2,39 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.16.0] — 2026-09-06
+
+### Adicionado
+- **`Screen` ganha ordem opcional, e a árvore de navegação passa a ter uma
+  regra única de ordenação: `order` ordena entre irmãos, em qualquer
+  nível; sem `order` declarada, vale a ordem de declaração.** Apurado na
+  adoção do RIT360 Flow (`RIT-DF/RIT360-Flow-Code#121`): o `TreeBuilder`
+  ordenava o primeiro nível comparando **duas escalas diferentes** — grupo
+  pelo valor declarado em `Group::order()`, tela solta pelo índice de
+  inserção, sempre um número pequeno. Com grupos declarando 20, 30 e 50,
+  qualquer tela solta caía antes de todos eles, e não existia valor
+  declarável que a colocasse entre dois grupos. O Flow precisa de
+  `Painel · Pessoas · Organizações · Fluxos · Configurações`, com Painel e
+  Fluxos como telas soltas, e obtinha
+  `Painel · Fluxos · Pessoas · Organizações · Configurações`.
+- ⚠️ **O enquadramento que importa: não era "tela solta não tem ordem", era
+  duas escalas sendo comparadas entre si.** O Flow só foi o primeiro a
+  misturar os dois tipos de nó no primeiro nível.
+- **O que mudou:** `Screen` ganha o parâmetro opcional de ordem, no fim do
+  construtor — declaração existente continua funcionando sem alteração.
+  No primeiro nível, tela solta e grupo passam a usar a **mesma** chave de
+  ordenação, com o mesmo significado. Dentro de um grupo, e em árvore
+  plana, a mesma regra vale — sem exceção por nível. Sem nenhuma `order`
+  declarada, a árvore sai **idêntica** à de antes.
+- ⚠️ **A armadilha que fica, e é deliberado que fique:** misturar irmãos
+  com `order` declarada e irmãos sem ela volta a comparar duas escalas —
+  valores declarados contra índices de inserção — e o resultado surpreende.
+  Entre irmãos, declare `order` para todos ou para nenhum. Não há
+  sentinela nem exceção: a camada roda dentro do `admin_menu` do
+  WordPress, e exceção ali derruba o painel inteiro do hospedeiro — o
+  consumidor descobriria o problema com o site fora do ar por causa de uma
+  ordenação. Contrato completo em `docs/navegacao-do-painel.md` §5.
+
 ## [0.15.0] — 2026-09-06
 
 ### Adicionado

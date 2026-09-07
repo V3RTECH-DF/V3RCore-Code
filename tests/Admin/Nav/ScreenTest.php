@@ -46,4 +46,16 @@ final class ScreenTest extends TestCase {
 
 		new Screen( 'slug', 'Label', null, '' );
 	}
+
+	public function test_order_e_null_quando_nao_declarada(): void {
+		$screen = new Screen( 'dashboard', 'Painel', null, 'perm' );
+
+		self::assertNull( $screen->order() );
+	}
+
+	public function test_order_declarada_e_exposta(): void {
+		$screen = new Screen( 'dashboard', 'Painel', null, 'perm', 40 );
+
+		self::assertSame( 40, $screen->order() );
+	}
 }

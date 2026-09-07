@@ -30,7 +30,8 @@ $registry->add(
         slug:       'pessoas-cadastro',
         label:      'Cadastro',
         group:      'pessoas',          // opcional: sem grupo, a navegação é plana
-        permission: 'gea_manage_people' // a chave que o motor de permissão entende
+        permission: 'gea_manage_people', // a chave que o motor de permissão entende
+        order:      10                  // opcional: ordena entre irmãos, ver §5
     )
 );
 ```
@@ -138,6 +139,20 @@ Regras que a construção garante:
   para a navegação não mudar de forma conforme a permissão de cada pessoa;
 - **sem nenhum grupo declarado, a árvore é plana** — navegação plana é caso de
   primeira classe, não degenerado. É o que V3REvent, V3RLicense e V3RHelp usam.
+
+**`order` ordena entre irmãos, em qualquer nível.** Tela solta e grupo usam a
+mesma escala no primeiro nível — é o que permite uma tela solta com `order`
+declarada cair **entre** dois grupos (o caso do RIT360 Flow: `Painel · Pessoas
+· Organizações · Fluxos · Configurações`, com Painel e Fluxos soltos entre
+grupos). Dentro de um grupo, as telas se ordenam entre si do mesmo jeito. Sem
+`order` declarada em lugar nenhum, o resultado é exatamente a ordem de
+declaração — hoje continua assim.
+
+⚠️ **Entre irmãos, declare `order` para todos ou para nenhum.** Misturar quem
+declara com quem não compara duas escalas diferentes — valor declarado contra
+posição de inserção — e o resultado surpreende. A biblioteca não lança exceção
+nesse caso (ela roda dentro do `admin_menu` do WordPress, e exceção ali derruba
+o painel inteiro do hospedeiro): a disciplina é do plugin que declara.
 
 ## 6. A entrada no menu do WordPress
 

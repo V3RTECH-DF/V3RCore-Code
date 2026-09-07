@@ -19,11 +19,17 @@ namespace V3R\Core\Admin\Nav;
  *    nenhum — não é "grupo único implícito", é ausência total de
  *    agrupamento. É o caso comum (V3REvent, V3RLicense, V3RHelp).
  *
- * Fora dessas três, a ordenação de telas sem grupo misturadas com telas
- * agrupadas não é parte do contrato — aqui elas entram pela ordem de
- * declaração, e um grupo sem `Group` registrado (só citado via
- * `Screen::group()`) usa essa mesma posição como ordem, para não
- * desaparecer nem pular para o fim da lista.
+ * `order` ordena entre irmãos, em qualquer nível: tela solta e grupo usam
+ * a mesma escala no primeiro nível (é o que permite uma tela solta cair
+ * entre dois grupos), e as telas de um mesmo grupo se ordenam entre si do
+ * mesmo jeito. Sem `order` declarada em lugar nenhum, o resultado é a
+ * ordem de declaração — um grupo sem `Group` registrado (só citado via
+ * `Screen::group()`) usa a posição de primeira aparição como ordem, para
+ * não desaparecer nem pular para o fim da lista.
+ *
+ * ⚠️ Entre irmãos, declare `order` para todos ou para nenhum: misturar
+ * quem declara com quem não compara duas escalas diferentes (valor
+ * declarado contra posição de inserção) e o resultado surpreende.
  *
  * @phpstan-type ScreenNode array{type: 'screen', slug: string, label: string}
  * @phpstan-type GroupNode array{type: 'group', key: string, label: string, screens: ScreenNode[]}
@@ -67,15 +73,29 @@ final class TreeBuilder {
 	 * @return array<int, array<string, mixed>>
 	 */
 	private function buildFlat( array $screens ): array {
-		$nodes = array();
+		$sortable = array();
 
-		foreach ( $screens as $screen ) {
-			if ( $this->access->canView( $screen->permission() ) ) {
-				$nodes[] = $this->screenNode( $screen );
+		foreach ( $screens as $anchor => $screen ) {
+			if ( ! $this->access->canView( $screen->permission() ) ) {
+				continue;
 			}
+
+			$order = $screen->order() ?? $anchor;
+
+			$sortable[] = array(
+				'sort_key' => array( $order, $anchor ),
+				'node'     => $this->screenNode( $screen ),
+			);
 		}
 
-		return $nodes;
+		usort(
+			$sortable,
+			static function ( array $left, array $right ): int {
+				return $left['sort_key'] <=> $right['sort_key'];
+			}
+		);
+
+		return array_column( $sortable, 'node' );
 	}
 
 	/**
@@ -112,7 +132,12 @@ final class TreeBuilder {
 				++$anchor;
 			}
 
-			$groupScreens[ $group ][] = $screen;
+			// Chave: posição de inserção dentro do próprio grupo — a mesma
+			// escala usada como fallback para ordenar as telas do grupo entre si.
+			$groupScreens[ $group ][] = array(
+				'screen' => $screen,
+				'anchor' => count( $groupScreens[ $group ] ),
+			);
 		}
 
 		$sortable = array();
@@ -125,8 +150,12 @@ final class TreeBuilder {
 					continue;
 				}
 
+				// Mesma escala do grupo abaixo: é isto que permite uma tela
+				// solta com `order` declarada cair entre dois grupos.
+				$order = $screen->order() ?? $entry['anchor'];
+
 				$sortable[] = array(
-					'sort_key' => array( $entry['anchor'], $entry['anchor'] ),
+					'sort_key' => array( $order, $entry['anchor'] ),
 					'node'     => $this->screenNode( $screen ),
 				);
 				continue;
@@ -138,18 +167,36 @@ final class TreeBuilder {
 				continue;
 			}
 
-			$visible = array();
+			$visibleSortable = array();
 
-			foreach ( $groupScreens[ $key ] as $groupedScreen ) {
-				if ( $this->access->canView( $groupedScreen->permission() ) ) {
-					$visible[] = $this->screenNode( $groupedScreen );
+			foreach ( $groupScreens[ $key ] as $grouped ) {
+				$groupedScreen = $grouped['screen'];
+
+				if ( ! $this->access->canView( $groupedScreen->permission() ) ) {
+					continue;
 				}
+
+				$groupedOrder = $groupedScreen->order() ?? $grouped['anchor'];
+
+				$visibleSortable[] = array(
+					'sort_key' => array( $groupedOrder, $grouped['anchor'] ),
+					'node'     => $this->screenNode( $groupedScreen ),
+				);
 			}
 
 			// Regra 1: grupo vazio some.
-			if ( array() === $visible ) {
+			if ( array() === $visibleSortable ) {
 				continue;
 			}
+
+			usort(
+				$visibleSortable,
+				static function ( array $left, array $right ): int {
+					return $left['sort_key'] <=> $right['sort_key'];
+				}
+			);
+
+			$visible = array_column( $visibleSortable, 'node' );
 
 			$declared = $this->registry->findGroup( $key );
 			$label    = null !== $declared ? $declared->label() : $key;

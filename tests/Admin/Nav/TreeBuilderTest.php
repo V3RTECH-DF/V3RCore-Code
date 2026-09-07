@@ -150,4 +150,156 @@ final class TreeBuilderTest extends TestCase {
 
 		self::assertSame( 'sem-metadado', $tree[0]['label'] );
 	}
+
+	/**
+	 * O caso do RIT360 Flow (06/09/2026): uma tela solta com `order` declarada
+	 * precisa cair ENTRE dois grupos, não sempre antes de todos eles.
+	 */
+	public function test_tela_solta_com_order_cai_entre_dois_grupos(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'pessoas', 'Pessoas', 20 ) );
+		$registry->addGroup( new Group( 'fluxos', 'Fluxos', 50 ) );
+		$registry->add( new Screen( 'pessoas-x', 'Pessoas X', 'pessoas', 'perm_a' ) );
+		$registry->add( new Screen( 'configuracoes', 'Configurações', null, 'perm_b', 40 ) );
+		$registry->add( new Screen( 'fluxos-x', 'Fluxos X', 'fluxos', 'perm_c' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b', 'perm_c' ) ) ) )->build();
+
+		self::assertSame( 'pessoas', $tree[0]['key'] );
+		self::assertSame( 'screen', $tree[1]['type'] );
+		self::assertSame( 'configuracoes', $tree[1]['slug'] );
+		self::assertSame( 'fluxos', $tree[2]['key'] );
+	}
+
+	/** Controle negativo: sem `order` na tela solta, ela cai na posição de declaração — antes dos dois grupos. */
+	public function test_tela_solta_sem_order_nao_pula_para_o_meio(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'pessoas', 'Pessoas', 20 ) );
+		$registry->addGroup( new Group( 'fluxos', 'Fluxos', 50 ) );
+		$registry->add( new Screen( 'configuracoes', 'Configurações', null, 'perm_b' ) );
+		$registry->add( new Screen( 'pessoas-x', 'Pessoas X', 'pessoas', 'perm_a' ) );
+		$registry->add( new Screen( 'fluxos-x', 'Fluxos X', 'fluxos', 'perm_c' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b', 'perm_c' ) ) ) )->build();
+
+		self::assertSame( 'configuracoes', $tree[0]['slug'] );
+		self::assertSame( 'pessoas', $tree[1]['key'] );
+		self::assertSame( 'fluxos', $tree[2]['key'] );
+	}
+
+	/** Telas dentro de um grupo respeitam `order` entre si. */
+	public function test_telas_do_mesmo_grupo_respeitam_order_entre_si(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'pessoas', 'Pessoas', 20 ) );
+		$registry->add( new Screen( 'pessoas-relatorio', 'Relatório', 'pessoas', 'perm_a', 20 ) );
+		$registry->add( new Screen( 'pessoas-cadastro', 'Cadastro', 'pessoas', 'perm_b', 10 ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b' ) ) ) )->build();
+
+		self::assertSame( 'pessoas-cadastro', $tree[0]['screens'][0]['slug'] );
+		self::assertSame( 'pessoas-relatorio', $tree[0]['screens'][1]['slug'] );
+	}
+
+	/** Controle negativo: sem `order` declarada nas telas do grupo, prevalece a ordem de inserção. */
+	public function test_telas_do_mesmo_grupo_sem_order_mantem_ordem_de_insercao(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'pessoas', 'Pessoas', 20 ) );
+		$registry->add( new Screen( 'pessoas-relatorio', 'Relatório', 'pessoas', 'perm_a' ) );
+		$registry->add( new Screen( 'pessoas-cadastro', 'Cadastro', 'pessoas', 'perm_b' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b' ) ) ) )->build();
+
+		self::assertSame( 'pessoas-relatorio', $tree[0]['screens'][0]['slug'] );
+		self::assertSame( 'pessoas-cadastro', $tree[0]['screens'][1]['slug'] );
+	}
+
+	/**
+	 * Sem nenhuma `order` declarada em lugar nenhum, a árvore PLANA sai
+	 * idêntica à ordem de declaração — comparando a árvore inteira, não só
+	 * um nó, para proteger contra regressão silenciosa na ordenação nova.
+	 */
+	public function test_sem_order_a_arvore_plana_e_identica_a_ordem_de_declaracao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'c', 'C', null, 'perm_c' ) );
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b', 'perm_c' ) ) ) )->build();
+
+		self::assertSame(
+			array(
+				array(
+					'type'  => 'screen',
+					'slug'  => 'c',
+					'label' => 'C',
+				),
+				array(
+					'type'  => 'screen',
+					'slug'  => 'a',
+					'label' => 'A',
+				),
+				array(
+					'type'  => 'screen',
+					'slug'  => 'b',
+					'label' => 'B',
+				),
+			),
+			$tree
+		);
+	}
+
+	/**
+	 * Mesmo controle, com grupos: sem nenhuma `order` declarada — nem em
+	 * Group, nem em Screen — a árvore agrupada sai idêntica à ordem de
+	 * declaração, comparando a árvore inteira.
+	 */
+	public function test_sem_order_a_arvore_agrupada_e_identica_a_ordem_de_declaracao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'financeiro-y', 'Y', 'financeiro', 'perm_b' ) );
+		$registry->add( new Screen( 'solta', 'Solta', null, 'perm_s' ) );
+		$registry->add( new Screen( 'pessoas-x', 'X', 'pessoas', 'perm_a' ) );
+		$registry->add( new Screen( 'pessoas-z', 'Z', 'pessoas', 'perm_z' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b', 'perm_s', 'perm_z' ) ) ) )->build();
+
+		self::assertSame(
+			array(
+				array(
+					'type'    => 'group',
+					'key'     => 'financeiro',
+					'label'   => 'financeiro',
+					'screens' => array(
+						array(
+							'type'  => 'screen',
+							'slug'  => 'financeiro-y',
+							'label' => 'Y',
+						),
+					),
+				),
+				array(
+					'type'  => 'screen',
+					'slug'  => 'solta',
+					'label' => 'Solta',
+				),
+				array(
+					'type'    => 'group',
+					'key'     => 'pessoas',
+					'label'   => 'pessoas',
+					'screens' => array(
+						array(
+							'type'  => 'screen',
+							'slug'  => 'pessoas-x',
+							'label' => 'X',
+						),
+						array(
+							'type'  => 'screen',
+							'slug'  => 'pessoas-z',
+							'label' => 'Z',
+						),
+					),
+				),
+			),
+			$tree
+		);
+	}
 }

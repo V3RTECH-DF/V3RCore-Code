@@ -12,6 +12,13 @@ namespace V3R\Core\Admin\Nav;
  *
  * Valor imutável: uma vez construído, nada muda. `group` é opcional —
  * ausente, a tela entra na árvore como item de primeiro nível (§5).
+ *
+ * `order` é opcional e ordena entre irmãos, em qualquer nível: entre telas
+ * soltas e grupos no primeiro nível, e entre as telas de um mesmo grupo.
+ * Sem `order` declarada, vale a ordem de declaração. ⚠️ Entre irmãos,
+ * declare `order` para todos ou para nenhum — misturar quem declara com
+ * quem não compara escalas diferentes (valor declarado contra posição de
+ * inserção) e o resultado surpreende (docs/navegacao-do-painel.md §5).
  */
 final class Screen {
 
@@ -27,10 +34,13 @@ final class Screen {
 	/** @var string */
 	private $permission;
 
+	/** @var int|null */
+	private $order;
+
 	/**
 	 * @throws \InvalidArgumentException `slug`, `label` ou `permission` vazios.
 	 */
-	public function __construct( string $slug, string $label, ?string $group, string $permission ) {
+	public function __construct( string $slug, string $label, ?string $group, string $permission, ?int $order = null ) {
 		if ( '' === trim( $slug ) ) {
 			throw new \InvalidArgumentException( 'Screen::slug não pode ser vazio.' );
 		}
@@ -47,6 +57,7 @@ final class Screen {
 		$this->label      = $label;
 		$this->group      = ( null !== $group && '' !== trim( $group ) ) ? $group : null;
 		$this->permission = $permission;
+		$this->order      = $order;
 	}
 
 	public function slug(): string {
@@ -65,5 +76,10 @@ final class Screen {
 	/** A chave que o `ScreenAccess` do plugin entende (docs/navegacao-do-painel.md §3). */
 	public function permission(): string {
 		return $this->permission;
+	}
+
+	/** Ordem declarada entre irmãos, ou `null` — cai para a ordem de declaração (§5). */
+	public function order(): ?int {
+		return $this->order;
 	}
 }
