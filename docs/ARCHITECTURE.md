@@ -368,6 +368,46 @@ Cifrar em repouso um documento cuja chave se perde de vez seria perda
 definitiva, e essa é a diferença que decide o corte, não o fato de uma
 coisa ser "segredo" e a outra não.
 
+### ADR-016 — Papéis orientados a dados: promovidos porque convergiram sozinhos, não porque dois consumidores pediram o mesmo (V3RCore-Code#39, v0.20.0)
+
+V3RLGPD e RIT360 Premiado escreveram, cada um por conta própria, o mesmo
+mecanismo de RBAC editável pelo cliente: permissão como string
+`modulo.ação`, papel como `slug => [label, description, permissions[]]`
+guardado e resolvido contra um catálogo montado a partir dos módulos do
+produto, rótulo/descrição sempre vindos do código, e módulo novo
+precisando aparecer nos papéis já semeados. Convergiram sem combinar.
+
+**O eixo em que divergiam:** o V3RLGPD guarda **um** papel por pessoa; o
+RIT360 Premiado evoluiu para **vários**, com a permissão efetiva sendo a
+união dos papéis atribuídos. Um é generalização estrita do outro — "um
+papel" é "vários papéis" com conjunto de tamanho um.
+
+**Decisão:** promover para `V3R\Core\Roles\` a forma generalizada ("a
+pessoa tem um conjunto de papéis"), com `PermissionEngine::rolesOf()`
+normalizando o formato antigo (string única) para lista sem o produto
+converter nada — o V3RLGPD não muda de comportamento, só passa a ser lido
+por um motor que também aceita o caso mais geral.
+
+⚠️ **Por que isto é o oposto do corte da ADR-013 (#24), e não uma
+inconsistência entre as duas decisões:** lá, os dois consumidores do
+acesso por link temporário discordavam **no ponto que a abstração
+precisaria fixar** — identidade da sessão (pessoa única vs. conjunto de
+papéis exercidos por e-mail) — e generalizar exigiria escolher um lado,
+o que serviria mal ao outro. Aqui não existe esse ponto de discórdia: os
+dois consumidores descreviam o **mesmo** conceito, e um simplesmente
+tinha uma instância mais restrita dele. O critério de corte é o mesmo nas
+duas ADRs — só o resultado da avaliação é diferente, porque o material de
+origem é diferente.
+
+**O que ficou de fora, deliberadamente:** a tela de "usuários e papéis" e
+a validação de criação de papel customizado (nome reservado, saneamento
+de rótulo) não sobem — pertencem à tela, que ainda não existe como issue
+própria, e subir a validação sem a tela que a usa arriscaria travar
+decisões de UX ainda não tomadas para o conjunto dos produtos. Lista de
+módulos, rótulos, papéis-modelo e correções de dado específicas de cada
+produto continuam no produto. Catálogo completo, com o que sobe e o que
+não sobe peça a peça: `docs/papeis-orientados-a-dados.md` §2.
+
 ---
 
 ## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.4.0)
@@ -379,7 +419,8 @@ coisa ser "segredo" e a outra não.
 > e em 04/09/2026 (v0.10.0: namespace novo `V3R\Core\Documents\`, `Cnpj` e
 > `Cpf`, #22; v0.11.0: namespace novo `V3R\Core\Signing\`, ADR-015/#27) e em
 > 05/09/2026 (v0.12.0: `AuthenticityRegistry` emitir/selar em dois momentos,
-> #28; v0.13.0: `Signing\CertificateInspector`, promovido do RIT360 Flow, #29).
+> #28; v0.13.0: `Signing\CertificateInspector`, promovido do RIT360 Flow, #29)
+> e em 07/09/2026 (v0.20.0: namespace novo `V3R\Core\Roles\`, ADR-016/#39).
 > Fatia 2 (issue #3) concluída; nada mais listado como `TODO(fatia-2)`.
 
 | Classe | Papel | Estado |
@@ -412,6 +453,7 @@ coisa ser "segredo" e a outra não.
 | `Signing\EphemeralSecretFile` | Material sensível em disco fora da área servida pela web, remoção garantida e varredura de sobras (#27) | completo |
 | `Signing\SignerInterface` / `SigningException` | Contrato do assinador — a biblioteca não gera PDF nem ganha dependência de terceiro (#27) | completo |
 | `Signing\CertificateInspector` / `CertificateInspection` / `CertificateSubject` | Abre o PKCS#12 a partir de `CertificateMaterial`, extrai validade e titular; alimenta `SigningModeResolver::decide()` direto; degrada (nunca fatal) sem `ext-openssl`, promovido do RIT360 Flow (#29) | completo |
+| `Roles\PermissionCatalog` / `Roles\RoleMatrix` / `Roles\PermissionEngine` | Papéis orientados a dados: catálogo de permissões, matriz de papéis guardada (seed idempotente, `reconcileModule()`), resolução (`userCan`, `rolesOf`, `assignRoles`) com cache por requisição e anti-tranca de administrador; `asScreenAccess()` liga à navegação (ADR-016, promovido de V3RLGPD e RIT360 Premiado) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:

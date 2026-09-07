@@ -2,6 +2,55 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.20.0] — 2026-09-07
+
+### Adicionado
+- **Namespace novo `V3R\Core\Roles\` — o motor de papéis orientados a
+  dados, editáveis pelo cliente.** Promovido de duas implementações que
+  convergiram sozinhas: V3RLGPD e RIT360 Premiado escreviam a permissão do
+  mesmo jeito, guardavam o papel com a mesma estrutura, montavam o
+  catálogo a partir dos módulos do produto e se preocupavam com as mesmas
+  armadilhas — e divergiam num eixo só, **um papel por pessoa contra
+  vários**, onde um é generalização do outro (`V3RCore-Code#39`).
+  ⚠️ **Contraste com a recusa de promoção do acesso por link temporário
+  (`#24`):** lá os dois consumidores discordavam exatamente no ponto que a
+  abstração teria de fixar (identidade da sessão), e escolher um lado
+  mutilaria o outro. Aqui não havia esse ponto de discórdia — só um
+  generalizava o outro —, e é essa diferença que decide promover ou não.
+  Detalhe completo em `docs/papeis-orientados-a-dados.md`.
+- **A forma promovida é "a pessoa tem um conjunto de papéis".**
+  `PermissionEngine::rolesOf()` normaliza o formato antigo (um papel só,
+  string) para lista, sem o produto converter nada — um produto com um
+  papel por pessoa continua funcionando, é só um conjunto de um elemento.
+- **Onde se guarda é configuração, não código:** nome da option (matriz de
+  papéis) e nome do meta (papel da pessoa) são passados no construtor.
+  ⚠️ É isso que faz a adoção **não ter migração de dado** — um produto que
+  já usa seus próprios nomes continua usando os mesmos, e a troca é
+  reversível.
+- **Rótulo e descrição vêm sempre do código**, mesmo em instalação já
+  semeada; só as permissões vêm do que está guardado. É o que faz
+  renomear um papel-modelo ter efeito sem migração.
+- **Módulo novo aparece nos papéis já semeados**, por regra geral
+  (`RoleMatrix::reconcileModule()`), não por lista escrita à mão. ⚠️ Sem
+  isso, funcionalidade nova nasce invisível para quem já tem papel
+  atribuído, e ninguém percebe porque nada erra. Confirmada contra os
+  dados reais dos dois produtos: reproduz exatamente as exclusões que
+  cada um fazia à mão.
+- **Cache por requisição obrigatório, com o bypass de administrador
+  resolvido uma vez por pessoa** (não uma vez por permissão). ⚠️ Motivo
+  medido: consultar a permissão de dentro do filtro de capability do
+  WordPress **reentra no filtro**, e uma chamada por permissão distinta
+  vira N reentradas — já causou incidente de esgotamento de memória em
+  produção no V3RLGPD.
+- **Liga à camada de navegação em uma linha**
+  (`PermissionEngine::asScreenAccess()`): o motor entrega a resposta na
+  forma que `Admin\Nav\Navigation` aceita desde a 0.18.0. Provado montando
+  a navegação real com o motor (`tests/Roles/PermissionEngineNavigationTest.php`).
+- **O que NÃO subiu:** a tela de "usuários e papéis" e a validação de
+  criação de papel customizado — são da tela, que ainda não subiu. Também
+  ficam no produto a lista de módulos, os rótulos, os papéis-modelo e as
+  correções de dado específicas de cada produto.
+
 ## [0.19.0] — 2026-09-07
 
 ### Adicionado
