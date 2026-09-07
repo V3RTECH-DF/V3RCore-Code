@@ -39,6 +39,22 @@ a segunda responsabilidade só apareceu quando o V3RLGPD adotou e o item
 ativo da navegação ficou indistinguível dos inativos. Filtro sempre por
 caminho de módulo, nunca por nome de classe ou propriedade.
 
+**UPDATED BY v0.22.0 (07/09/2026): `Admin\Nav\MenuOrder` — posição e
+contiguidade da família na coluna do painel (#25), a metade que a
+v0.14.0 tinha deixado pendente (só o ícone havia entrado).** Dois blocos
+em sequência — RIT primeiro, V3RTECH em seguida —, ordem alfabética
+dentro de cada um, sem nenhum plugin de terceiro entre eles.
+`Navigation::registerMenu()` anuncia a entrada e pede a posição da
+família a `add_menu_page()`; a contiguidade em si só se garante depois,
+pelos filtros `custom_menu_order`/`menu_order` do WordPress, quando a
+coluna inteira já existe. A decisão que sustenta a convivência entre
+cópias: o anúncio mora numa global do PHP **não prefixada** — ao
+contrário da capability sintética da v0.21.0, que é por plugin — porque
+posição no menu é um fato sobre a coluna do site (um só para todo mundo),
+não uma resposta sobre uma pessoa. Reordenação idempotente e
+convergente: qualquer número de cópias, em qualquer ordem, calcula o
+mesmo resultado. Ver `docs/CHANGELOG.md` [0.22.0] e ADR-018.
+
 **Papéis orientados a dados — `V3R\Core\Roles\` (#39, ADR-016), v0.20.0.**
 V3RLGPD e RIT360 Premiado convergiram sozinhos no mesmo desenho de RBAC
 editável pelo cliente; promovido o catálogo de permissões, a matriz
@@ -96,8 +112,9 @@ a suposição de que extrair peças dele exigiria migração prévia.
   (#35, #36).
 - Adoção dos papéis orientados a dados pelo V3RLGPD e pelo RIT360
   Premiado, um de cada vez, sem migração de dado (#39).
-- Convenção de posição das entradas no menu (#25): dois blocos contíguos
-  por família, reordenados pela biblioteca — decidido, não implementado.
+- ~~Convenção de posição das entradas no menu (#25): dois blocos
+  contíguos por família, reordenados pela biblioteca — decidido, não
+  implementado.~~ **Feito na v0.22.0** (`Admin\Nav\MenuOrder`, ver acima).
 - Camada de desenho: atalho de busca de tela (Ctrl+K) e botão de menu
   único no celular, fora da v0.1.0 do pacote por decisão.
 

@@ -240,6 +240,13 @@ final class Navigation {
 		// da entrada raiz é POR PLUGIN").
 		NavCapabilityGate::registerRootMenu( $this->registry, $this->access, $entry->slug() );
 
+		// Anuncia a entrada para a reordenação que mantém os dois blocos da
+		// casa contíguos (#25). Também aqui sem esperar `admin_menu`: o
+		// anúncio precisa estar completo antes de o WordPress montar a
+		// coluna, e é compartilhado entre as cópias prefixadas da
+		// biblioteca (ver docblock de MenuOrder).
+		MenuOrder::announce( $entry );
+
 		if ( ! function_exists( 'add_action' ) ) {
 			return;
 		}
@@ -275,6 +282,10 @@ final class Navigation {
 	 * abrir numa tela vazia. Derivar do slug do MENU (não de uma constante
 	 * fixa da biblioteca) é o que torna esta capability própria de CADA
 	 * plugin — ver docblock de `NavCapabilityGate`.
+	 *
+	 * A posição pedida vem de `MenuOrder` e só define o bairro da coluna
+	 * (#25): a contiguidade dos dois blocos da casa é garantida depois, na
+	 * reordenação, quando a coluna inteira já existe.
 	 */
 	private function addMainMenuPage( MenuEntry $entry ): void {
 		if ( ! function_exists( 'add_menu_page' ) ) {
@@ -291,7 +302,8 @@ final class Navigation {
 				// registra o próprio conteúdo, ou usa uma barra vinda da
 				// camada de desenho (#26) quando ela existir.
 			},
-			self::iconDataUri( $entry->family() )
+			self::iconDataUri( $entry->family() ),
+			MenuOrder::positionFor( $entry->family() )
 		);
 	}
 

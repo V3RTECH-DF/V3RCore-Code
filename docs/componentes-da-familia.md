@@ -47,7 +47,7 @@ WordPress.
 | **Acesso por link temporário** | a pessoa entra por um link enviado ao próprio e-mail | 0.8.0 | V3REvent | `acesso-por-link-temporario.md` |
 | **Notificação** | despacho de mensagem multi-canal (hoje, e-mail) | primeiras versões | Flow | — |
 | **Assinatura com certificado** | código de autenticidade, leitura do certificado, modo de assinatura | 0.11.0 | Flow | `assinatura-com-certificado.md` |
-| **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço | 0.14.0 | V3RLGPD, Flow | `navegacao-do-painel.md` |
+| **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço, posição e contiguidade da família na coluna do painel | 0.22.0 | V3RLGPD, Flow | `navegacao-do-painel.md` |
 | **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando | 0.19.0 | V3RLGPD | `navegacao-do-painel.md` §7 |
 | **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | V3RLGPD | `papeis-orientados-a-dados.md` |
 

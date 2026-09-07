@@ -32,6 +32,7 @@ if ( ! function_exists( 'add_menu_page' ) ) {
 			'capability' => $capability,
 			'menu_slug'  => $menuSlug,
 			'icon_url'   => $iconUrl,
+			'position'   => $position,
 		);
 
 		return $menuSlug;

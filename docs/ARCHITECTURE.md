@@ -438,7 +438,7 @@ que a prefixação do Strauss dá ao PHP, do lado do navegador.
 Contrato completo: `Front/docs/contrato-do-pacote.md`. Catálogo cruzado:
 `docs/componentes-da-familia.md`.
 
-### ADR-018 — Navegação do painel: camada de governo em PHP, independente da camada de desenho (V3RCore-Code#35, v0.14.0–v0.21.0)
+### ADR-018 — Navegação do painel: camada de governo em PHP, independente da camada de desenho (V3RCore-Code#35, v0.14.0–v0.22.0)
 
 Oito plugins da casa montavam a navegação cada um do seu jeito — de 7 a 9
 entradas secundárias no menu do WordPress, com o motor de permissão e a
@@ -482,6 +482,19 @@ a capability sintética do slug de cada entrada, como já era feito por
 tela; a guarda fica em silêncio (nunca nega) sobre capability que não
 reconhece.
 
+**Posição e contiguidade da família na coluna do painel (v0.22.0,
+`Admin\Nav\MenuOrder`), a metade da #25 que a v0.14.0 deixou pendente.**
+O anúncio das entradas mora numa global do PHP de nome fixo,
+deliberadamente **não** prefixada pelo Strauss — ao contrário da
+capability sintética de `NavCapabilityGate`, que **é** por plugin. A
+diferença não é inconsistência: capability é uma resposta sobre uma
+pessoa, e responder pelo alheio está errado (daí ser separada por cópia);
+posição no menu é um fato sobre a coluna do site, um só para todo mundo,
+e só se acerta se toda cópia prefixada partir do mesmo conjunto
+anunciado. Com o anúncio compartilhado, a reordenação é função pura do
+conjunto mais a ordem recebida — idempotente e convergente, então não
+importa quantas cópias pendurem o filtro nem em que ordem rodem.
+
 Catálogo completo: `docs/navegacao-do-painel.md`. Consumo medido em
 produção: RIT360 Flow (a partir da v0.17.0 da lib) e V3RLGPD, convivendo
 no mesmo site.
@@ -504,7 +517,9 @@ no mesmo site.
 > Namespace `V3R\Core\Admin\Nav\` (ADR-018/#35) entrou em 05/09/2026
 > (v0.14.0) e recebeu `LegacyRedirects` em 06/09/2026 (v0.19.0, #38); a
 > capability sintética por plugin, que corrige a colisão entre dois
-> consumidores no mesmo site, é da v0.21.0 (07/09/2026).
+> consumidores no mesmo site, é da v0.21.0 (07/09/2026), e `MenuOrder`
+> (posição e contiguidade da família na coluna do painel, #25) é da
+> v0.22.0 (07/09/2026).
 
 | Classe | Papel | Estado |
 |---|---|---|
@@ -541,6 +556,7 @@ no mesmo site.
 | `Admin\Nav\ScreenAccess` / `CapabilityAccess` / `CallableScreenAccess` / `NavCapabilityGate` | Motor de permissão plugável da navegação — capability sintética derivada por plugin (nunca constante fixa, ADR-018), cache por processo e por pessoa | completo |
 | `Admin\Nav\LegacyRedirects` | Endereço salvo de um submenu que a adoção da navegação única aposentou continua funcionando, mapa `slug antigo => destino` declarado pelo plugin (#38) | completo |
 | `Admin\Nav\Family` | As duas famílias de produto (`rit`, `v3rtech`) que definem o ícone da entrada única no menu — nunca o ícone do produto individual (issue #25) | completo |
+| `Admin\Nav\MenuOrder` | Posição e contiguidade da família na coluna do painel: dois blocos em sequência (RIT, depois V3RTECH), ordem alfabética dentro de cada um, anúncio compartilhado entre cópias prefixadas via global não prefixada, reordenação idempotente e convergente pelos filtros `custom_menu_order`/`menu_order` do WordPress (issue #25, v0.22.0) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:

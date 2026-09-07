@@ -2,6 +2,64 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.22.0] — 2026-09-07
+
+### Adicionado
+- **`Admin\Nav\MenuOrder` — as entradas da família ficam JUNTAS na coluna
+  do painel do WordPress (#25, a metade que a v0.14.0 tinha deixado de
+  fora: só o ícone entrou lá).** Dois blocos em sequência — família RIT
+  primeiro, V3RTECH em seguida —, sem nenhum plugin de terceiro entre
+  eles, e em ordem alfabética pelo título dentro de cada bloco (acento e
+  caixa ignorados, desempate pelo slug). `Navigation::registerMenu()`
+  anuncia a entrada em `MenuOrder` assim que o plugin declara a tela —
+  antes de `admin_menu` disparar — e pede a `add_menu_page()` a posição
+  da família (`POSITION_RIT` = 58.0, `POSITION_V3RTECH` = 58.5). A
+  contiguidade em si só se garante **depois**, pelos filtros
+  `custom_menu_order`/`menu_order` do próprio WordPress, no único momento
+  em que a coluna inteira já existe — a posição pedida no registro é só
+  um número que qualquer plugin de terceiro também pode pedir, e declarar
+  vizinhos reduz a chance de intromissão, não a elimina.
+- ⚠️ **A decisão que faz isto funcionar com oito plugins da casa, cada um
+  com a própria cópia da biblioteca: o anúncio das entradas mora numa
+  global do PHP de nome fixo (`GLOBAL_KEY` = `v3r_nav_family_menu_entries`),
+  deliberadamente NÃO prefixada pelo Strauss.** Sem isso, cada cópia
+  prefixada conheceria só a própria entrada e a reordenação viraria uma
+  disputa — cada plugin empurrando a própria entrada para o lugar certo e
+  atropelando o que o anterior já tinha decidido. Compartilhando o
+  anúncio, `reorder()` é função pura do conjunto anunciado mais a ordem
+  recebida: **idempotente** (rodar de novo devolve o mesmo resultado) e
+  **convergente** (todas as cópias calculam o mesmo array), não importa
+  quantas pendurem o filtro nem em que ordem rodem. É o oposto deliberado
+  do defeito da v0.21.0 (capability sintética de raiz com o mesmo texto
+  em toda cópia, uma guarda respondendo pela pergunta da outra): lá o
+  dado era uma RESPOSTA sobre uma pessoa, e responder pelo alheio estava
+  errado; aqui o dado é um FATO sobre a coluna do site — um só para todo
+  mundo —, e a única forma de acertá-lo é toda cópia partir do mesmo
+  conjunto. O que torna o compartilhamento seguro é a chave: o slug do
+  menu já é único por plugin no WordPress, então duas cópias nunca
+  escrevem a mesma chave com significados diferentes.
+- **Limites deliberados:** entrada de terceiro nunca é movida para longe
+  nem escondida, e a ordem relativa entre elas é preservada — o bloco da
+  casa entra inteiro onde a PRIMEIRA entrada nossa já estava. Com uma
+  entrada nossa só no site, nada é movido (não há bloco a formar). Anúncio
+  malformado (cópia de versão desconhecida) é ignorado na leitura, nunca
+  derruba o menu. Degradê: se outro plugin desligar `custom_menu_order`
+  depois de nós, valem as posições pedidas no registro — os blocos saem
+  na ordem certa, sem garantia de contiguidade.
+- **Plugin que ainda não adotou a camada de navegação também entra no
+  bloco**, anunciando com uma linha a entrada que ele já registra
+  (`MenuOrder::announce()`) — sem `Registry`, sem `Navigation`, mantendo o
+  próprio ícone e a própria posição. Sem essa porta, o agrupamento
+  esperaria a adoção plugin a plugin: medido no WordPress de
+  desenvolvimento com oito plugins da casa, **um adotante só não move
+  nada**, e a coluna continua com os produtos espalhados em quatro
+  trechos, um deles abaixo de Configurações.
+- Testes: `tests/Admin/Nav/MenuOrderTest.php` (13 casos),
+  `tests/Admin/Nav/MenuOrderCoexistenceTest.php` (carrega uma SEGUNDA cópia
+  da peça sob outro namespace, como o Strauss faz, e prova que as duas
+  enxergam o mesmo anúncio e convergem) e dois casos novos em
+  `tests/Admin/Nav/NavigationTest.php`.
+
 ## [0.21.0] — 2026-09-07
 
 ### Corrigido

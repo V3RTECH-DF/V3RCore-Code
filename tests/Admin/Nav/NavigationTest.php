@@ -6,6 +6,7 @@ namespace V3R\Core\Tests\Admin\Nav;
 use PHPUnit\Framework\TestCase;
 use V3R\Core\Admin\Nav\Family;
 use V3R\Core\Admin\Nav\MenuEntry;
+use V3R\Core\Admin\Nav\MenuOrder;
 use V3R\Core\Admin\Nav\Navigation;
 use V3R\Core\Admin\Nav\NavCapabilityGate;
 use V3R\Core\Admin\Nav\Registry;
@@ -24,6 +25,8 @@ final class NavigationTest extends TestCase {
 		$GLOBALS['v3r_core_test_puc_filters']              = array();
 		$GLOBALS['v3r_core_test_registered_menu_pages']    = array();
 		$GLOBALS['v3r_core_test_registered_submenu_pages'] = array();
+
+		MenuOrder::resetForTests();
 	}
 
 	public function test_tree_delega_para_o_registry_e_o_access(): void {
@@ -226,6 +229,39 @@ final class NavigationTest extends TestCase {
 			NavCapabilityGate::rootCapabilityFor( 'v3rflow' ),
 			$page['capability'],
 			"A entrada visível não pode usar 'read' — visibilidade é derivada dos filhos (§5), via rootCapabilityFor()."
+		);
+	}
+
+	/**
+	 * A posição pedida vem da família (#25) — o bairro certo da coluna, e
+	 * a ordem degradada correta se a reordenação não puder rodar.
+	 */
+	public function test_renderMenu_pede_a_posicao_da_familia(): void {
+		$navigation = new Navigation( new Registry(), new CountingScreenAccess( array() ) );
+		$navigation->registerMenu( new MenuEntry( 'V3RLGPD', 'v3rlgpd', Family::V3RTECH ) );
+		$navigation->renderMenu();
+
+		self::assertSame(
+			MenuOrder::positionFor( Family::V3RTECH ),
+			$GLOBALS['v3r_core_test_registered_menu_pages'][0]['position']
+		);
+	}
+
+	/**
+	 * `registerMenu()` anuncia a entrada imediatamente, sem esperar
+	 * `admin_menu` — é o anúncio que a reordenação (#25) lê, e ele precisa
+	 * estar completo antes de o WordPress montar a coluna.
+	 */
+	public function test_registerMenu_anuncia_a_entrada_para_a_reordenacao(): void {
+		$navigation = new Navigation( new Registry(), new CountingScreenAccess( array() ) );
+		$navigation->registerMenu( new MenuEntry( 'RIT360 Flow', 'v3rflow', Family::RIT ) );
+
+		self::assertSame(
+			array(
+				'family' => Family::RIT,
+				'title'  => 'RIT360 Flow',
+			),
+			$GLOBALS[ MenuOrder::GLOBAL_KEY ]['v3rflow'] ?? null
 		);
 	}
 

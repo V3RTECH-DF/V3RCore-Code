@@ -2,7 +2,7 @@
 
 > Contrato do que um plugin declara para ganhar a navegação da família pronta —
 > entrada única no menu do WordPress e navegação inteiramente dentro da tela.
-> Issue `V3RCore-Code#35`. Vizinha: `#25` (posição, nome e ícone da entrada).
+> Issue `V3RCore-Code#35`. Vizinha: `#25` (posição, nome e ícone da entrada), resolvida em `MenuOrder` (§6).
 >
 > Esta é a **camada de governo**: PHP puro. Ela não desenha nada e **não depende
 > da `#26`** (a biblioteca ainda não distribui peça de interface). A barra em si
@@ -402,7 +402,7 @@ $navigation->registerMenu(
     new MenuEntry(
         title:  'RIT360 Flow',
         slug:   'v3rflow',
-        family: Family::RIT        // define o ícone; ver docs de #25
+        family: Family::RIT        // define o ícone e o bloco no menu (#25)
     )
 );
 ```
@@ -416,8 +416,77 @@ ela é o nó raiz da árvore, e só aparece para quem enxerga ao menos uma tela
 dentro dela — nunca por uma capability nativa larga (`read`), que abriria a
 entrada numa tela vazia para quem não pode ver nada.
 
-⚠️ **Fora do escopo desta camada:** a posição na coluna do painel e a
-reordenação que mantém os dois blocos contíguos. É a `#25`, e vem depois.
+A **posição na coluna** e a **contiguidade dos dois blocos da casa** são
+resolvidas pela própria biblioteca, sem o plugin declarar nada além da
+família — ver a seção abaixo.
+
+### Os dois blocos contíguos (`MenuOrder`, #25)
+
+As entradas da casa aparecem juntas na coluna do painel, em dois blocos em
+sequência — **família RIT e depois família V3RTECH** —, **sem nenhum plugin
+de terceiro entre elas**, e em **ordem alfabética pelo título** dentro de
+cada bloco. Nada disso é declarado pelo plugin: `registerMenu()` já
+anuncia a entrada e pendura a reordenação.
+
+**Por que a posição pedida no registro não basta.** Ela é só um número, e
+qualquer plugin de terceiro pode pedir um número dentro da nossa faixa.
+Declarar posições vizinhas reduz a probabilidade de intromissão; não a
+elimina. A contiguidade é garantida **depois** que todos os plugins se
+registraram, pelo par de filtros `custom_menu_order`/`menu_order` do
+próprio WordPress — o único momento em que a coluna inteira já existe.
+
+⚠️ **O anúncio é compartilhado entre as cópias prefixadas, e é isso que faz
+funcionar.** Cada plugin embute a própria cópia da biblioteca: a cópia de A
+não enxerga o `Registry` de B. Uma reordenação que conhecesse só a própria
+entrada faria cada cópia empurrar a sua e atropelar a decisão da anterior.
+Por isso as entradas são anunciadas numa global de nome fixo
+(`MenuOrder::GLOBAL_KEY`), deliberadamente **não** prefixada — e a
+reordenação é uma função pura do conjunto anunciado mais a ordem recebida:
+**idempotente** (rodar de novo devolve o mesmo resultado) e **convergente**
+(todas as cópias calculam a mesma coisa). Quantas cópias pendurem o filtro,
+e em que ordem rodem, deixa de importar.
+
+É o **oposto deliberado** do defeito da capability de raiz (§4): lá, o valor
+de texto igual em todas as cópias fazia um plugin responder pela pergunta do
+outro, e a correção foi separar por plugin. A diferença é a natureza do
+dado — capability é uma **resposta sobre uma pessoa**, e responder pelo
+alheio é errado; posição no menu é um **fato sobre a coluna do site**, um só
+para todo mundo, e a única forma de acertá-lo é todas as cópias partirem do
+mesmo conjunto. A chave do anúncio é o slug do menu, que já é único por
+plugin no WordPress — duas cópias nunca escrevem a mesma chave com
+significados diferentes.
+
+**O que a reordenação não faz:** não move entrada de terceiro para longe,
+não esconde nada e não altera a ordem relativa entre as de terceiros. As de
+fora ficam na ordem em que estavam; o bloco da casa é inserido inteiro onde
+a **primeira** entrada nossa já estava. Com uma entrada nossa só na coluna,
+nada é movido — não há bloco a formar, e mexer na posição seria decisão sem
+motivo.
+
+**Degradê:** se outro plugin desligar `custom_menu_order` depois de nós, a
+reordenação não roda e valem as posições pedidas no registro
+(`MenuOrder::POSITION_RIT` e `POSITION_V3RTECH`) — os dois blocos ainda saem
+na ordem certa, apenas sem a garantia de contiguidade.
+
+#### Plugin que ainda não adotou esta camada também entra no bloco
+
+Agrupar só quem adotou a navegação inteira faria o benefício esperar a
+adoção plugin a plugin — e, medido no WordPress de desenvolvimento com oito
+plugins da casa instalados, **um adotante só não move nada**: a coluna
+continua com os produtos da casa espalhados em quatro trechos, um deles
+abaixo de Configurações.
+
+Um plugin que ainda registra o menu do próprio jeito entra no bloco
+anunciando a entrada que ele já registrou — uma linha, sem mudar navegação,
+sem `Registry` e sem `Navigation`:
+
+```php
+MenuOrder::announce( new MenuEntry( 'V3RProp', 'v3rprop', Family::V3RTECH ) );
+```
+
+Ícone e posição continuam sendo os que o plugin declarou no próprio
+`add_menu_page()` — o anúncio governa **só** o agrupamento. Trocar o ícone
+pelo da família é decisão de quem adota a camada inteira.
 
 ### ⚠️ Detectar esta camada: teste uma classe, nunca a interface
 
