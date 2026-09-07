@@ -116,5 +116,10 @@ jobs:
       # Sem `npm ci`: os testes do espelho JS não têm dependência alguma —
       # rodam no runner nativo do Node sobre o mesmo conjunto de casos que
       # a metade PHP (src/Assets/data/email-suggestion-cases.json).
+      # ⚠️ O padrão dos arquivos de teste é expandido pelo SHELL, não pelo
+      # Node: `node --test` só resolve glob a partir do Node 21, e aqui o
+      # runner é o 20. Com o padrão entre aspas o Node recebia o texto cru e
+      # respondia "Could not find" — a CI ficou vermelha na main sem nada
+      # estar quebrado no código (07/09/2026).
       - name: Run node --test
         run: npm test

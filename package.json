@@ -3,6 +3,6 @@
   "private": true,
   "description": "Testes do espelho JavaScript dos ativos de front distribuídos pela biblioteca (src/Assets/js). Sem dependências: usa o runner nativo do Node.",
   "scripts": {
-    "test": "node --test \"tests/js/**/*.test.js\""
+    "test": "node --test tests/js/*.test.js"
   }
 }
