@@ -394,6 +394,84 @@ final class TreeBuilderTest extends TestCase {
 		self::assertSame( array(), $tree );
 	}
 
+	/** Tela sem surfaces declaradas aparece em qualquer superfície pedida, e também sem superfície nenhuma. */
+	public function test_tela_sem_surfaces_aparece_em_qualquer_superficie(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+
+		self::assertCount( 1, ( new TreeBuilder( $registry, $access, 'painel' ) )->build() );
+		self::assertCount( 1, ( new TreeBuilder( $registry, $access, 'publico' ) )->build() );
+		self::assertCount( 1, ( new TreeBuilder( $registry, $access ) )->build() );
+	}
+
+	/**
+	 * Tela declarada só na superfície A não aparece na árvore da B, e aparece
+	 * nela mesma na A — comparando a árvore inteira nas duas superfícies.
+	 */
+	public function test_tela_so_na_superficie_a_nao_aparece_na_arvore_da_b(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'painel-only', 'Só painel', null, 'perm_a', null, false, array( 'painel' ) ) );
+		$registry->add( new Screen( 'ambas', 'Ambas', null, 'perm_b' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a', 'perm_b' ) );
+
+		self::assertSame(
+			array(
+				array(
+					'type'  => 'screen',
+					'slug'  => 'ambas',
+					'label' => 'Ambas',
+				),
+			),
+			( new TreeBuilder( $registry, $access, 'publico' ) )->build()
+		);
+
+		self::assertSame(
+			array(
+				array(
+					'type'  => 'screen',
+					'slug'  => 'painel-only',
+					'label' => 'Só painel',
+				),
+				array(
+					'type'  => 'screen',
+					'slug'  => 'ambas',
+					'label' => 'Ambas',
+				),
+			),
+			( new TreeBuilder( $registry, $access, 'painel' ) )->build()
+		);
+	}
+
+	/** Grupo que, naquela superfície, fica sem nenhuma tela visível não aparece — regra de grupo vazio vale por superfície. */
+	public function test_grupo_sem_telas_na_superficie_nao_aparece(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'configuracoes', 'Configurações', 10 ) );
+		$registry->add( new Screen( 'config-geral', 'Geral', 'configuracoes', 'perm_a', null, false, array( 'painel' ) ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+
+		self::assertSame( array(), ( new TreeBuilder( $registry, $access, 'publico' ) )->build() );
+		self::assertCount( 1, ( new TreeBuilder( $registry, $access, 'painel' ) )->build() );
+	}
+
+	/** Consumidor que nunca informa superfície obtém exatamente o que obtinha antes desta opção existir. */
+	public function test_sem_superficie_informada_comportamento_e_o_de_sempre(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'so-painel', 'Só painel', null, 'perm_b', null, false, array( 'painel' ) ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a', 'perm_b' ) );
+
+		self::assertSame(
+			( new TreeBuilder( $registry, $access ) )->build(),
+			( new TreeBuilder( $registry, $access, null ) )->build()
+		);
+		self::assertCount( 2, ( new TreeBuilder( $registry, $access ) )->build() );
+	}
+
 	/** Sem nenhuma tela visível declarando grupo, a árvore plana não é forçada a agrupar por causa de uma oculta. */
 	public function test_apenas_tela_oculta_com_grupo_nao_forca_arvore_agrupada(): void {
 		$registry = new Registry();

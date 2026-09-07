@@ -39,6 +39,14 @@ namespace V3R\Core\Admin\Nav;
  * mesma regra 1 acima — telas ocultas são filtradas antes de qualquer
  * outra coisa, então "restarem zero telas visíveis" é o caso comum.
  *
+ * **Superfície (`$surface`, adoção do V3RLGPD, 07/09/2026):** quando
+ * informada, tela fora dela é filtrada antes de qualquer outra regra —
+ * mesmo tratamento de `hidden()`, não um quarto estado. Grupo cujas telas
+ * restantes, naquela superfície, são todas de fora, some pela regra 1
+ * (docs/navegacao-do-painel.md §5). `null` (padrão) não filtra nada — é
+ * o comportamento de sempre, e é o que `belongsToSurface( null )` sempre
+ * responde `true` garante mesmo para tela que declarou superfícies.
+ *
  * @phpstan-type ScreenNode array{type: 'screen', slug: string, label: string}
  * @phpstan-type GroupNode array{type: 'group', key: string, label: string, screens: ScreenNode[]}
  */
@@ -50,20 +58,29 @@ final class TreeBuilder {
 	/** @var ScreenAccess */
 	private $access;
 
-	public function __construct( Registry $registry, ScreenAccess $access ) {
+	/** @var string|null */
+	private $surface;
+
+	/**
+	 * `$surface` (docs/navegacao-do-painel.md §2): superfície a filtrar,
+	 * ou `null` — sem filtro, comportamento de sempre.
+	 */
+	public function __construct( Registry $registry, ScreenAccess $access, ?string $surface = null ) {
 		$this->registry = $registry;
 		$this->access   = $access;
+		$this->surface  = $surface;
 	}
 
 	/**
 	 * @return array<int, array<string, mixed>> Lista de ScreenNode|GroupNode, já filtrada e ordenada.
 	 */
 	public function build(): array {
+		$surface = $this->surface;
 		$screens = array_values(
 			array_filter(
 				$this->registry->screens(),
-				static function ( Screen $screen ): bool {
-					return ! $screen->hidden();
+				static function ( Screen $screen ) use ( $surface ): bool {
+					return ! $screen->hidden() && $screen->belongsToSurface( $surface );
 				}
 			)
 		);

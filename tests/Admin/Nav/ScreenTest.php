@@ -71,4 +71,35 @@ final class ScreenTest extends TestCase {
 
 		self::assertTrue( $screen->hidden() );
 	}
+
+	/** Declaração existente, sem o argumento novo, continua funcionando sem alteração — surfaces cai para vazio. */
+	public function test_surfaces_e_vazio_por_padrao(): void {
+		$screen = new Screen( 'dashboard', 'Painel', null, 'perm' );
+
+		self::assertSame( array(), $screen->surfaces() );
+	}
+
+	public function test_surfaces_declaradas_sao_expostas(): void {
+		$screen = new Screen( 'config-geral', 'Configurações', null, 'perm', null, false, array( 'painel' ) );
+
+		self::assertSame( array( 'painel' ), $screen->surfaces() );
+	}
+
+	/** Sem surfaces declaradas, a tela pertence a qualquer superfície pedida — inclusive a nenhuma. */
+	public function test_sem_surfaces_pertence_a_qualquer_superficie(): void {
+		$screen = new Screen( 'dashboard', 'Painel', null, 'perm' );
+
+		self::assertTrue( $screen->belongsToSurface( 'painel' ) );
+		self::assertTrue( $screen->belongsToSurface( 'publico' ) );
+		self::assertTrue( $screen->belongsToSurface( null ) );
+	}
+
+	/** Controle negativo: COM surfaces declaradas, só a superfície listada (e nenhuma pedida) pertence. */
+	public function test_com_surfaces_declaradas_so_a_listada_pertence(): void {
+		$screen = new Screen( 'config-geral', 'Configurações', null, 'perm', null, false, array( 'painel' ) );
+
+		self::assertTrue( $screen->belongsToSurface( 'painel' ) );
+		self::assertFalse( $screen->belongsToSurface( 'publico' ) );
+		self::assertTrue( $screen->belongsToSurface( null ), 'Sem superfície pedida, nenhum filtro se aplica.' );
+	}
 }

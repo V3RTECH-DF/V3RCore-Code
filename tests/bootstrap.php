@@ -153,6 +153,10 @@ require_once __DIR__ . '/Support/FrontendAssetFunctionStubs.php';
 // carregado. Ver o docblock do próprio arquivo.
 require_once __DIR__ . '/Support/NavMenuFunctionStubs.php';
 
+// Função de nome fixo usada por NavigationTest para provar que $access
+// aceita string-nome-de-função, não só Closure. Ver o docblock do arquivo.
+require_once __DIR__ . '/Support/NavAccessFunctionFixture.php';
+
 // Stub de get_file_data(), só para testar Support\PluginVersion::resolve()
 // (v3rtech-scripts#32) sem WordPress carregado. Ver o docblock do próprio
 // arquivo.

@@ -146,6 +146,71 @@ final class NavigationTest extends TestCase {
 		self::assertFalse( $map['repetida'], 'Deve valer a permissão do primeiro registro (perm_a, negada), não a do segundo.' );
 	}
 
+	public function test_tree_sem_superficie_informada_e_identica_a_antes(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm' ) );
+		$registry->add( new Screen( 'so-painel', 'Só painel', null, 'perm', null, false, array( 'painel' ) ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm' ) ) );
+
+		self::assertSame( $navigation->tree(), $navigation->tree( null ) );
+		self::assertCount( 2, $navigation->tree() );
+	}
+
+	/** Tela declarada só na superfície 'painel' não aparece na árvore de 'publico', e aparece na de 'painel'. */
+	public function test_tree_filtra_por_superficie(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'so-painel', 'Só painel', null, 'perm', null, false, array( 'painel' ) ) );
+		$registry->add( new Screen( 'ambas', 'Ambas', null, 'perm' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm' ) ) );
+
+		$publico = $navigation->tree( 'publico' );
+		self::assertCount( 1, $publico );
+		self::assertSame( 'ambas', $publico[0]['slug'] );
+
+		$painel = $navigation->tree( 'painel' );
+		self::assertCount( 2, $painel );
+	}
+
+	public function test_accessMap_sem_superficie_informada_e_identico_a_antes(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm' ) );
+		$registry->add( new Screen( 'so-painel', 'Só painel', null, 'perm', null, false, array( 'painel' ) ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm' ) ) );
+
+		self::assertSame( $navigation->accessMap(), $navigation->accessMap( null ) );
+		self::assertCount( 2, $navigation->accessMap() );
+	}
+
+	/** Tela fora da superfície pedida é OMITIDA do mapa — não vem com `false` (o oposto da regra de "sem permissão"). */
+	public function test_accessMap_omite_tela_fora_da_superficie_em_vez_de_negar(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'so-painel', 'Só painel', null, 'perm', null, false, array( 'painel' ) ) );
+		$registry->add( new Screen( 'ambas', 'Ambas', null, 'perm' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm' ) ) );
+
+		$map = $navigation->accessMap( 'publico' );
+
+		self::assertArrayNotHasKey( 'so-painel', $map, 'Fora da superfície: omitida, não presente com false.' );
+		self::assertSame( array( 'ambas' => true ), $map );
+	}
+
+	/** Controle negativo: DENTRO da superfície pedida, sem permissão, a tela continua vindo com `false` — a regra do §5 segue valendo. */
+	public function test_accessMap_dentro_da_superficie_sem_permissao_continua_com_false(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'so-painel-negada', 'Só painel, negada', null, 'perm_negada', null, false, array( 'painel' ) ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array() ) );
+
+		$map = $navigation->accessMap( 'painel' );
+
+		self::assertArrayHasKey( 'so-painel-negada', $map );
+		self::assertFalse( $map['so-painel-negada'] );
+	}
+
 	public function test_renderMenu_registra_a_entrada_unica_visivel(): void {
 		$navigation = new Navigation( new Registry(), new CountingScreenAccess( array() ) );
 		$navigation->registerMenu( new MenuEntry( 'RIT360 Flow', 'v3rflow', Family::RIT ) );
@@ -198,5 +263,129 @@ final class NavigationTest extends TestCase {
 
 		self::assertCount( 0, $GLOBALS['v3r_core_test_registered_menu_pages'] );
 		self::assertCount( 0, $GLOBALS['v3r_core_test_registered_submenu_pages'] );
+	}
+
+	/**
+	 * A forma recomendada pelo §3: uma função no lugar de um objeto
+	 * `ScreenAccess`. Cobre tree(), canView() e accessMap() com a mesma
+	 * função — as três precisam responder por ela.
+	 */
+	public function test_access_como_funcao_responde_pela_arvore_pelo_canView_e_pelo_accessMap(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm_a' ) );
+		$registry->add( new Screen( 'y', 'Y', null, 'perm_b' ) );
+
+		$decider = static function ( string $permission ): bool {
+			return 'perm_a' === $permission;
+		};
+
+		$navigation = new Navigation( $registry, $decider );
+
+		self::assertSame(
+			array(
+				array(
+					'type'  => 'screen',
+					'slug'  => 'x',
+					'label' => 'X',
+				),
+			),
+			$navigation->tree(),
+			'Passar função funciona: a árvore responde por ela.'
+		);
+		self::assertTrue( $navigation->canView( 'x' ) );
+		self::assertFalse( $navigation->canView( 'y' ) );
+		self::assertSame(
+			array(
+				'x' => true,
+				'y' => false,
+			),
+			$navigation->accessMap()
+		);
+	}
+
+	/**
+	 * A guarda de acesso direto (`NavCapabilityGate`, via `renderMenu()`)
+	 * também responde pela função — não só a árvore. Prova que a
+	 * normalização alcança as três consumidoras, não só duas.
+	 */
+	public function test_access_como_funcao_tambem_alimenta_a_guarda_de_acesso_direto(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm_a' ) );
+
+		$decider = static function ( string $permission ): bool {
+			return 'perm_a' === $permission;
+		};
+
+		$navigation = new Navigation( $registry, $decider );
+		$navigation->registerMenu( new MenuEntry( 'RIT360 Flow', 'v3rflow', Family::RIT ) );
+		$navigation->renderMenu();
+
+		$pagina = $GLOBALS['v3r_core_test_registered_submenu_pages'][0];
+		self::assertSame( NavCapabilityGate::capabilityFor( 'x' ), $pagina['capability'] );
+	}
+
+	/**
+	 * Passar objeto `ScreenAccess` continua funcionando, igual a antes desta
+	 * mudança — a normalização não pode quebrar o consumidor existente.
+	 */
+	public function test_access_como_objeto_screenaccess_continua_funcionando(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm' ) ) );
+
+		self::assertTrue( $navigation->canView( 'x' ) );
+	}
+
+	/**
+	 * O respondente é consultado o MESMO número de vezes nas duas formas —
+	 * normalizar não pode introduzir consulta extra (critério de aceite).
+	 * Comparação direta: mesma árvore de telas, mesma permissão
+	 * compartilhada, uma vez via função contadora, outra via
+	 * `CountingScreenAccess`.
+	 */
+	public function test_normalizar_nao_introduz_consulta_extra_em_relacao_ao_objeto(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_compartilhada' ) );
+		$registry->add( new Screen( 'b', 'B', null, 'perm_compartilhada' ) );
+
+		$chamadasViaFuncao = 0;
+		$decider           = static function ( string $permission ) use ( &$chamadasViaFuncao ): bool {
+			++$chamadasViaFuncao;
+			return 'perm_compartilhada' === $permission;
+		};
+
+		( new Navigation( $registry, $decider ) )->tree();
+
+		$objeto = new CountingScreenAccess( array( 'perm_compartilhada' ) );
+		( new Navigation( $registry, $objeto ) )->tree();
+
+		self::assertSame(
+			$objeto->callsFor( 'perm_compartilhada' ),
+			$chamadasViaFuncao,
+			'A função foi consultada um número de vezes diferente do objeto equivalente.'
+		);
+	}
+
+	/**
+	 * Falha na construção, não silenciosamente depois: nem função, nem
+	 * ScreenAccess.
+	 */
+	public function test_access_invalido_falha_na_construcao_com_mensagem_explicativa(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessageMatches( '/ScreenAccess/' );
+
+		// @phpstan-ignore-next-line argument.type (deliberadamente inválido — é o que o teste prova)
+		new Navigation( new Registry(), 'nao-e-funcao-nem-objeto-valido-xyz' );
+	}
+
+	/** Controle negativo: string que É um nome de função válido não deve ser recusada. */
+	public function test_access_como_nome_de_funcao_existente_e_aceito(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm' ) );
+
+		$navigation = new Navigation( $registry, __NAMESPACE__ . '\\v3r_core_test_sempre_permite' );
+
+		self::assertTrue( $navigation->canView( 'x' ) );
 	}
 }

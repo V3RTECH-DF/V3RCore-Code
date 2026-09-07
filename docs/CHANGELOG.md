@@ -2,6 +2,58 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.18.0] — 2026-09-07
+
+### Adicionado
+- **O respondente de permissão da navegação pode ser uma função, não só um
+  objeto.** Apurado na adoção do V3RLGPD (`V3RTECH-DF/V3RLGPD-Code#77`):
+  antes, o plugin hospedeiro tinha de **implementar** a interface
+  `Admin\Nav\ScreenAccess`. ⚠️ **Escrever `implements` sobre uma interface
+  ainda ausente é fatal error na ativação** — e biblioteca instalada mas
+  ainda não prefixada é estado normal logo após um clone (`docs/integracao-em-plugin.md`
+  §7). O V3RLGPD teve de declarar a classe condicionalmente — com a
+  interface presente, `implements`; sem ela, a mesma classe sem
+  `implements`, corpo numa trait para não duplicar. Cada um dos oito
+  plugins da família repetiria essa dança, e cada um a escreveria
+  diferente — o que já aconteceu com `view_admin_dashboard` (v0.15.0). A
+  biblioteca já tinha o padrão certo para este problema:
+  `Bootstrap::withCapabilityDecider()` recebe uma função pelo mesmo
+  motivo, e o V3RLGPD já a usa no licenciamento — foi a camada de
+  navegação que não seguiu o padrão da casa.
+- **`Navigation` passa a aceitar função ou objeto** como respondente
+  (`Admin\Nav\CallableScreenAccess`). A interface `ScreenAccess` continua
+  existindo e documentada, como alternativa para quem preferir classe.
+  Quem já passa objeto não muda nada.
+- **Ciclo de vida do respondente, agora documentado:** quem o constrói é o
+  plugin, e a biblioteca o reusa — o mesmo respondente serve a árvore, o
+  mapa e a guarda. Cache guardado dentro dele vale por requisição **se, e
+  só se**, o plugin criar um respondente só e uma `Navigation` só. Dois
+  `Navigation` no mesmo ciclo releem tudo duas vezes, sem nada quebrar
+  visivelmente.
+- **`Screen` ganha `surfaces` — quinto parâmetro opcional, no fim do
+  construtor** (`Admin\Nav\Screen`). Apurado no mesmo `#77`: o V3RLGPD
+  desenha navegação em dois lugares a partir das mesmas telas — o painel
+  no wp-admin e uma página do site público do cliente, por shortcode —, e
+  a segunda deliberadamente não oferece Configurações, Manual, Onboarding,
+  o assistente inicial nem tipos de documento. ⚠️ **Não é permissão: é
+  escopo.** Um operador que pode Configurações no painel não deve receber
+  "sem acesso" no site da organização — aquelas telas simplesmente não
+  existem ali.
+- **`Navigation::tree()` e `Navigation::accessMap()` aceitam a superfície**
+  como parâmetro opcional. Tela sem `surfaces` declarada existe em todas —
+  nada do que já foi escrito muda. Os rótulos de superfície são do
+  produto; a biblioteca não sabe o que é "painel" ou "público".
+- ⚠️ **Tela fora da superfície é OMITIDA do mapa, não incluída com valor
+  negativo — e isso parece contradizer a regra da v0.17.0, mas é ela
+  funcionando.** A regra "negada vem com valor negativo, nunca omitida"
+  existe para distinguir "existe e você não pode" de "não existe". Tela
+  fora da superfície é, ali, o segundo caso: presente com valor negativo
+  → "sem acesso"; ausente → "essa tela não existe aqui".
+- **A superfície não filtra o portão do servidor:** o endereço é um só e
+  continua guardado pela permissão da tela. Superfície decide onde a tela
+  aparece e onde o roteador pode abri-la; não desfaz o endereço. Contrato
+  completo em `docs/navegacao-do-painel.md`.
+
 ## [0.17.0] — 2026-09-06
 
 ### Adicionado

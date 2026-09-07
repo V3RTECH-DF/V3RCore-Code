@@ -27,6 +27,17 @@ namespace V3R\Core\Admin\Nav;
  * isso perder a guarda (docs/navegacao-do-painel.md §4). Nome em inglês,
  * coerente com o resto da classe (`slug`/`label`/`group`/`permission`/
  * `order` já são inglês).
+ *
+ * `surfaces` é a quarta opção (adoção do V3RLGPD, 07/09/2026): em quais
+ * superfícies esta tela existe, quando o plugin desenha navegação em mais
+ * de um lugar a partir da mesma declaração — ex.: o painel do wp-admin e
+ * uma página pública do site do cliente. Os rótulos são strings livres,
+ * escolhidas pelo plugin; a biblioteca não sabe o que é "painel" ou
+ * "público". **Lista vazia (o padrão) significa "todas as superfícies"**
+ * — nada do que já foi declarado antes desta opção muda de comportamento.
+ * Não é permissão: é escopo — uma tela fora da superfície pedida some da
+ * árvore e do mapa daquela superfície independentemente de quem pergunta
+ * poder vê-la (docs/navegacao-do-painel.md §2 e §5).
  */
 final class Screen {
 
@@ -48,10 +59,21 @@ final class Screen {
 	/** @var bool */
 	private $hidden;
 
+	/** @var string[] */
+	private $surfaces;
+
 	/**
+	 * @param string   $slug
+	 * @param string   $label
+	 * @param ?string  $group
+	 * @param string   $permission
+	 * @param ?int     $order
+	 * @param bool     $hidden
+	 * @param string[] $surfaces Superfícies em que a tela existe. Vazio (padrão) = todas.
+	 *
 	 * @throws \InvalidArgumentException `slug`, `label` ou `permission` vazios.
 	 */
-	public function __construct( string $slug, string $label, ?string $group, string $permission, ?int $order = null, bool $hidden = false ) {
+	public function __construct( string $slug, string $label, ?string $group, string $permission, ?int $order = null, bool $hidden = false, array $surfaces = array() ) {
 		if ( '' === trim( $slug ) ) {
 			throw new \InvalidArgumentException( 'Screen::slug não pode ser vazio.' );
 		}
@@ -70,6 +92,7 @@ final class Screen {
 		$this->permission = $permission;
 		$this->order      = $order;
 		$this->hidden     = $hidden;
+		$this->surfaces   = $surfaces;
 	}
 
 	public function slug(): string {
@@ -103,5 +126,33 @@ final class Screen {
 	 */
 	public function hidden(): bool {
 		return $this->hidden;
+	}
+
+	/**
+	 * Superfícies declaradas para esta tela, ou lista vazia quando ela não
+	 * restringe nenhuma — nesse caso, `belongsToSurface()` responde `true`
+	 * para qualquer superfície pedida.
+	 *
+	 * @return string[]
+	 */
+	public function surfaces(): array {
+		return $this->surfaces;
+	}
+
+	/**
+	 * Se esta tela pertence à superfície informada. Tela sem `surfaces`
+	 * declaradas pertence a qualquer superfície — inclusive quando
+	 * nenhuma é pedida (`null`).
+	 */
+	public function belongsToSurface( ?string $surface ): bool {
+		if ( array() === $this->surfaces ) {
+			return true;
+		}
+
+		if ( null === $surface ) {
+			return true;
+		}
+
+		return in_array( $surface, $this->surfaces, true );
 	}
 }

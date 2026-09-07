@@ -53,6 +53,34 @@ guardada e endereçável como qualquer outra — só não entra na árvore que
 `tree()` devolve. É a saída para quem roteia no cliente (§4) e precisa
 declarar rota transitória ou fora do menu sem abrir mão da guarda.
 
+### Superfície
+
+Um plugin pode desenhar navegação em mais de um lugar a partir das **mesmas**
+telas declaradas — o caso que motivou esta opção (adoção do V3RLGPD,
+07/09/2026): o painel do wp-admin, com 8 entradas, e uma página do site
+público do cliente, renderizada por shortcode, com 6. A página pública não
+oferece Configurações, Manual, Onboarding, o assistente inicial nem tipos de
+documento — **deliberadamente**, porque essas telas simplesmente não existem
+ali, não porque a permissão as recuse.
+
+```php
+$registry->add(
+    new Screen(
+        slug:       'config-geral',
+        label:      'Configurações',
+        group:      null,
+        permission: 'v3rlgpd_manage_settings',
+        surfaces:   [ 'painel' ]   // não existe na página pública
+    )
+);
+```
+
+`surfaces` é **opcional**, e os rótulos (`'painel'`, `'publico'`, ou o que o
+plugin escolher) são strings livres do produto — a biblioteca não sabe o que
+é "painel" ou "público", só compara a string pedida com as declaradas.
+**Tela que não declara nenhuma superfície existe em todas** — é o padrão, e
+nada do que já foi declarado antes desta opção existir muda de comportamento.
+
 ### A declaração é acumulativa
 
 `Registry::add()` é chamado por **qualquer parte do plugin**, quantas vezes for
@@ -65,7 +93,27 @@ ordem de inserção dentro de cada grupo.
 ## 3. Quem responde "esta pessoa pode ver esta tela?"
 
 A biblioteca **não** pergunta ao WordPress. Ela pergunta a um respondente que o
-plugin fornece:
+plugin fornece a `Navigation`, no construtor.
+
+**A forma recomendada é uma função:**
+
+```php
+$navigation = new Navigation(
+    $registry,
+    static function ( string $permission ): bool {
+        return current_user_can( $permission );
+    }
+);
+```
+
+Por quê: `implements ScreenAccess` obrigaria o plugin a declarar a classe
+condicionalmente, porque a biblioteca pode estar **presente e ainda não
+prefixada** — estado normal logo após um clone, até alguém rodar a
+prefixação (`integracao-em-plugin.md` §7). Escrever `implements` sobre uma
+interface ausente é fatal error na ativação. `Bootstrap::withCapabilityDecider()`
+já resolve o mesmo problema assim; `Navigation` segue o mesmo padrão da casa.
+
+**A interface continua existindo, como alternativa:**
 
 ```php
 interface ScreenAccess {
@@ -73,19 +121,35 @@ interface ScreenAccess {
 }
 ```
 
-Duas implementações, e o plugin escolhe uma:
+Quem já implementa `ScreenAccess` (objeto) continua funcionando sem alteração
+nenhuma — as duas formas são normalizadas internamente, e passar algo que não
+é nem função nem `ScreenAccess` falha na construção de `Navigation`, com
+mensagem que diz o que se esperava.
 
-| Implementação | Para quem |
+| Forma | Para quem |
 | --- | --- |
-| `CapabilityAccess` (padrão) | Quem usa capability nativa: GE Associados, V3REvent, V3RLicense, V3RHelp, V3RProp. Resolve por `current_user_can()`. |
-| A do próprio plugin | Quem tem matriz de papéis editável pelo cliente: V3RLGPD e RIT360 Premiado. |
+| Função (recomendada) | Todo plugin novo, e qualquer um dos existentes que queira evitar `implements` condicional. |
+| `CapabilityAccess` (objeto, padrão anterior) | Quem usa capability nativa: GE Associados, V3REvent, V3RLicense, V3RHelp, V3RProp. Resolve por `current_user_can()`. |
+| Objeto próprio | Quem tem matriz de papéis editável pelo cliente: V3RLGPD e RIT360 Premiado. |
 
-⚠️ **Sem isto, adotar o componente rebaixaria esses dois produtos** — é o modo de
-falha que a `#35` manda evitar.
+⚠️ **Sem uma das duas formas, adotar o componente rebaixaria esses dois
+produtos** — é o modo de falha que a `#35` manda evitar.
 
 **Respostas guardadas por requisição.** Quem usa matriz de papéis será consultado
 muitas vezes ao desenhar uma tela; sem cache, navegação vira enxurrada de
-consultas. O cache vive só durante a requisição e não persiste.
+consultas. O cache vive só durante a requisição e não persiste — vale para
+função e para objeto: quem fornece o respondente é responsável por cachear a
+própria resposta.
+
+### ⚠️ Ciclo de vida: quem constrói o respondente é o plugin, e a biblioteca o reusa
+
+`Navigation` não cria o respondente — recebe o que o plugin já construiu, e o
+mesmo respondente serve `tree()`, `accessMap()` e a guarda de acesso direto
+(§4). Um cache guardado dentro dele **vale por requisição se, e só se**, o
+plugin criar **um respondente só e uma `Navigation` só**. Dois `Navigation`
+construídos no mesmo ciclo com respondentes diferentes releem tudo duas
+vezes — **sem nada quebrar visivelmente**: cada consulta responde certo, só
+em dobro.
 
 ## 4. A guarda dupla
 
@@ -146,6 +210,18 @@ aplicável — porque não é capability nossa: é a saída que o próprio WooCo
 desenhou para este caso, e conceder não dá direito a editar conteúdo nem a
 mexer na loja.
 
+### Superfície não filtra a guarda
+
+⚠️ **O endereço é um só, e continua guardado pela permissão da tela,
+independentemente de superfície.** O registro das páginas ocultas (camada 1)
+e a resposta no filtro de capability (`user_has_cap`) não mudam com
+`surfaces()` — `NavCapabilityGate` nunca consulta superfície nenhuma.
+Superfície decide **onde a tela aparece** (§5) e **onde o roteador pode
+abri-la** (`accessMap()` filtrado, camada 3); não desfaz o endereço, nem no
+servidor nem no `ScreenAccess` que ele consulta. Uma tela declarada só para
+o público continua barrada ou permitida pela mesma `permission()` de sempre,
+como antes desta opção existir.
+
 ## 5. O que a biblioteca devolve
 
 ```php
@@ -164,6 +240,30 @@ Regras que a construção garante:
   cujas telas restantes são todas ocultas some pela mesma regra do primeiro
   item. Ela continua guardada e endereçável (§4) e continua contando para
   "enxerga ao menos uma tela" (§6) — só a árvore não a lista.
+
+### `tree()` e `accessMap()` por superfície
+
+```php
+$navigation->tree( 'publico' );          // só as telas da superfície 'publico'
+$navigation->accessMap( 'publico' );     // idem, no mapa
+```
+
+Sem argumento (`null`), o comportamento é **exatamente** o de antes desta
+opção existir — nenhum consumidor atual (RIT360 Flow, que nunca informa
+superfície) sente diferença. Informada, só as telas que pertencem àquela
+superfície entram — nem na árvore, nem no mapa aparecem as outras. Grupo
+cujas telas visíveis, **naquela superfície**, ficam todas de fora não
+aparece — a regra de grupo vazio (acima) vale por superfície, não só por
+permissão.
+
+⚠️ **Tela fora da superfície é OMITIDA do mapa, não incluída com `false`** —
+e isso é o oposto da regra "sem permissão entra com `false`, nunca omitida"
+(abaixo). A regra de baixo existe para distinguir "existe e você não pode"
+de "não existe". Fora da superfície é, ali, o segundo caso: a tela
+simplesmente não existe naquela superfície, então omitir é o que dá ao
+consumidor a distinção certa — presente com `false` → "sem acesso"; ausente
+→ "essa tela não existe aqui". As duas regras não se contradizem: cada uma
+responde por um tipo de ausência diferente.
 
 **`order` ordena entre irmãos, em qualquer nível.** Tela solta e grupo usam a
 mesma escala no primeiro nível — é o que permite uma tela solta com `order`

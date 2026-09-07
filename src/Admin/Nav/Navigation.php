@@ -31,6 +31,26 @@ namespace V3R\Core\Admin\Nav;
  * existir com a capability sintética certa, para o WordPress ter o que
  * barrar. Renderizar o que o usuário vê ao acessar a URL diretamente é
  * decisão de produto que esta camada não toma (fica para a #26).
+ *
+ * **`$access` aceita uma função OU um objeto `ScreenAccess`** (§3): a forma
+ * recomendada é `function( string $permission ): bool`, pelo mesmo motivo de
+ * `Bootstrap::withCapabilityDecider()` — `implements ScreenAccess` obrigaria
+ * o plugin a declarar a classe condicionalmente, porque a biblioteca pode
+ * estar presente e ainda não prefixada. A interface continua existindo e
+ * continua válida para quem preferir objeto. As duas formas são normalizadas
+ * para um `ScreenAccess` único no construtor (`CallableScreenAccess` para a
+ * função) — `NavCapabilityGate` e `TreeBuilder` recebem sempre a forma
+ * normalizada, sem dois caminhos de execução internos. Passar algo que não é
+ * nem função nem `ScreenAccess` falha aqui, no construtor — nunca depois,
+ * em silêncio.
+ *
+ * ⚠️ **Ciclo de vida do respondente:** quem o constrói é o plugin, e esta
+ * classe o reusa — o mesmo respondente serve a `tree()`, a `accessMap()` e
+ * ao gate (§3, §4). Um cache guardado dentro dele (o que o §3 pede de toda
+ * implementação) vale por requisição **se, e só se**, o plugin criar um
+ * respondente só e uma `Navigation` só. Duas instâncias de `Navigation`
+ * construídas no mesmo ciclo com respondentes diferentes releem tudo duas
+ * vezes — sem nada quebrar visivelmente.
  */
 final class Navigation {
 
@@ -46,20 +66,63 @@ final class Navigation {
 	/** @var MenuEntry|null */
 	private $menuEntry;
 
-	public function __construct( Registry $registry, ScreenAccess $access ) {
+	/**
+	 * @param Registry              $registry
+	 * @param ScreenAccess|callable $access   `function( string $permission ): bool`,
+	 *                                        ou um objeto `ScreenAccess` (§3).
+	 *
+	 * @throws \InvalidArgumentException Se `$access` não for nem uma função,
+	 *                                    nem um objeto `ScreenAccess`.
+	 */
+	public function __construct( Registry $registry, $access ) {
 		$this->registry = $registry;
-		$this->access   = $access;
-		$this->gate     = new NavCapabilityGate( $registry, $access );
+		$this->access   = self::normalizeAccess( $access );
+		$this->gate     = new NavCapabilityGate( $registry, $this->access );
 		$this->gate->register();
+	}
+
+	/**
+	 * Normaliza `$access` para um `ScreenAccess` único — o único ponto da
+	 * biblioteca que sabe que existem duas formas de entrada (docblock da
+	 * classe). Objeto que já implementa a interface passa direto, sem
+	 * embrulho: nenhuma consulta extra é introduzida em nenhuma das formas.
+	 *
+	 * @param mixed $access
+	 *
+	 * @throws \InvalidArgumentException Se `$access` não for nem uma função,
+	 *                                    nem um objeto `ScreenAccess`.
+	 */
+	private static function normalizeAccess( $access ): ScreenAccess {
+		if ( $access instanceof ScreenAccess ) {
+			return $access;
+		}
+
+		if ( is_callable( $access ) ) {
+			return new CallableScreenAccess( $access );
+		}
+
+		throw new \InvalidArgumentException(
+			'Navigation::__construct(): $access precisa ser uma função ' .
+			'`function( string $permission ): bool` ou um objeto que implemente ' .
+			'V3R\\Core\\Admin\\Nav\\ScreenAccess (docs/navegacao-do-painel.md §3). Recebido: ' .
+			( is_object( $access ) ? get_class( $access ) : gettype( $access ) ) . '.'
+		);
 	}
 
 	/**
 	 * A árvore já filtrada para o usuário corrente (§5).
 	 *
+	 * @param string|null $surface Superfície a filtrar (§2) — string livre do
+	 *                             produto, não da biblioteca. `null` (padrão):
+	 *                             sem filtro, exatamente o comportamento de
+	 *                             antes desta opção existir. Informada: só as
+	 *                             telas que pertencem a ela (`Screen::surfaces()`
+	 *                             vazio pertence a qualquer superfície).
+	 *
 	 * @return array<int, array<string, mixed>>
 	 */
-	public function tree(): array {
-		return ( new TreeBuilder( $this->registry, $this->access ) )->build();
+	public function tree( ?string $surface = null ): array {
+		return ( new TreeBuilder( $this->registry, $this->access, $surface ) )->build();
 	}
 
 	/**
@@ -107,13 +170,26 @@ final class Navigation {
 	 * `Registry::findScreen()` (e por extensão `canView()`) já usam para
 	 * decidir qual `Screen` responde por um slug.
 	 *
+	 * **Superfície (`$surface`, adoção do V3RLGPD, 07/09/2026):** tela fora
+	 * da superfície pedida é **omitida** do mapa — não entra com `false`.
+	 * É o oposto deliberado da regra de "sem permissão entra com `false`"
+	 * logo acima, e a distinção importa: presente com `false` é "existe e
+	 * você não pode"; ausente é "essa tela não existe aqui". Superfície é
+	 * escopo, não permissão — omitir é o que preserva essa diferença para
+	 * o roteador do consumidor (docs/navegacao-do-painel.md §5). `null`
+	 * (padrão): sem filtro, mapa completo como sempre foi.
+	 *
 	 * @return array<string, bool>
 	 */
-	public function accessMap(): array {
+	public function accessMap( ?string $surface = null ): array {
 		$map          = array();
 		$byPermission = array();
 
 		foreach ( $this->registry->screens() as $screen ) {
+			if ( ! $screen->belongsToSurface( $surface ) ) {
+				continue;
+			}
+
 			$slug = $screen->slug();
 
 			if ( array_key_exists( $slug, $map ) ) {
