@@ -157,6 +157,11 @@ require_once __DIR__ . '/Support/NavMenuFunctionStubs.php';
 // aceita string-nome-de-função, não só Closure. Ver o docblock do arquivo.
 require_once __DIR__ . '/Support/NavAccessFunctionFixture.php';
 
+// Stubs de admin_url()/wp_safe_redirect()/wp_unslash()/sanitize_text_field(),
+// só para testar Admin\Nav\LegacyRedirects (V3RCore-Code#35) sem WordPress
+// carregado. Ver o docblock do próprio arquivo.
+require_once __DIR__ . '/Support/LegacyRedirectFunctionStubs.php';
+
 // Stub de get_file_data(), só para testar Support\PluginVersion::resolve()
 // (v3rtech-scripts#32) sem WordPress carregado. Ver o docblock do próprio
 // arquivo.

@@ -2,6 +2,54 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.19.0] — 2026-09-07
+
+### Adicionado
+- **`Admin\Nav\LegacyRedirects` — os endereços de submenu antigos continuam
+  funcionando depois da adoção.** Apurado na adoção do V3RLGPD
+  (`V3RTECH-DF/V3RLGPD-Code#77`): adotar a camada de navegação troca oito
+  entradas de menu por uma só, os endereços dos submenus antigos deixam de
+  existir, e quem os tem salvos — exatamente quem usa aquela tela todo
+  dia — passa a receber **página em branco, sem erro nenhum**. O defeito
+  não aparece em teste nenhum, só abrindo um endereço antigo de verdade.
+  Sobravam sete plugins para fazer a mesma troca.
+- **O mapa é do plugin; a biblioteca cuida do entorno.** `slug antigo =>
+  destino` não tem como ser derivado automaticamente — medido no V3RLGPD:
+  `v3rlgpd-atendimento` vira `/atendimento`, mas `v3rlgpd-docs` vira
+  `/manual` e a entrada raiz não vira nada; qualquer regra automática
+  erraria esses dois. `LegacyRedirects` cuida do resto: age em
+  `admin_init` (não `admin_menu`), não intercepta requisição que não seja
+  do próprio plugin, higieniza o parâmetro recebido e monta o destino com
+  `admin_url()` — funciona também com o WordPress em subdiretório.
+- **Destino em duas formas, detectáveis pelo próprio valor:** começando
+  com `/` ou `#` é rota interna, composta como fragmento sobre o endereço
+  da entrada única do plugin e **preservando os demais parâmetros da
+  requisição**; qualquer outro valor é URL absoluta, usada exatamente
+  como está, sem parâmetro acrescentado.
+- ⚠️ **Recusa na declaração o mapa que contenha o slug da própria entrada
+  única — não no redirecionamento.** Mapear a entrada para si mesma cria
+  laço infinito: não uma tela quebrada, o **painel inteiro travando**. A
+  checagem está no construtor, chamado no boot do plugin — falhar ali é
+  seguro (`InvalidArgumentException`, visível na hora), bem diferente do
+  painel travado que ela evita. Foi este risco — não o mapa em si — que
+  decidiu a peça existir: o V3RLGPD escapou por ter pensado nele, e o
+  segundo plugin da família não pensaria.
+- **Não decide permissão.** Redireciona; quem barra é o destino — a
+  guarda de rota do cliente ou a camada 1/2 desta mesma biblioteca, que já
+  vale para toda rota, inclusive as que nunca tiveram submenu. Repetir a
+  decisão aqui criaria uma segunda fonte de verdade sem fechar buraco
+  nenhum. Consequência aceita: quem não pode ver a tela é levado até ela
+  e recebe a recusa **dentro do produto**, com mensagem melhor que o erro
+  genérico do WordPress.
+- ⚠️ **Preservar parâmetros não é a mesma proteção para roteamento no
+  servidor e no cliente.** Para quem roteia no servidor, resolve de
+  verdade. Para quem roteia no cliente, não cobre o caso equivalente: o
+  estado profundo vive depois do `#`, que nunca chega ao servidor — e os
+  dois caminhos possíveis perdem (destino com fragmento descarta o que
+  vinha no endereço salvo; destino sem fragmento faz o navegador carregar
+  o fragmento antigo, apontando para rota morta). É limitação do meio,
+  não da peça. Contrato completo em `docs/navegacao-do-painel.md`.
+
 ## [0.18.0] — 2026-09-07
 
 ### Adicionado

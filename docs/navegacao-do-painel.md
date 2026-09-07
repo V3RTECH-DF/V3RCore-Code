@@ -365,7 +365,77 @@ nada erra visivelmente, e a navegação simplesmente não é a compartilhada.
 (Para interface existe `interface_exists()`; mas, para detecção, prefira a
 classe — é um teste só, e não depende de quem lê lembrar da diferença.)
 
-## 7. O que esta camada NÃO faz
+## 7. Substituir submenus antigos pela entrada única (`LegacyRedirects`)
+
+Adotar esta camada troca vários submenus por **uma** entrada. Os endereços
+antigos deixam de existir, e quem os tem salvos — exatamente quem usa a tela
+todo dia — passa a receber **página em branco, sem erro, sem mensagem**.
+Medido na adoção do V3RLGPD (07/09/2026), com sete plugins ainda por fazer a
+mesma troca.
+
+**O mapa é sempre do plugin**, e não há como derivá-lo automaticamente:
+`v3rlgpd-atendimento` vira `/atendimento`, mas `v3rlgpd-docs` vira `/manual`
+e a entrada raiz não vira nada. `Admin\Nav\LegacyRedirects` recebe esse mapa
+(`slug antigo => destino`) e cuida do resto:
+
+```php
+$legacyRedirects = new V3R\Core\Admin\Nav\LegacyRedirects(
+    'v3rlgpd',                                    // slug da entrada única
+    array(
+        'v3rlgpd-atendimento' => '/atendimento',  // rota interna (fragmento)
+        'v3rlgpd-docs'        => 'https://ajuda.v3rtech.com.br/v3rlgpd', // URL absoluta
+    )
+);
+$legacyRedirects->register();
+```
+
+Destino começando com `/` ou `#` é composto como fragmento sobre a entrada
+única (`?page=v3rlgpd&...#/atendimento`), preservando os demais parâmetros da
+requisição original — `page=v3rlgpd-ropa&id=5` chega ao destino com o `id`,
+perder contexto de link profundo em silêncio seria o mesmo tipo de defeito
+que esta peça existe para fechar. Qualquer outro valor é uma URL absoluta,
+usada exatamente como está, sem parâmetro nenhum acrescentado.
+
+⚠️ **O mapa é recusado na declaração, não no redirecionamento, se contiver o
+slug da própria entrada única.** Mapear a entrada única para si mesma cria um
+laço de redirecionamento infinito — não só uma tela quebrada, o painel
+inteiro trava. `LegacyRedirects` lança `InvalidArgumentException` no
+construtor, nomeando a entrada culpada; como a construção acontece no boot
+do plugin (nunca dentro de `admin_menu`), falhar ali é seguro, e muito melhor
+que travar o painel do hospedeiro em produção.
+
+**Não decide permissão.** Ela só redireciona; quem barra é o destino — a
+guarda de rota do cliente ou as camadas 1/2 desta mesma biblioteca (§4), que
+já valem para toda rota, inclusive as que nunca tiveram endereço de submenu.
+Repetir a decisão aqui criaria uma segunda fonte de verdade sem fechar buraco
+nenhum. Consequência aceita: quem não pode ver a tela é levado até ela e
+recebe a recusa **dentro do produto**, com mensagem melhor que o erro
+genérico do WordPress.
+
+### ⚠️ Preservar parâmetros **não** é a mesma proteção para os dois grupos
+
+Para quem roteia **no servidor**, preservar os demais parâmetros resolve de
+verdade: o link profundo salvo continua chegando inteiro ao destino.
+
+**Para quem roteia no cliente, não cobre o caso equivalente.** Ali o estado
+profundo vive **depois do `#`** — e o fragmento nunca chega ao servidor, então
+nenhum redirecionamento feito aqui pode preservá-lo. Pior: os dois caminhos
+possíveis perdem, e nem é escolha entre preservar e não preservar.
+
+- **Destino com fragmento** (o caso normal, `#/tela`): o navegador **descarta** o
+  fragmento que vinha no endereço salvo, e é impossível saber que ele existia.
+- **Destino sem fragmento:** o navegador **carrega o fragmento antigo**, que
+  aponta para uma rota que já não existe. O roteador recebe um endereço morto, o
+  `canOpen` nega corretamente, e ninguém entende por quê.
+
+O que a peça faz é o caminho que **perde de forma previsível**. Não é limitação
+dela: é do meio.
+
+⚠️ A armadilha de leitura, e é o motivo desta seção existir: quem lê "preserva
+os demais parâmetros" e roteia por fragmento supõe que o link profundo dele está
+coberto. **Não está.**
+
+## 8. O que esta camada NÃO faz
 
 Não desenha barra, cabeçalho, abas nem o atalho de busca. Não define estilo,
 fonte nem espaçamento. Tudo isso é a camada de desenho, que espera a `#26`.
