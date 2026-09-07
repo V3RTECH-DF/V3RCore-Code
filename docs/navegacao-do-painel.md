@@ -250,6 +250,21 @@ entrada numa tela vazia para quem não pode ver nada.
 ⚠️ **Fora do escopo desta camada:** a posição na coluna do painel e a
 reordenação que mantém os dois blocos contíguos. É a `#25`, e vem depois.
 
+### ⚠️ Detectar esta camada: teste uma classe, nunca a interface
+
+O padrão da casa para saber se a biblioteca chegou ao plugin é `class_exists()`
+sobre um nome prefixado (ver `integracao-em-plugin.md` §7). Ao aplicá-lo a esta
+camada, teste **`Navigation`**, que é classe.
+
+`class_exists()` devolve `false` para **interface** — então
+`class_exists( $prefixo . '\\V3R\\Core\\Admin\\Nav\\ScreenAccess' )` responde
+"não existe" mesmo com a biblioteca presente e funcionando. O plugin conclui que
+a camada não chegou e cai no caminho degradado **em silêncio**: nada quebra,
+nada erra visivelmente, e a navegação simplesmente não é a compartilhada.
+
+(Para interface existe `interface_exists()`; mas, para detecção, prefira a
+classe — é um teste só, e não depende de quem lê lembrar da diferença.)
+
 ## 7. O que esta camada NÃO faz
 
 Não desenha barra, cabeçalho, abas nem o atalho de busca. Não define estilo,
