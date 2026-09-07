@@ -1,129 +1,165 @@
 # Retomada — V3RCore
 
-_Escrito ao encerrar a sessão de 05/09/2026._
+_Escrito ao encerrar a sessão de 07/09/2026._
 
 ## Onde você está
 
-`v3rtech/v3r-core` é a **biblioteca PHP compartilhada** dos plugins WordPress da casa
-(V3RTECH/RIT). Não é plugin: é embutida em cada plugin por Strauss, e **não se
-auto-prefixa** — quem prefixa é o hospedeiro.
+O V3RCore não é um produto: é a **base compartilhada da família de plugins da casa**.
+O container `/mnt/trabalho/Projetos/V3RTECH/V3RCore/` abriga **dois repositórios
+independentes** — a raiz não é repositório, e `sync-all.sh` e `CLAUDE.md` na raiz são
+atalhos.
 
-- **Código e issues:** `Code/`, repositório público `V3RTECH-DF/V3RCore-Code`. A raiz
-  do container **não é** repositório; `CLAUDE.md` e `sync-all.sh` na raiz são symlinks
-  para dentro de `Code/`.
-- **Issues são a lista viva de trabalho.** Levantamento e evidência vão para a issue,
-  nunca para arquivo solto.
-- **Pode commitar** (é o padrão da casa ao concluir uma unidade de trabalho).
-  **Publicar é do Bruno** — entregue o comando, não rode.
-- Autenticação do GitHub: `source Code/bin/config.sh` no **mesmo comando** do `gh`.
+- **`Code/`** — a biblioteca PHP `v3rtech/v3r-core` (repo `V3RTECH-DF/V3RCore-Code`).
+  **Governa**: declara telas, resolve permissão, entrega a árvore de navegação
+  filtrada, bloqueia acesso direto, além de licenciamento, assinatura, documentos,
+  notificação e papéis.
+- **`Front/`** — o pacote de tela `@v3rtech/v3r-front` (repo `V3RTECH-DF/V3RFront-Code`,
+  público). **Desenha**: cabeçalho, barra de navegação, área de avisos, guarda de rota e
+  a correção de cascata do wp-admin.
+
+⚠️ **A fronteira entre os dois é dado, não código** — o PHP produz a árvore, o
+componente consome uma forma documentada. É o que permite versionarem em ritmos
+diferentes.
+
+**O que é permitido:** commitar e publicar, com autorização permanente do Bruno para
+trabalho autônomo. **Push é dele** — entregue o comando `./sync-all.sh`, nunca `git push`.
+Publicação de tag: `./sync-all.sh -c` (biblioteca) e `./sync-all.sh -f` (pacote de tela,
+que publica código **e** tag juntos).
+
+**Não existe pasta `Projeto/`** neste container. Documentação de desenvolvimento mora em
+`Code/dev-history/`; catálogos e contratos em `Code/docs/` e `Front/docs/`.
 
 ## Estado atual
 
-**v0.13.0 publicada** (main e tag no servidor, local alinhado). Duas versões saíram nesta
-sessão, ambas no módulo `Signing/`:
+- **`v3rtech/v3r-core` v0.21.0** — publicada.
+- **`@v3rtech/v3r-front` v0.6.0** — publicada.
 
-- **v0.12.0** — emissão e selamento do código de autenticidade em dois momentos (`#28`).
-- **v0.13.0** — leitor de certificado: validade e titular (`#29`).
+**Pronto e validado em produção, com dois consumidores:** a camada de navegação do
+painel, o cabeçalho/barra/avisos, a guarda de rota e a correção de cascata. Medidos no
+**V3RLGPD** e no **RIT360 Flow**, inclusive **convivendo no mesmo WordPress** — cada
+Operador abre a própria entrada, o administrador abre as duas.
 
-Tudo o que foi entregue está **validado por efeito e publicado**. Nada pela metade.
+**Pronto com um consumidor só:** papéis orientados a dados (V3RLGPD), assinatura com
+certificado (Flow), documentos CNPJ/CPF (Flow), sugestão de domínio de e-mail e acesso
+por link temporário (V3REvent).
 
-O módulo `Signing/` é hoje o mais completo da biblioteca e tem catálogo próprio em
-`docs/assinatura-com-certificado.md`.
+**Pela metade:** a issue `#16` (padronizar a geração de PDF e criar o catálogo de
+componentes) — o catálogo foi entregue (`Code/docs/componentes-da-familia.md`), a
+padronização do PDF não. E a `#25` (posição das entradas no menu) — os ícones de família
+foram decididos e salvos, a ordenação não foi implementada.
+
+⚠️ **Cinco dos nove plugins da casa ainda apontam para a `^0.7.0`**, de agosto. Estão em
+produção e funcionando, e não alcançam nada do que veio depois. **Reimplementar por não
+enxergar é o modo de falha mais provável hoje** — daí o índice.
 
 ## O que a última sessão fez
 
-Começou como consulta da sessão do RIT360 Flow sobre duas questões de assinatura e
-terminou cobrindo quatro frentes.
+Padronizou a construção do menu e do cabeçalho de toda a família, do zero.
 
-1. **`#28`** — o código de autenticidade é impresso *dentro* do documento, então o arquivo
-   final não existe quando ele é emitido. `issue()` exigia o arquivo; `verifyFile()`
-   acusaria adulteração de documento íntegro. Separado em `issue()` + `seal()`.
-2. **`#29`** — o leitor de certificado subiu do Flow, com quatro ajustes de forma.
-3. **`#15`** — três plugins prefixaram todas as dependências de terceiro, cada um em
-   sessão própria. Fechou também a `#6` e revelou a `#32` (colisão real entre dois
-   produtos nossos, em versões de majors diferentes), já entregue pelo Flow.
-4. **`#30`** — o `sync-all` passou a publicar tag; a lógica foi para a biblioteca
-   compartilhada do `v3rtech-scripts`, não para um script local.
+1. **Debate e decisão de projeto** — régua de tamanhos, comportamento com muitas abas
+   (quebra em linhas, não barra de rolagem), fonte própria (Exo 2, embarcada, declarada
+   para a tela inteira do plugin), dois blocos contíguos no menu do WordPress (família
+   RIT e família V3RTECH, sem plugin de terceiro no meio) e um ícone por família (duplo V
+   e rosa dos ventos, versões silhueta criadas e salvas).
+2. **Contrato escrito antes do código** — `Code/docs/navegacao-do-painel.md`.
+3. **Camada de governo implementada** (`Admin\Nav\`) e refinada pelas duas adoções reais.
+4. **Pacote de tela criado do zero** como repositório próprio, publicado, e endurecido
+   pelas adoções: geometria das barras, tamanho do logo, cor de destaque, forma de
+   entregar o CSS sem quebrar o executor de testes do consumidor.
+5. **Correção de cascata promovida a peça instalável** (`#36`), medida em três cenários.
+6. **Papéis orientados a dados promovidos** (`#39`, `v0.20.0`), de duas cópias divergentes.
+7. **Índice de componentes escrito** (`Code/docs/componentes-da-familia.md`) e a regra de
+   mantê-lo gravada nos dois CLAUDE.md — o global manda **consultar antes de implementar
+   qualquer coisa**.
 
-Documentação alinhada: catálogo do módulo, receita de integração, README, `bin/README`,
-dev-history e changelog.
+Ficou de fora deliberadamente: a ordenação das entradas no menu (`#25`) e a geração de
+PDF (`#16`).
 
 ## Decisões, com o motivo
 
-- **O registro de autenticidade continua mínimo** — não guarda o titular do certificado.
-  A rota de conferência é pública e sem autenticação, e a distinção pessoa jurídica ×
-  pessoa física falha justamente nos casos que importam (MEI, CNPJ com o responsável no
-  nome comum). Página com duas caras vaza pela ausência. Em vez disso, a conferência por
-  arquivo — que já existia e ninguém usava — foi ligada na página pública do Flow.
-- **`ext-openssl` fica em `suggest`, nunca em `require`** — a biblioteca viaja dentro de
-  plugins que nunca assinam; sem a extensão, a leitura degrada para validade nula, que
-  leva ao modo degradado, em vez de quebrar a instalação.
-- **O leitor não usa os OIDs da ICP-Brasil** — o PHP não decodifica o `othername`, e
-  varrer o bloco atrás de 11 dígitos pega NIS ou RG no lugar do CPF.
-- **A lógica de publicar tag foi para o `v3rtech-scripts`**, não para um script local:
-  escrever só aqui seria a primeira de N cópias, o erro que o próprio `git-safe.sh`
-  documenta ter cometido.
-- **`#16` adiada por tamanho** e **`#26` marcada para quando não houver outras
-  prioridades**; issues-espelho abertas nos seis plugins que geram documento.
+- **A peça fixa geometria, comportamento e fonte; o plugin fornece a cor.** Sem isso cada
+  produto reinventa espaçamento e a família deixa de parecer família.
+- **O pacote de tela NÃO viaja pela biblioteca PHP.** No empacotamento dos plugins a tela
+  é compilada **antes** de a biblioteca ser embutida — peça distribuída pelo caminho do
+  PHP não existiria ainda na hora do build. E cada plugin embutindo a própria cópia é o
+  que evita dois produtos nossos colidirem no mesmo WordPress.
+- **O pacote é a raiz do próprio repositório**, porque o gerenciador de pacotes do
+  JavaScript instala a raiz de um repositório git, nunca uma subpasta. Não havia escolha.
+- **Consumo por tag fixa.** "A principal andou" não é "a versão saiu".
+- **A capability sintética que protege a entrada de menu é derivada do slug do menu**, não
+  uma constante da biblioteca — ver a premissa derrubada abaixo.
+- **A guarda se cala sobre capability que não é dela** (retorna "não opino" em vez de
+  "não"), para que a resposta de um plugin não sobrescreva a de outro.
+- **`canOpen` nega o desconhecido.** Rota ausente do mapa e rota negada são a mesma coisa
+  para quem roteia no cliente.
+- **O índice de componentes é obrigação da entrega, não cortesia.** Índice que mente por
+  omissão é pior que índice nenhum: quem consulta e não encontra reimplementa.
 
 ## Premissas que caíram
 
-- **A `#4` (rollout) e a `#6` (prefixação) já estavam prontas** e ninguém tinha fechado.
-  Os oito plugins consomem a biblioteca com licenciamento e auto-atualização ativos.
-- **O V3RProp não estava "fora do escopo por não ter `composer.json`"** — tem, e consome
-  a biblioteca prefixada. (A cópia local de TCPDF/FPDI continua existindo e **não aparece
-  em levantamento que olhe só o `composer.json`**.)
-- **A colisão de bibliotecas não era hipotética** — estava ativa entre V3REvent e RIT360
-  Flow, com o mesmo componente em versões de majors diferentes no mesmo WordPress.
-- **O critério "comparar o artefato antes e depois" não discrimina** — se a detecção do
-  motor ficar apontando para o nome não prefixado, o plugin cai no motor alternativo, o
-  arquivo sai e a comparação aprova. Foi preciso provar **qual motor gerou**.
-- **A duplicação entre workflow e script de build não é desleixo** — nos seis plugins que
-  reimplementam, o script mora no repositório de gestão, que o runner não clona.
+- **A mais cara: "o Strauss isola tudo".** Ele prefixa classes e namespaces, mas **não o
+  valor de uma constante de string**. A capability sintética era uma constante da
+  biblioteca, portanto idêntica nas cópias prefixadas de cada plugin — e a guarda do
+  V3RLGPD respondia "não" pela pergunta do Flow. Sintoma: 403 ao abrir a entrada de menu
+  do outro produto. **Cinco hipóteses foram refutadas antes desta** (cache do agregado,
+  reentrância, cache não indexado por usuário, filtros removidos, duas instâncias da mesma
+  guarda).
+- **"Aceitei o relato de uma medição como se fosse a medição."** Um dos diagnósticos
+  intermediários identificava as guardas por nome de método, não por classe; três correções
+  foram construídas sobre isso. Duas eram defeitos reais de qualquer forma.
+- **`getComputedStyle` no jsdom não mede cascata** — não implementa especificidade, aplica
+  a última regra que casa. Um teste de cascata escrito do jeito óbvio **concorda com a
+  realidade pelo motivo errado**, e continua concordando depois da correção, aí já errado.
+- **Valor de reserva em variável de CSS protege contra ausência, não contra declaração
+  vazia.** Consumidor que declara a variável sem valor apaga o traço da aba ativa.
+- **Embutir o import do CSS no pacote trocou uma falha silenciosa por uma barulhenta** —
+  quebrou o executor de testes dos consumidores em Node. Resolvido por condições de
+  exportação, com o caminho legado apontando para a variante **com** CSS, para quem usa
+  ferramenta antiga falhar alto em vez de perder o estilo em silêncio.
+- **Adoção validada sozinha não prova convivência.** Cinco defeitos desta camada só
+  apareceram quando o **segundo** plugin adotou — um deles fazia um produto cancelar a
+  entrada de menu do outro.
 
 ## Issues pendentes, por prioridade
 
 | # | Descrição curta | Por que está nesta posição |
 |---|---|---|
-| 14 | Padronizar a publicação dos plugins | Já derrubou o checkout de quatro sites; é o único item com dano ao cliente já ocorrido. **Prompt do Solidário pronto, aguardando abertura da sessão.** |
-| 33 | Registro de ativação nunca aprende a versão nova | Mente sobre quem roda o quê justamente durante incidente. Tem saída barata: o servidor já recebe o dado e o descarta. |
-| 34 | Guard de prefixação em três cópias divergentes | Uma acha defeito que as outras aprovam — produz confiança injustificada. Decidir **junto com a `#14`**, não antes. |
-| 19 | Tela de licença consulta o servidor duas vezes | Bug isolado, o mais barato da lista; o usuário sente como lentidão. |
-| 35 | Componente de navegação da família | Aberta por outra sessão, com especificação. **Ver dúvida abaixo.** |
-| 25 | Menus espalhados pelo admin | Provavelmente superseded pela `#35`. |
-| 31 | Vocabulário de recusa do V3RSigner | Duas respostas do serviço pedem ações opostas; errar cria fila que desiste do que deu certo. Sem pressa declarada pelo Flow. |
-| 26 | Biblioteca não distribui peça de interface | Decisão: fazer **quando não houver outras prioridades**, antes da primeira demanda real. |
-| 16 | Padronizar a geração de documento | Adiada por tamanho, por decisão. Issues-espelho abertas nos seis plugins. |
-| 13 + 7 | CI não valida commit / não roda em branch de feature | Um trabalho só, por decisão. Sem dano observado. |
+| 25 | Entradas de menu da família espalhadas pelo painel — falta a convenção de posição | é o que o usuário vê: hoje os produtos da casa aparecem dispersos entre plugins de terceiro. Os ícones já estão decididos e salvos; falta a ordenação |
+| 33 | O registro de ativação nunca aprende a versão nova | defeito com efeito em produção — o painel de licenças mostra versão errada de todo mundo |
+| 19 | A tela de licença consulta o servidor duas vezes a cada abertura | lentidão que o cliente sente, correção pequena |
+| 16 | Padronizar a geração de PDF (a metade do catálogo já saiu) | é a mesma reimplementação em triplicata que fez esta biblioteca existir; grande, e por isso adiada |
+| 38 | Identificador de tela vira endereço global do WordPress, sem proteção contra colisão | dois plugins podem escolher o mesmo identificador e um sequestra a tela do outro; ainda não aconteceu |
+| 14 + 34 + 13 + 7 | Padronizar a publicação dos plugins, o guard de prefixação em três cópias divergentes, e CI | um bloco só, e é dívida nossa: o cliente não sente, mas já derrubou o checkout de quatro sites |
+| 31 | Vocabulário de recusa do V3RSigner | a biblioteca tem o contrato do assinador e nada sobre o que o serviço responde ao recusar |
+| 37 | Atributos comuns de bloco | espera deliberada pelo segundo consumidor — promover com um só repete o erro conhecido |
 
-O que mais pesou na ordem: **dano já ocorrido ao cliente**, depois **falha silenciosa**
-(o que mente sem quebrar), depois custo. Reordene se discordar.
-
-⚠️ **Dúvida a resolver:** a `#35` (aberta por outra sessão, com especificação completa)
-parece **superseder** a `#25`. Se sim, a `#25` fecha apontando para ela.
+O que mais pesou na ordem: **o que o usuário sente vem antes da dívida interna**, e
+capacidade com um consumidor só não é promovida.
 
 ## Próximo passo
 
-Abrir sessão no RIT360 Solidário com o prompt da `#14` — unificar a receita de
-empacotamento, movendo o script de build para dentro do repositório do código para que o
-workflow o chame em vez de reescrevê-lo. O prompt está pronto no histórico da sessão de
-05/09; o modelo a copiar é o V3REvent ou o RIT360 Flow, os dois únicos que já fazem certo.
+Implementar a `#25` (posição das entradas de menu da família): dois blocos contíguos —
+família RIT e depois família V3RTECH —, ordem alfabética dentro de cada bloco, com o ícone
+de família já salvo. A decisão de projeto está fechada; falta só a implementação e o
+teste de convivência num site com mais de um plugin da casa instalado.
 
 ## Comandos úteis
 
-```bash
-# Validação completa (suíte, phpstan, phpcs, testes JS)
-cd Code && composer check
+Da raiz do container (`/mnt/trabalho/Projetos/V3RTECH/V3RCore/`):
 
-# Só a suíte
-cd Code && vendor/bin/phpunit
+    ./sync-all.sh -a          # commita e envia tudo o que existir
+    ./sync-all.sh -c          # só a biblioteca PHP (Code/)
+    ./sync-all.sh -f          # só o pacote de tela (Front/) — publica código E tag
+    ./sync-all.sh -p          # só documentação e gestão
+    ./sync-all.sh -a --dry-run
 
-# Sincronizar o código com o servidor (roda a suíte antes de enviar)
-./sync-all.sh -c
+Validação da biblioteca, dentro de `Code/`:
 
-# Publicar a tag da versão corrente — passo próprio, o -c NÃO leva tags
-./sync-all.sh -t
+    composer check            # phpunit + phpstan + phpcs
 
-# Issues (o token vem do config.sh, no mesmo comando)
-cd Code && source bin/config.sh && gh issue list --repo "$ISSUES_REPO" --state open
-```
+Validação do pacote de tela, dentro de `Front/`:
+
+    npm run lint && npm run test && npm run build
+
+Issues (a lista viva de trabalho) em `V3RTECH-DF/V3RCore-Code`. Para autenticar, carregue
+`Code/bin/config.sh` no **mesmo comando** do `gh`.
