@@ -160,9 +160,11 @@ a ganhar sem ninguém decidir.
 Da raiz do container (`/mnt/trabalho/Projetos/V3RTECH/V3RCore/`):
 
     ./sync-all.sh -a          # commita e envia tudo o que existir
+                              # (não existe -p neste container: documentação e
+                              #  gestão moram em Code/ e vão no -c)
     ./sync-all.sh -c          # só a biblioteca PHP (Code/)
     ./sync-all.sh -f          # só o pacote de tela (Front/) — publica código E tag
-    ./sync-all.sh -p          # só documentação e gestão
+    ./sync-all.sh -t          # publica a tag da versão corrente
     ./sync-all.sh -a --dry-run
 
 Validação da biblioteca, dentro de `Code/`:

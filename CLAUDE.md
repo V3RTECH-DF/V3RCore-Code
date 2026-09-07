@@ -28,8 +28,14 @@ A raiz **não é** repositório: é uma pasta que abriga repositórios independe
 ## Como sincronizar
 
     ./sync-all.sh -a          # tudo o que existir neste projeto
-    ./sync-all.sh -p          # só a documentação e a gestão
+    ./sync-all.sh -c          # só a biblioteca PHP (Code/) — leva docs e gestão junto
+    ./sync-all.sh -f          # só o pacote de tela (Front/) — publica código E tag
+    ./sync-all.sh -t          # publica a tag da versão corrente
     ./sync-all.sh -a --dry-run
+
+⚠️ **Não existe `-p` aqui.** `bin/sync-project.sh` não faz parte deste
+container: documentação e gestão moram **dentro** de `Code/`, então viajam no
+`-c`. Passar `-p` aborta o comando inteiro antes de enviar qualquer coisa.
 
 Trazer e enviar entre as quatro máquinas é do `prj.sh` (`prj.sh -s`), que lê o
 manifesto em `v3rtech-scripts/configs/projetos.manifesto`. A linha deste projeto
