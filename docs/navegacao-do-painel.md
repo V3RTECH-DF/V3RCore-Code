@@ -104,6 +104,26 @@ e sem que a biblioteca trave em `current_user_can()`.
 ⚠️ A capability sintética **não** é permissão de verdade: ela só existe para
 responder ao WordPress. Nada no plugin deve verificá-la diretamente.
 
+### `view_admin_dashboard`: a saída para conviver com WooCommerce e afins
+
+Medido em produção em 06/09/2026 (RIT360 Flow): num WordPress com WooCommerce
+ativo, um usuário com papel próprio do plugin — que a árvore diz que pode ver
+certas telas — era **redirecionado para fora do painel** antes de a camada 1
+sequer agir. Telas negadas davam 403 corretamente; as **permitidas** davam 302.
+
+Causa: o WooCommerce (`WC_Admin::prevent_admin_access()`) redireciona quem não
+tiver nenhuma destas três capabilities: `edit_posts`, `manage_woocommerce`,
+`view_admin_dashboard`. Papel próprio de plugin costuma ter só `read` mais as
+capabilities do próprio plugin, e cai nesse bloqueio. Plugin de associação ou
+área do cliente que restrinja o painel do mesmo jeito produz o mesmo efeito.
+
+A correção: `NavCapabilityGate` também concede `view_admin_dashboard` a quem
+enxerga ao menos uma tela (mesmo cálculo e mesmo cache que já respondiam pela
+entrada raiz do menu, §6). Ela nunca é **negada** — só acrescentada quando
+aplicável — porque não é capability nossa: é a saída que o próprio WooCommerce
+desenhou para este caso, e conceder não dá direito a editar conteúdo nem a
+mexer na loja.
+
 ## 5. O que a biblioteca devolve
 
 ```php

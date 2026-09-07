@@ -146,6 +146,103 @@ final class NavCapabilityGateTest extends TestCase {
 		self::assertSame( 1, $access->callsFor( 'perm' ), 'Registrado duas vezes, o filtro não pode disparar duas vezes por chamada.' );
 	}
 
+	/** Critério de aceite: quem enxerga ao menos uma tela recebe view_admin_dashboard (defeito medido no RIT360 Flow, 06/09/2026). */
+	public function test_view_admin_dashboard_e_concedida_a_quem_enxerga_ao_menos_uma_tela(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 1 ),
+			null
+		);
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ] );
+	}
+
+	/**
+	 * Controle negativo: quem não enxerga tela nenhuma não recebe a
+	 * capability POR NOSSA CAUSA — o filtro não escreve `false` na chave,
+	 * ele simplesmente não mexe nela quando não há tela visível.
+	 */
+	public function test_view_admin_dashboard_nao_e_concedida_por_nossa_causa_sem_tela_visivel(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array() ); // Nega tudo.
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 1 ),
+			null
+		);
+
+		self::assertArrayNotHasKey( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, $allcaps );
+	}
+
+	/**
+	 * Critério de aceite: já concedida por outra origem (outro plugin, outro
+	 * papel), a capability CONTINUA concedida mesmo sem tela visível — nunca
+	 * a negamos, porque não é nossa para tirar.
+	 */
+	public function test_view_admin_dashboard_ja_concedida_por_outra_origem_e_preservada_sem_tela_visivel(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array() ); // Nega tudo — nenhuma tela visível.
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY => true ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 1 ),
+			null
+		);
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ] );
+	}
+
+	/** A concessão de view_admin_dashboard reaproveita o cache de hasAnyVisibleScreen() — sem varredura nova por consulta. */
+	public function test_view_admin_dashboard_nao_dispara_varredura_nova(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 1 ),
+			null
+		);
+		apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 1 ),
+			null
+		);
+
+		self::assertSame( 1, $access->callsFor( 'perm_a' ), 'A segunda consulta deveria reaproveitar o cache do hasAnyVisibleScreen(), sem varrer de novo.' );
+		self::assertSame( 0, $access->callsFor( 'perm_b' ), 'A busca já para no primeiro true; perm_b nunca deveria ser consultada.' );
+	}
+
 	/**
 	 * @param array<string, bool> $allcaps
 	 * @return array<string, bool>

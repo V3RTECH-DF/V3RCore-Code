@@ -37,10 +37,41 @@ namespace V3R\Core\Admin\Nav;
  * varreria todas as telas de novo. `ScreenAccess::canView()` já cacheia
  * por permissão (contrato do §3); este cache aqui é sobre o RESULTADO
  * agregado da varredura, não substitui aquele.
+ *
+ * **`view_admin_dashboard` (defeito medido em produção em 06/09/2026, na
+ * primeira adoção real desta camada, RIT360 Flow):** não é capability
+ * nossa — é a saída que o próprio WooCommerce desenhou para este caso.
+ * `WC_Admin::prevent_admin_access()`
+ * (`wp-content/plugins/woocommerce/includes/admin/class-wc-admin.php:175-215`)
+ * redireciona para fora do `wp-admin` (302 para a página de conta) todo
+ * usuário que não tenha nenhuma destas três capabilities: `edit_posts`,
+ * `manage_woocommerce`, `view_admin_dashboard`. Papel próprio de plugin
+ * costuma ter só `read` mais as capabilities do próprio plugin, e por isso
+ * caía nesse bloqueio ANTES de a nossa camada agir — a tela negada dava
+ * 403 (correto), mas a tela PERMITIDA também nunca era alcançada, porque o
+ * WooCommerce já tinha expulsado a pessoa do painel antes de chegar lá.
+ * A correção: conceder `view_admin_dashboard` a quem enxerga ao menos uma
+ * tela nossa, reaproveitando o MESMO `hasAnyVisibleScreen()`/cache que já
+ * respondia por `ROOT_CAPABILITY`. Nunca a NEGAMOS explicitamente — só
+ * acrescentamos o `true` quando aplicável — porque ela não é nossa: outro
+ * plugin ou papel pode já tê-la concedido por outro motivo, e negar
+ * tiraria acesso que não nos pertence conceder nem revogar. O mesmo risco
+ * de bloqueio silencioso vale para qualquer plugin da casa com navegação
+ * por papel próprio convivendo com WooCommerce, ou com plugin de
+ * associação/área do cliente que restrinja o painel do mesmo jeito.
  */
 final class NavCapabilityGate {
 
 	public const CAPABILITY_PREFIX = 'v3r_nav_';
+
+	/**
+	 * Não é nossa — é a capability do próprio WooCommerce que evita o
+	 * redirecionamento para fora do `wp-admin` (ver docblock da classe).
+	 * Fica fora do `CAPABILITY_PREFIX` de propósito: não é uma
+	 * capability-ponte para uma tela, é a condição de um terceiro sendo
+	 * satisfeita.
+	 */
+	public const WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY = 'view_admin_dashboard';
 
 	/**
 	 * A capability sintética da entrada raiz do menu (§6) — nunca deriva de
@@ -103,6 +134,16 @@ final class NavCapabilityGate {
 		foreach ( $caps as $cap ) {
 			if ( self::ROOT_CAPABILITY === $cap ) {
 				$allcaps[ $cap ] = $this->hasAnyVisibleScreen();
+				continue;
+			}
+
+			if ( self::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY === $cap ) {
+				// Nunca negar: capability alheia, só acrescentamos o `true`
+				// (ver docblock da classe). Um valor já concedido por outra
+				// origem (outro plugin, outro papel) é preservado.
+				if ( $this->hasAnyVisibleScreen() ) {
+					$allcaps[ $cap ] = true;
+				}
 				continue;
 			}
 

@@ -2,6 +2,54 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.15.0] — 2026-09-06
+
+### Adicionado
+- **`Admin\Nav\NavCapabilityGate` passa a conceder `view_admin_dashboard` a
+  quem enxerga ao menos uma tela declarada — a biblioteca passa a conceder
+  uma capability de terceiro ao usuário do hospedeiro, e é por isso que o
+  número de versão não é `0.14.1`.** Defeito medido na primeira adoção real
+  desta camada (RIT360 Flow, `RIT-DF/RIT360-Flow-Code#122`), num WordPress
+  com WooCommerce ativo: usuário com papel próprio do plugin, que a árvore
+  dizia poder ver certas telas, era redirecionado para fora do painel (302
+  para a página de conta) — nas telas **permitidas**; as negadas davam 403
+  corretamente. O modo de falha é silencioso: o papel existe, é atribuído
+  normalmente, e a pessoa simplesmente não entra.
+- **Causa, confirmada lendo o código do WooCommerce**
+  (`includes/admin/class-wc-admin.php:175-215`, `prevent_admin_access`): ele
+  expulsa do `wp-admin` quem não tiver nenhuma de `edit_posts`,
+  `manage_woocommerce` ou `view_admin_dashboard`. Papel próprio de plugin
+  costuma ter só `read` mais as capabilities do produto, e cai no bloqueio.
+  Atinge qualquer plugin da casa que adote a navegação com papel próprio e
+  conviva com loja — ou com plugin de associação e de área do cliente, que
+  restringem o painel do mesmo jeito.
+- **Por que esta saída, e não as outras duas:** `view_admin_dashboard` é a
+  saída que o próprio WooCommerce desenhou — significa "esta pessoa usa o
+  painel" e não é verificada pelo núcleo do WordPress em lugar nenhum;
+  conceder não dá direito de editar conteúdo nem de mexer na loja. Conceder
+  `edit_posts` resolveria o sintoma dando o poder largo que a separação de
+  papéis existe para evitar. Filtrar `woocommerce_prevent_admin_access`
+  passa por cima de uma decisão deliberada do dono do site, e vira dívida em
+  cada plugin de associação que faça o mesmo bloqueio.
+- **A divergência que já existia na casa:** três plugins já tinham
+  tropeçado nisto, e resolveram de duas maneiras incompatíveis — `V3RLGPD`
+  (`src/includes/Core/Capabilities.php:65`) e `RIT360 Premiado`
+  (`src/includes/Core/Capabilities.php:45`) concediam `view_admin_dashboard`;
+  `V3REvent` (`src/includes/Admin/Admin.php:29`) filtrava
+  `woocommerce_prevent_admin_access`. O RIT360 Flow seria o quarto jeito —
+  é a divergência que esta camada existe para desfazer.
+- **Regras do comportamento:** a concessão nunca nega — a capability é de
+  terceiro, então a biblioteca só acrescenta o `true`; valor já concedido
+  por outra origem é preservado. Reaproveita a mesma conta
+  (`hasAnyVisibleScreen()`) que a entrada raiz do menu já faz, sem varredura
+  nova por consulta.
+- ⚠️ **Ao adotar, para quem já concede localmente (V3REvent, V3RLGPD,
+  Premiado):** a concessão local só pode sair depois de o plugin adotar
+  esta camada, e depois de conferir no cenário real — WooCommerce ativo,
+  usuário sem `edit_posts` — que ele continua entrando. As coberturas não
+  são idênticas: a local costuma valer para todo mundo que tem o papel; a
+  da biblioteca vale para quem enxerga ao menos uma tela.
+
 ## [0.14.0] — 2026-09-06
 
 ### Adicionado
