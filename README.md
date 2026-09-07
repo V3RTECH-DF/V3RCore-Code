@@ -1,10 +1,24 @@
 # V3RCore — Código
 
-Repositório do código do V3RCore. Privado.
+Repositório da **biblioteca PHP** do V3RCore. Público.
 
-Faz parte do container `V3RTECH/V3RCore`, que reúne também `Projeto/`
-(documentação e gestão). As ferramentas do container vivem em
-`Projeto/bin/`; use `./sync-all.sh` na raiz do container.
+Faz parte do container `V3RTECH/V3RCore`, que abriga **dois** repositórios:
+este e o `Front/` — o pacote de tela da família (`@v3rtech/v3r-front`), com
+cabeçalho, barra de navegação, área de avisos e a ferramenta de build que
+corrige a cascata do CSS.
+
+⚠️ **A divisão entre os dois é de responsabilidade:** esta biblioteca
+**governa** (declara telas, resolve permissão, entrega a árvore filtrada,
+bloqueia o acesso direto) e o pacote de front **desenha**. A fronteira entre
+eles é **dado**, não código — o PHP produz a árvore, o componente consome uma
+forma documentada —, e por isso versionam separado.
+
+As ferramentas do container vivem em `Code/bin/`; use `./sync-all.sh` na raiz
+do container (`-c` para esta biblioteca, `-f` para o pacote de front).
+
+👉 **`docs/componentes-da-familia.md` é o índice do que os plugins da casa podem
+consumir, nos dois repositórios. É a página que se lê antes de construir
+qualquer coisa.**
 
 Backlog vivo em issues: <https://github.com/V3RTECH-DF/V3RCore-Code/issues>
 
@@ -17,15 +31,17 @@ plugins WordPress da V3RTECH/RIT. Embutida via Composer + [Strauss](https://gith
 em cada plugin distribuído fora do wordpress.org, para que dois plugins com
 versões diferentes desta lib no mesmo WordPress nunca colidam.
 
-> **Estado atual: fatias 2a e 2b concluídas.** Comunicação com o servidor,
-> cache local, verificação de assinatura e período de graça estão
-> implementados e testados (`activate`/`deactivate`/`refresh`/`getState`).
-> A integração com o mecanismo de atualização do WordPress
-> (`Updater\UpdateChecker`, sobre o Plugin Update Checker), os quatro
-> endpoints REST internos (`docs/api-contract.md` §8) e a `AdminPage`
-> padrão (opcional) também estão prontos. `Bootstrap::boot()` já liga
-> tudo isso sozinho — instanciar e usar `Bootstrap` continua seguro mesmo
-> sem rede e sem estado salvo.
+> **Estado atual: a biblioteca vai muito além do licenciamento.** Ela começou
+> nele — comunicação com o servidor, cache local, verificação de assinatura,
+> período de graça, integração com o mecanismo de atualização do WordPress e os
+> endpoints REST internos, tudo ligado por `Bootstrap::boot()` e seguro mesmo
+> sem rede e sem estado salvo. Hoje entrega também documentos (CNPJ/CPF),
+> notificação, acesso por link temporário, assinatura com certificado, **a
+> camada de navegação do painel** e **papéis orientados a dados**.
+>
+> 👉 **Não leia esta lista para saber o que existe** — ela envelhece. O índice
+> vivo, com quem consome cada capacidade e desde qual versão, é
+> [`docs/componentes-da-familia.md`](docs/componentes-da-familia.md).
 
 ### Como um plugin consome esta lib
 

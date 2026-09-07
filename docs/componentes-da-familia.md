@@ -59,7 +59,7 @@ WordPress.
 | **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow |
 | **Área de avisos do painel** | põe os avisos do WordPress no lugar certo | 0.1.0 | V3RLGPD, Flow |
 | **Guarda de rota** | responde se a pessoa pode abrir uma rota, negando o desconhecido | 0.2.0 | V3RLGPD, Flow |
-| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente | 0.6.0 | V3RLGPD (painel) |
+| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente | 0.6.0 | V3RLGPD (painel e gestão pública) |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
 

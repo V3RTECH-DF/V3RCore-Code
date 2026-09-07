@@ -408,6 +408,84 @@ módulos, rótulos, papéis-modelo e correções de dado específicas de cada
 produto continuam no produto. Catálogo completo, com o que sobe e o que
 não sobe peça a peça: `docs/papeis-orientados-a-dados.md` §2.
 
+### ADR-017 — A biblioteca PHP não passa a distribuir peça de interface; a tela viaja por um pacote de front próprio (V3RCore-Code#26, v0.1.0 do pacote)
+
+Toda peça de tela compartilhada nascia duplicada por construção: a v3r-core
+é biblioteca Composer/PHP, embutida via Strauss, sem nenhum caminho para
+carregar código de tela. Aviso do painel, cabeçalho e navegação foram
+copiados de plugin em plugin, e cada cópia diverge com o tempo.
+
+**Dois fatos decidiram contra estender a biblioteca PHP para isso.** No
+empacotamento de cada plugin, a tela em React é compilada **antes** de a
+biblioteca PHP ser embutida — peça distribuída pelo caminho do PHP não
+existiria ainda na hora do build. E o gerenciador de pacotes do JavaScript
+instala a **raiz** de um repositório, nunca uma subpasta — por isso o
+pacote não pode morar dentro de `Code/`.
+
+**Decisão:** um repositório próprio, `V3RTECH-DF/V3RFront-Code` (pacote
+`@v3rtech/v3r-front`), consumido por cada plugin como dependência do build
+dele, fixando sempre uma tag — nunca a branch principal. A fronteira entre
+os dois repositórios é **dado, não código**: a v3r-core produz a árvore de
+navegação e resolve permissão; o pacote de front consome essa forma
+documentada sem transformá-la. Os dois versionam em ritmos diferentes, e
+um não arrasta o outro.
+
+**Ganho que não era o objetivo declarado:** cada plugin embute a própria
+cópia do pacote pelo gerenciador do JavaScript, então dois produtos nossos
+com versões diferentes no mesmo WordPress não colidem — o mesmo isolamento
+que a prefixação do Strauss dá ao PHP, do lado do navegador.
+
+Contrato completo: `Front/docs/contrato-do-pacote.md`. Catálogo cruzado:
+`docs/componentes-da-familia.md`.
+
+### ADR-018 — Navegação do painel: camada de governo em PHP, independente da camada de desenho (V3RCore-Code#35, v0.14.0–v0.21.0)
+
+Oito plugins da casa montavam a navegação cada um do seu jeito — de 7 a 9
+entradas secundárias no menu do WordPress, com o motor de permissão e a
+proteção do endereço direto reescritos em cada um. O que quebra na prática
+não é a regra estar errada: é alguém acrescentar uma tela nova à navegação
+e esquecer de proteger o endereço dela.
+
+**Decisão:** o plugin declara cada tela **uma vez** — identificação,
+rótulo, grupo opcional e permissão —, e a mesma declaração alimenta a
+árvore de navegação e o bloqueio de acesso direto (`Admin\Nav\Registry`,
+`Screen`, `Group`, `TreeBuilder`, `Navigation`). Três guardas
+independentes, não uma: página oculta registrada com a permissão dela,
+conferência ao desenhar a tela, e conferência de novo a cada navegação
+interna sem recarregar a página — a falha que a issue de origem no GE
+Associados (#47 de lá) já havia corrigido uma vez.
+
+**O componente não pergunta ao WordPress.** `ScreenAccess` /
+`CapabilityAccess` / `CallableScreenAccess` aceitam um respondente de
+permissão plugável — quem usa capability nativa entrega o padrão; V3RLGPD
+e RIT360 Premiado entregam o que consulta a matriz de papéis
+(`Roles\PermissionEngine::asScreenAccess()`, ADR-016). Sem isso, adotar o
+componente rebaixaria quem já tem permissão orientada a dados.
+
+**Visibilidade de grupo é sempre derivada dos filhos** — o grupo não tem
+permissão própria; aparece se ao menos uma tela dentro dele aparecer, e
+some quando nenhuma sobra.
+
+**Camada de governo (PHP) e camada de desenho (interface) são
+independentes por decisão**, e é o que permitiu construir a primeira sem
+esperar a segunda: esta camada não depende da ADR-017. A barra em si é do
+pacote `@v3rtech/v3r-front` (`FamilyNav`), que consome a árvore que
+`Navigation::tree()` entrega, sem transformá-la.
+
+**O defeito que só apareceu com o segundo consumidor (v0.21.0):** a
+capability sintética da entrada de menu era uma constante da biblioteca —
+string idêntica em toda cópia prefixada pelo Strauss. Como o Strauss
+prefixa classes e namespaces mas não o **valor** de uma constante de
+texto, num site com dois plugins da casa a guarda de um respondia contra
+as telas do outro e cancelava a entrada de menu dele. Corrigido derivando
+a capability sintética do slug de cada entrada, como já era feito por
+tela; a guarda fica em silêncio (nunca nega) sobre capability que não
+reconhece.
+
+Catálogo completo: `docs/navegacao-do-painel.md`. Consumo medido em
+produção: RIT360 Flow (a partir da v0.17.0 da lib) e V3RLGPD, convivendo
+no mesmo site.
+
 ---
 
 ## 3. Estrutura entregue (fatias 1, 2a e 2b — v0.4.0)
@@ -422,6 +500,11 @@ não sobe peça a peça: `docs/papeis-orientados-a-dados.md` §2.
 > #28; v0.13.0: `Signing\CertificateInspector`, promovido do RIT360 Flow, #29)
 > e em 07/09/2026 (v0.20.0: namespace novo `V3R\Core\Roles\`, ADR-016/#39).
 > Fatia 2 (issue #3) concluída; nada mais listado como `TODO(fatia-2)`.
+>
+> Namespace `V3R\Core\Admin\Nav\` (ADR-018/#35) entrou em 05/09/2026
+> (v0.14.0) e recebeu `LegacyRedirects` em 06/09/2026 (v0.19.0, #38); a
+> capability sintética por plugin, que corrige a colisão entre dois
+> consumidores no mesmo site, é da v0.21.0 (07/09/2026).
 
 | Classe | Papel | Estado |
 |---|---|---|
@@ -454,6 +537,10 @@ não sobe peça a peça: `docs/papeis-orientados-a-dados.md` §2.
 | `Signing\SignerInterface` / `SigningException` | Contrato do assinador — a biblioteca não gera PDF nem ganha dependência de terceiro (#27) | completo |
 | `Signing\CertificateInspector` / `CertificateInspection` / `CertificateSubject` | Abre o PKCS#12 a partir de `CertificateMaterial`, extrai validade e titular; alimenta `SigningModeResolver::decide()` direto; degrada (nunca fatal) sem `ext-openssl`, promovido do RIT360 Flow (#29) | completo |
 | `Roles\PermissionCatalog` / `Roles\RoleMatrix` / `Roles\PermissionEngine` | Papéis orientados a dados: catálogo de permissões, matriz de papéis guardada (seed idempotente, `reconcileModule()`), resolução (`userCan`, `rolesOf`, `assignRoles`) com cache por requisição e anti-tranca de administrador; `asScreenAccess()` liga à navegação (ADR-016, promovido de V3RLGPD e RIT360 Premiado) | completo |
+| `Admin\Nav\Registry` / `Screen` / `Group` / `MenuEntry` / `TreeBuilder` / `Navigation` | Navegação do painel: declaração acumulativa de tela e grupo (uma vez, alimentando navegação e bloqueio de acesso juntos), árvore filtrada por permissão, visibilidade de grupo derivada dos filhos (ADR-018) | completo |
+| `Admin\Nav\ScreenAccess` / `CapabilityAccess` / `CallableScreenAccess` / `NavCapabilityGate` | Motor de permissão plugável da navegação — capability sintética derivada por plugin (nunca constante fixa, ADR-018), cache por processo e por pessoa | completo |
+| `Admin\Nav\LegacyRedirects` | Endereço salvo de um submenu que a adoção da navegação única aposentou continua funcionando, mapa `slug antigo => destino` declarado pelo plugin (#38) | completo |
+| `Admin\Nav\Family` | As duas famílias de produto (`rit`, `v3rtech`) que definem o ícone da entrada única no menu — nunca o ícone do produto individual (issue #25) | completo |
 
 CI: `.github/workflows/ci.yml`, matriz PHP 8.2–8.3–8.4, com
 `sodium` habilitada (obrigatória para `SignatureVerifier`). Pendente:

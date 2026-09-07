@@ -1,5 +1,106 @@
 # Histórico de Desenvolvimento — V3RCore
 
+## 2026-09-06 a 07 — Navegação do painel, correção de cascata e papéis orientados a dados: da decisão a duas adoções reais
+
+### Contexto
+Ciclo mais longo do projeto até aqui: nasce um segundo repositório
+(`V3RTECH-DF/V3RFront-Code`, pacote `@v3rtech/v3r-front`), a camada de
+governo da navegação do painel vai de decidida a adotada em produção por
+dois plugins, e a promoção de papéis orientados a dados sai do papel. As
+três frentes se cruzam porque a navegação, a cascata de CSS e a permissão
+são a mesma dor vista de três ângulos — apurada ao portar telas entre
+V3REvent, RIT360 Flow e V3RLGPD.
+
+### Implementado
+
+**A biblioteca PHP não passa a distribuir peça de interface (#26, ADR-017).**
+Decidido em debate: a v3r-core continua só PHP; a tela viaja por um
+repositório próprio, público, que é a **raiz** (o gerenciador de pacotes
+do JavaScript não instala subpasta) e versiona separado. Publicado
+`@v3rtech/v3r-front` v0.1.0 com `FamilyHeader`, `FamilyNav` e
+`AdminNotices` — a união de três implementações divergentes que já
+existiam na casa.
+
+**Navegação do painel — camada de governo, `Admin\Nav\` (#35, ADR-018),
+v0.14.0 a v0.21.0.** Uma declaração de tela (`Screen`) alimenta a árvore
+filtrada e o bloqueio de acesso direto ao mesmo tempo — não há como
+declarar uma coisa e esquecer a outra. Motor de permissão plugável
+(`ScreenAccess`/`CapabilityAccess`/`CallableScreenAccess`), visibilidade
+de grupo sempre derivada dos filhos, ícone de família (duplo V para
+V3RTECH, rosa dos ventos para RIT) por `Assets/brand/`.
+
+**Correção da cascata — `@v3rtech/v3r-front/vite`, `cascadeFix()` (#36),
+v0.6.0 do pacote.** O Tailwind 4 emite tudo dentro de `@layer`, e origem
+sem camada vence origem em camada antes de a especificidade ser
+comparada — o CSS do wp-admin não usa camadas e derrotava o do plugin em
+seis produtos da casa. A ferramenta desembrulha e reancora o preflight do
+hospedeiro **e** reescopa o CSS do pacote compartilhado na mesma raiz —
+a segunda responsabilidade só apareceu quando o V3RLGPD adotou e o item
+ativo da navegação ficou indistinguível dos inativos. Filtro sempre por
+caminho de módulo, nunca por nome de classe ou propriedade.
+
+**Papéis orientados a dados — `V3R\Core\Roles\` (#39, ADR-016), v0.20.0.**
+V3RLGPD e RIT360 Premiado convergiram sozinhos no mesmo desenho de RBAC
+editável pelo cliente; promovido o catálogo de permissões, a matriz
+guardada, a resolução com cache por requisição e anti-tranca de
+administrador, e o `asScreenAccess()` que liga o motor à navegação numa
+linha.
+
+### Decisões
+Ver `docs/ARCHITECTURE.md` — ADR-016 (Roles, generalização e não recorte:
+"a pessoa tem um conjunto de papéis" cobre os dois consumidores sem
+mutilar nenhum), ADR-017 (Front como repositório próprio) e ADR-018
+(governo e desenho da navegação são independentes por decisão).
+
+### Validado em produção, com duas adoções reais convivendo
+RIT360 Flow (biblioteca a partir da v0.17.0, pacote de front v0.2.0) e
+V3RLGPD, no mesmo WordPress. Medição com usuário só-Operador e o
+administrador como controle: cinco rotas de tela oculta não desenhavam
+para o Operador e abriam para o administrador — a coluna de controle é o
+que dá valor à medição, porque uma guarda que lesse a árvore em vez do
+`accessMap()` teria negado também a ele.
+
+### Quatro defeitos que só a adoção real revelou, nenhum visível em teste
+1. **v0.15.0** — papel próprio não alcançava o painel com WooCommerce
+   ativo (`view_admin_dashboard` não concedida).
+2. **v0.16.0** — tela solta e grupo comparados em escalas de ordenação
+   diferentes; nenhuma tela solta conseguia ficar entre dois grupos.
+3. **v0.17.0** — "aparecer no menu" e "estar protegida" eram a mesma
+   declaração; tirar do menu tirava a proteção (`hidden` + `accessMap()`).
+4. **v0.21.0** — capability sintética da navegação era **constante da
+   biblioteca**: o Strauss prefixa classe e namespace, não o valor de uma
+   string, então em site com dois plugins da casa a guarda de um avaliava
+   contra as telas do outro e cancelava a entrada de menu dele. Só
+   apareceu com o **segundo** consumidor — nenhuma quantidade de adoção
+   isolada revelaria. Cinco hipóteses foram levantadas e refutadas por
+   medição antes da causa; a mais cara não foi a mais errada, foi a mais
+   bem escrita (guardas distinguidas pelo nome do método, não pela
+   classe — ver `docs/CHANGELOG.md` v0.21.0 para o relato completo).
+
+Padrão comum aos quatro, e ao defeito da cascata que apagava o item ativo
+do pacote de front: **nenhum falha por ausência.** Todos com a coisa
+presente e a verificação respondendo errado sobre ela — o sistema segue
+funcionando e mentindo. Critério adotado daqui para frente: toda
+verificação nova responde à pergunta "o que ela diz quando a coisa
+existe?", não só quando falta.
+
+### Correção de fato registrada nas issues
+O GE Associados **já declarava e prefixava** a dependência da v3r-core —
+o levantamento original olhou o `composer.json` da raiz do repositório
+dele, não o do plugin. Não muda o corte de nenhuma promoção, mas derruba
+a suposição de que extrair peças dele exigiria migração prévia.
+
+### Pendente para o próximo ciclo
+- Adoção da navegação e da correção de cascata pelos seis plugins que
+  faltam — é opt-in, plugin a plugin, nenhum obrigado a migrar de uma vez
+  (#35, #36).
+- Adoção dos papéis orientados a dados pelo V3RLGPD e pelo RIT360
+  Premiado, um de cada vez, sem migração de dado (#39).
+- Convenção de posição das entradas no menu (#25): dois blocos contíguos
+  por família, reordenados pela biblioteca — decidido, não implementado.
+- Camada de desenho: atalho de busca de tela (Ctrl+K) e botão de menu
+  único no celular, fora da v0.1.0 do pacote por decisão.
+
 ## 2026-09-05 — v0.12.0, v0.13.0 e a publicação de tag no sync-all
 
 ### Contexto
