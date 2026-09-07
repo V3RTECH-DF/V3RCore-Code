@@ -205,6 +205,25 @@ essa distinção que o roteador de quem roteia no cliente precisa para decidir.
 que `tree()` já paga (§3) — nenhuma tela custa uma consulta a mais só por
 existir o mapa.
 
+#### Rota ausente do mapa é rota **negada**
+
+O mapa só conhece o que foi **declarado**. Rota que o roteador do consumidor
+tenha e ninguém declarou não aparece nele — e a regra, que não é opcional, é
+**falhar fechado**: desconhecido é negado.
+
+Não é escolha nova: a biblioteca já decide assim do lado do servidor —
+`Navigation::canView()` responde negativo para tela desconhecida. Seria
+incoerente o mesmo sistema falhar fechado no servidor e deixar o cliente
+decidir.
+
+⚠️ **O custo do erro é assimétrico, e é isso que fecha o argumento:** falhar
+fechado custa uma tela que não abre até alguém declará-la — visível na hora,
+corrigida em uma linha. Falhar aberto custa uma tela de configuração aberta
+para quem não devia, e ninguém percebe.
+
+A peça `canOpen()` do pacote de front (`@v3rtech/v3r-front`) já implementa esta
+regra — use-a em vez de reescrever a decisão em cada consumidor.
+
 ## 6. A entrada no menu do WordPress
 
 O plugin declara **uma** entrada, e a família resolve o resto:
