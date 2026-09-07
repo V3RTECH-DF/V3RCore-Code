@@ -16,7 +16,6 @@ declare(strict_types=1);
 
 namespace V3R\Core\Tests\Support;
 
-use V3R\Core\Admin\Nav\NavCapabilityGate;
 use V3R\Core\Admin\Nav\ScreenAccess;
 
 final class ReentrantScreenAccess implements ScreenAccess {
@@ -26,6 +25,13 @@ final class ReentrantScreenAccess implements ScreenAccess {
 
 	/** @var string|null Permissão cuja consulta dispara a reentrância. */
 	private $trigger;
+
+	/**
+	 * @var string A capability de raiz (já derivada, ver
+	 * NavCapabilityGate::rootCapabilityFor()) usada na consulta reentrante
+	 * — o teste que constrói esta classe decide de qual menu.
+	 */
+	private $rootCapability;
 
 	/** @var array<string, int> Contagem de chamadas a canView(), por permissão. */
 	private $calls = array();
@@ -46,11 +52,16 @@ final class ReentrantScreenAccess implements ScreenAccess {
 	private $reentrantValues = array();
 
 	/**
-	 * @param string[] $granted
+	 * @param string[]    $granted
+	 * @param string|null $trigger        Permissão cuja consulta dispara a reentrância.
+	 * @param string      $rootCapability A capability de raiz já derivada
+	 *                                    (`NavCapabilityGate::rootCapabilityFor( $menuSlug )`)
+	 *                                    a ser perguntada na reentrância.
 	 */
-	public function __construct( array $granted, ?string $trigger = null ) {
-		$this->granted = $granted;
-		$this->trigger = $trigger;
+	public function __construct( array $granted, ?string $trigger = null, string $rootCapability = 'v3r_nav_root_plugin-a' ) {
+		$this->granted        = $granted;
+		$this->trigger        = $trigger;
+		$this->rootCapability = $rootCapability;
 	}
 
 	public function canView( string $permission ): bool {
@@ -60,14 +71,14 @@ final class ReentrantScreenAccess implements ScreenAccess {
 			$allcaps = apply_filters(
 				'user_has_cap',
 				array(),
-				array( NavCapabilityGate::ROOT_CAPABILITY ),
-				array( NavCapabilityGate::ROOT_CAPABILITY, get_current_user_id() ),
+				array( $this->rootCapability ),
+				array( $this->rootCapability, get_current_user_id() ),
 				null
 			);
 
-			$present                        = array_key_exists( NavCapabilityGate::ROOT_CAPABILITY, $allcaps );
+			$present                        = array_key_exists( $this->rootCapability, $allcaps );
 			$this->reentrantKeyWasPresent[] = $present;
-			$this->reentrantValues[]        = $present ? $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] : null;
+			$this->reentrantValues[]        = $present ? $allcaps[ $this->rootCapability ] : null;
 		}
 
 		return in_array( $permission, $this->granted, true );

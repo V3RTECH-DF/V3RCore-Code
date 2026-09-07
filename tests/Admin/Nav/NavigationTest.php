@@ -223,9 +223,9 @@ final class NavigationTest extends TestCase {
 		self::assertSame( 'v3rflow', $page['menu_slug'] );
 		self::assertStringStartsWith( 'data:image/svg+xml;base64,', $page['icon_url'] );
 		self::assertSame(
-			NavCapabilityGate::ROOT_CAPABILITY,
+			NavCapabilityGate::rootCapabilityFor( 'v3rflow' ),
 			$page['capability'],
-			"A entrada visível não pode usar 'read' — visibilidade é derivada dos filhos (§5), via ROOT_CAPABILITY."
+			"A entrada visível não pode usar 'read' — visibilidade é derivada dos filhos (§5), via rootCapabilityFor()."
 		);
 	}
 

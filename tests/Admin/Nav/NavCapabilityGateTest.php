@@ -255,15 +255,27 @@ final class NavCapabilityGateTest extends TestCase {
 	}
 
 	/**
+	 * A capability sintética derivada (`rootCapabilityFor()`) do slug de
+	 * menu 'plugin-a' — o slug padrão usado por quase todos os testes desta
+	 * classe, que simula UM plugin. Testes que simulam DOIS plugins usam
+	 * 'plugin-a' e 'plugin-b' explicitamente.
+	 */
+	private function rootCap( string $menuSlug = 'plugin-a' ): string {
+		return NavCapabilityGate::rootCapabilityFor( $menuSlug );
+	}
+
+	/**
 	 * @param array<string, bool> $allcaps
 	 * @return array<string, bool>
 	 */
-	private function askRootCapability( array $allcaps = array() ): array {
+	private function askRootCapability( array $allcaps = array(), string $menuSlug = 'plugin-a', int $userId = 1 ): array {
+		$cap = $this->rootCap( $menuSlug );
+
 		return apply_filters(
 			'user_has_cap',
 			$allcaps,
-			array( NavCapabilityGate::ROOT_CAPABILITY ),
-			array( NavCapabilityGate::ROOT_CAPABILITY, 1 ),
+			array( $cap ),
+			array( $cap, $userId ),
 			null
 		);
 	}
@@ -277,10 +289,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array() ); // Nega tudo.
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertFalse( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertFalse( $allcaps[ $this->rootCap() ] );
 	}
 
 	/** Controle negativo do teste acima: com uma tela visível, a entrada raiz é concedida. */
@@ -291,10 +304,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_a' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps[ $this->rootCap() ] );
 	}
 
 	/** Mesmo cenário com mais de uma tela declarada, só uma visível — a raiz ainda é concedida. */
@@ -307,10 +321,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_b' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps[ $this->rootCap() ] );
 	}
 
 	/**
@@ -331,6 +346,7 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_b' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$this->askRootCapability();
 		$this->askRootCapability();
@@ -354,10 +370,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_certificado' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps[ $this->rootCap() ] );
 	}
 
 	/** A guarda de acesso direto trata tela oculta exatamente como tela normal: concede a quem tem a permissão. */
@@ -413,12 +430,13 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_a' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
-		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ], 'Sem tela nenhuma declarada, a raiz não pode ser concedida.' );
+		self::assertFalse( $this->askRootCapability()[ $this->rootCap() ], 'Sem tela nenhuma declarada, a raiz não pode ser concedida.' );
 
 		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
 
-		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ], 'Depois de declarar a tela, a segunda consulta precisa reavaliar — não pode continuar presa no "não" da primeira.' );
+		self::assertTrue( $this->askRootCapability()[ $this->rootCap() ], 'Depois de declarar a tela, a segunda consulta precisa reavaliar — não pode continuar presa no "não" da primeira.' );
 	}
 
 	/** Mesmo cenário para a guarda de acesso direto (capability sintética por tela), não só a raiz. */
@@ -428,10 +446,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_a' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		// Uma primeira consulta qualquer, antes de a tela existir, para
 		// forçar o cache agregado a computar "false" cedo.
-		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertFalse( $this->askRootCapability()[ $this->rootCap() ] );
 
 		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
 
@@ -453,6 +472,7 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new CountingScreenAccess( array( 'perm_b' ) );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$this->askRootCapability();
 		$this->askRootCapability();
@@ -544,28 +564,29 @@ final class NavCapabilityGateTest extends TestCase {
 		);
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		// Pergunta cedo demais: identidade ainda não resolvida (usuário 0).
 		$GLOBALS['v3r_core_test_current_user_id'] = 0;
 		$allcapsZero                              = apply_filters(
 			'user_has_cap',
 			array(),
-			array( NavCapabilityGate::ROOT_CAPABILITY ),
-			array( NavCapabilityGate::ROOT_CAPABILITY, 0 ),
+			array( $this->rootCap() ),
+			array( $this->rootCap(), 0 ),
 			null
 		);
-		self::assertFalse( $allcapsZero[ NavCapabilityGate::ROOT_CAPABILITY ], 'Usuário 0 não enxerga nada — a resposta calculada para ele é "não".' );
+		self::assertFalse( $allcapsZero[ $this->rootCap() ], 'Usuário 0 não enxerga nada — a resposta calculada para ele é "não".' );
 
 		// Mesma requisição, agora com a identidade resolvida (usuário 7 logado).
 		$GLOBALS['v3r_core_test_current_user_id'] = 7;
 		$allcapsSete                              = apply_filters(
 			'user_has_cap',
 			array(),
-			array( NavCapabilityGate::ROOT_CAPABILITY ),
-			array( NavCapabilityGate::ROOT_CAPABILITY, 7 ),
+			array( $this->rootCap() ),
+			array( $this->rootCap(), 7 ),
 			null
 		);
-		self::assertTrue( $allcapsSete[ NavCapabilityGate::ROOT_CAPABILITY ], 'O "não" calculado para o usuário 0 não pode vazar para o usuário 7, logado depois na mesma requisição.' );
+		self::assertTrue( $allcapsSete[ $this->rootCap() ], 'O "não" calculado para o usuário 0 não pode vazar para o usuário 7, logado depois na mesma requisição.' );
 	}
 
 	/**
@@ -585,13 +606,14 @@ final class NavCapabilityGateTest extends TestCase {
 		);
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$GLOBALS['v3r_core_test_current_user_id'] = 1;
 		$allcaps1                                 = apply_filters(
 			'user_has_cap',
 			array(),
-			array( NavCapabilityGate::ROOT_CAPABILITY ),
-			array( NavCapabilityGate::ROOT_CAPABILITY, 1 ),
+			array( $this->rootCap() ),
+			array( $this->rootCap(), 1 ),
 			null
 		);
 
@@ -599,13 +621,13 @@ final class NavCapabilityGateTest extends TestCase {
 		$allcaps2                                 = apply_filters(
 			'user_has_cap',
 			array(),
-			array( NavCapabilityGate::ROOT_CAPABILITY ),
-			array( NavCapabilityGate::ROOT_CAPABILITY, 2 ),
+			array( $this->rootCap() ),
+			array( $this->rootCap(), 2 ),
 			null
 		);
 
-		self::assertTrue( $allcaps1[ NavCapabilityGate::ROOT_CAPABILITY ] );
-		self::assertFalse( $allcaps2[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps1[ $this->rootCap() ] );
+		self::assertFalse( $allcaps2[ $this->rootCap() ] );
 	}
 
 	/**
@@ -625,14 +647,15 @@ final class NavCapabilityGateTest extends TestCase {
 		);
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$ask = function ( int $userId ): array {
 			$GLOBALS['v3r_core_test_current_user_id'] = $userId;
 			return apply_filters(
 				'user_has_cap',
 				array(),
-				array( NavCapabilityGate::ROOT_CAPABILITY ),
-				array( NavCapabilityGate::ROOT_CAPABILITY, $userId ),
+				array( $this->rootCap() ),
+				array( $this->rootCap(), $userId ),
 				null
 			);
 		};
@@ -699,14 +722,15 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ], 'A resposta final, depois da varredura completa, precisa ser true — a tela é visível.' );
+		self::assertTrue( $allcaps[ $this->rootCap() ], 'A resposta final, depois da varredura completa, precisa ser true — a tela é visível.' );
 		self::assertSame(
 			array( false ),
 			$access->reentrantKeyWasPresent(),
-			'A consulta reentrante não pode ver a chave ROOT_CAPABILITY publicada — nem como false.'
+			'A consulta reentrante não pode ver a chave da capability de raiz publicada — nem como false.'
 		);
 		self::assertSame( array( null ), $access->reentrantValues() );
 	}
@@ -724,10 +748,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new ReentrantScreenAccess( array(), 'perm_a' ); // Nega tudo.
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertFalse( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertFalse( $allcaps[ $this->rootCap() ] );
 		self::assertSame(
 			array( false ),
 			$access->reentrantKeyWasPresent(),
@@ -748,6 +773,7 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$this->askRootCapability();
 
@@ -767,10 +793,11 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new ReentrantScreenAccess( array( 'perm_b' ), 'perm_a' );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps[ $this->rootCap() ] );
 		self::assertSame( 1, $access->callsFor( 'perm_a' ) );
 		self::assertSame( 1, $access->callsFor( 'perm_b' ) );
 	}
@@ -788,11 +815,12 @@ final class NavCapabilityGateTest extends TestCase {
 		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
 		$gate   = new NavCapabilityGate( $registry, $access );
 		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
 
 		$this->askRootCapability();
 		$allcaps = $this->askRootCapability();
 
-		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $allcaps[ $this->rootCap() ] );
 		self::assertSame( 1, $access->callsFor( 'perm_a' ), 'A segunda consulta (fora da reentrância) precisa reaproveitar o cache do cálculo completo.' );
 	}
 
@@ -881,7 +909,7 @@ final class NavCapabilityGateTest extends TestCase {
 		self::assertSame( 0, $accessB->callsFor( 'perm_a' ) );
 	}
 
-	/** O agregado (ROOT_CAPABILITY) é verdadeiro se QUALQUER registro tiver tela visível — mesmo que o primeiro registrado não tenha nenhuma. */
+	/** O agregado (capability da raiz) é verdadeiro se QUALQUER registro tiver tela visível — mesmo que o primeiro registrado não tenha nenhuma. */
 	public function test_root_capability_verdadeira_se_qualquer_registro_tiver_tela_visivel(): void {
 		$registryA = new Registry();
 		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
@@ -893,8 +921,13 @@ final class NavCapabilityGateTest extends TestCase {
 
 		( new NavCapabilityGate( $registryA, $accessA ) )->register();
 		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+		// As DUAS declarações pertencem ao MESMO plugin (mesma entrada de
+		// menu) — cenário de "duas Navigation, um só plugin", já coberto
+		// pelo docblock da classe ("Um filtro por PROCESSO").
+		NavCapabilityGate::registerRootMenu( $registryA, $accessA, 'plugin-a' );
+		NavCapabilityGate::registerRootMenu( $registryB, $accessB, 'plugin-a' );
 
-		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $this->askRootCapability()[ $this->rootCap() ] );
 	}
 
 	/** Controle negativo: nenhum registro com tela visível, o agregado é falso. */
@@ -909,8 +942,10 @@ final class NavCapabilityGateTest extends TestCase {
 
 		( new NavCapabilityGate( $registryA, $accessA ) )->register();
 		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+		NavCapabilityGate::registerRootMenu( $registryA, $accessA, 'plugin-a' );
+		NavCapabilityGate::registerRootMenu( $registryB, $accessB, 'plugin-a' );
 
-		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertFalse( $this->askRootCapability()[ $this->rootCap() ] );
 	}
 
 	/**
@@ -931,8 +966,10 @@ final class NavCapabilityGateTest extends TestCase {
 		// B primeiro, depois A — o inverso da ordem dos testes acima.
 		( new NavCapabilityGate( $registryB, $accessB ) )->register();
 		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		NavCapabilityGate::registerRootMenu( $registryB, $accessB, 'plugin-a' );
+		NavCapabilityGate::registerRootMenu( $registryA, $accessA, 'plugin-a' );
 
-		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertTrue( $this->askRootCapability()[ $this->rootCap() ] );
 
 		$allcapsA = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_a' ), array( 'v3r_nav_a', 1 ), null );
 		$allcapsB = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_b' ), array( 'v3r_nav_b', 1 ), null );
@@ -1001,5 +1038,144 @@ final class NavCapabilityGateTest extends TestCase {
 		// A tela nova, declarada depois do reset, responde normalmente.
 		$allcapsNew = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_y' ), array( 'v3r_nav_y', 1 ), null );
 		self::assertTrue( $allcapsNew['v3r_nav_y'] );
+	}
+
+	/**
+	 * O defeito medido em produção (07/09/2026, RIT360 Flow + V3RLGPD): a
+	 * capability sintética da raiz é POR PLUGIN, derivada do slug do MENU
+	 * (`rootCapabilityFor()`), não uma string fixa da biblioteca. Duas
+	 * guardas independentes — registros e respondentes diferentes,
+	 * simulando dois plugins —, cada uma com a própria entrada de menu: a
+	 * resposta de uma não pode ser sobrescrita pela outra, em NENHUMA
+	 * ordem de registro. Sem a correção (voltando à antiga capability
+	 * única, compartilhada por todo o processo), este teste falharia: a
+	 * segunda guarda a responder sobrescreveria `$allcaps` da primeira,
+	 * porque as duas reconheceriam a MESMA chave.
+	 */
+	public function test_capability_de_raiz_de_um_plugin_nao_e_sobrescrita_pela_de_outro_em_qualquer_ordem(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) ); // Plugin A enxerga a própria tela.
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array() ); // Plugin B não enxerga nada.
+
+		// Ordem 1: A primeiro, depois B.
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+		NavCapabilityGate::registerRootMenu( $registryA, $accessA, 'plugin-a' );
+		NavCapabilityGate::registerRootMenu( $registryB, $accessB, 'plugin-b' );
+
+		self::assertTrue(
+			$this->askRootCapability( array(), 'plugin-a' )[ $this->rootCap( 'plugin-a' ) ],
+			'A raiz do plugin A precisa ser concedida — ele enxerga a própria tela.'
+		);
+		self::assertFalse(
+			$this->askRootCapability( array(), 'plugin-b' )[ $this->rootCap( 'plugin-b' ) ],
+			'A raiz do plugin B não pode ser concedida por causa da tela do plugin A — cada plugin responde só pela própria.'
+		);
+
+		NavCapabilityGate::resetForTests();
+
+		// Ordem 2 (invertida): B primeiro, depois A — o defeito medido em
+		// produção era sensível à ordem em que os plugins carregavam.
+		$registryA2 = new Registry();
+		$registryA2->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA2 = new CountingScreenAccess( array( 'perm_a' ) );
+
+		$registryB2 = new Registry();
+		$registryB2->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB2 = new CountingScreenAccess( array() );
+
+		( new NavCapabilityGate( $registryB2, $accessB2 ) )->register();
+		( new NavCapabilityGate( $registryA2, $accessA2 ) )->register();
+		NavCapabilityGate::registerRootMenu( $registryB2, $accessB2, 'plugin-b' );
+		NavCapabilityGate::registerRootMenu( $registryA2, $accessA2, 'plugin-a' );
+
+		self::assertTrue(
+			$this->askRootCapability( array(), 'plugin-a' )[ $this->rootCap( 'plugin-a' ) ],
+			'Mesmo com B registrado primeiro, a raiz de A continua concedida.'
+		);
+		self::assertFalse(
+			$this->askRootCapability( array(), 'plugin-b' )[ $this->rootCap( 'plugin-b' ) ],
+			'Mesmo com B registrado primeiro, a raiz de B continua negada — não herda a visibilidade de A.'
+		);
+	}
+
+	/**
+	 * O segundo furo da mesma família: perguntada sobre a capability de
+	 * raiz de OUTRO plugin (mesmo prefixo, slug que este processo nunca
+	 * registrou via `registerRootMenu()`), a guarda não pode responder —
+	 * nem conceder, nem negar. É a mesma disciplina de silêncio que já
+	 * vale para capability de tela desconhecida
+	 * (`test_capability_com_prefixo_sem_tela_correspondente_nao_quebra`).
+	 */
+	public function test_capability_de_raiz_de_outro_plugin_fica_em_silencio(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		// Concederia, se fosse consultado — prova que o silêncio não vem de
+		// a tela estar invisível, e sim de o slug ser de outro plugin.
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
+
+		$capabilityDeOutroPlugin = NavCapabilityGate::rootCapabilityFor( 'plugin-b' );
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( $capabilityDeOutroPlugin ),
+			array( $capabilityDeOutroPlugin, 1 ),
+			null
+		);
+
+		self::assertArrayNotHasKey(
+			$capabilityDeOutroPlugin,
+			$allcaps,
+			'Capability de raiz de um slug nunca registrado por este processo não pode ser concedida nem negada.'
+		);
+	}
+
+	/** Controle negativo do teste acima: perguntada sobre o PRÓPRIO slug, a guarda responde normalmente. */
+	public function test_capability_de_raiz_do_proprio_plugin_continua_respondendo(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+		NavCapabilityGate::registerRootMenu( $registry, $access, 'plugin-a' );
+
+		self::assertTrue( $this->askRootCapability()[ $this->rootCap() ] );
+	}
+
+	/**
+	 * Critério de aceite: dois menus DIFERENTES do MESMO processo (caso
+	 * incomum, mas possível — nada na API impede um plugin de declarar duas
+	 * entradas de menu) não se misturam: a raiz de um não conta as telas do
+	 * outro.
+	 */
+	public function test_dois_menus_do_mesmo_processo_nao_agregam_telas_um_do_outro(): void {
+		$registryX = new Registry();
+		$registryX->add( new Screen( 'x', 'X', null, 'perm_x' ) );
+		$accessX = new CountingScreenAccess( array() ); // Nega tudo em X.
+
+		$registryY = new Registry();
+		$registryY->add( new Screen( 'y', 'Y', null, 'perm_y' ) );
+		$accessY = new CountingScreenAccess( array( 'perm_y' ) ); // Concede em Y.
+
+		( new NavCapabilityGate( $registryX, $accessX ) )->register();
+		( new NavCapabilityGate( $registryY, $accessY ) )->register();
+		NavCapabilityGate::registerRootMenu( $registryX, $accessX, 'menu-x' );
+		NavCapabilityGate::registerRootMenu( $registryY, $accessY, 'menu-y' );
+
+		self::assertFalse(
+			$this->askRootCapability( array(), 'menu-x' )[ $this->rootCap( 'menu-x' ) ],
+			'A raiz do menu X não pode ser concedida por causa de uma tela visível do menu Y.'
+		);
+		self::assertTrue( $this->askRootCapability( array(), 'menu-y' )[ $this->rootCap( 'menu-y' ) ] );
 	}
 }

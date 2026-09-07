@@ -2,6 +2,51 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.21.0] — 2026-09-07
+
+### Corrigido
+- **`Admin\Nav\NavCapabilityGate` respondia a capability sintética da
+  entrada de menu com a MESMA STRING em todas as cópias prefixadas pelo
+  Strauss — e quem respondia por último vencia.** O Strauss prefixa
+  classes e namespaces na hora de embutir a biblioteca em cada plugin,
+  mas **não prefixa o valor de uma constante de texto**: a capability
+  sintética da raiz era uma constante da lib, então cada plugin carregava
+  a própria cópia da guarda avaliando a mesma string contra as próprias
+  telas. Num site com dois plugins da casa nessa camada, a guarda do
+  plugin A respondia **sim** (vê as telas de A) e a guarda do plugin B,
+  outra classe, outra cópia, mesma string, avaliava contra as telas de
+  **B**, não via nenhuma, e escrevia **não** — cancelando a entrada de
+  menu de A. Medido num WordPress com oito plugins da casa instalados,
+  com RIT360 Flow e V3RLGPD adotando a navegação. Correção: a capability
+  sintética da raiz passa a ser **por plugin**, derivada do slug da
+  entrada de menu — como a das telas já era.
+- **Furo gêmeo, fechado junto: guarda perguntada sobre capability
+  sintética que não é dela ficava em silêncio, e é isso que faltava para
+  oito plugins da casa conviverem no mesmo painel** sem um cancelar a
+  entrada de menu do outro — a guarda nunca nega o que não reconhece,
+  só se abstém.
+- ⚠️ **`view_admin_dashboard` não entra nesta mudança, e é deliberado:**
+  é do ecossistema, não por plugin — a guarda só **acrescenta** o `true`,
+  nunca nega, e várias cópias concedendo em paralelo é inofensivo e
+  correto.
+- **Compatibilidade:** o valor da capability nunca é persistido — é
+  sintético, existe só dentro do filtro, e o contrato sempre disse que o
+  plugin não deve verificá-la diretamente. Mudar o texto não exige
+  migração de dado; ainda assim é mudança observável, daí o minor.
+- **O método, e é a parte que ensina:** antes desta causa aparecer,
+  quatro hipóteses foram levantadas e refutadas por medição — três da
+  biblioteca, uma do consumidor. Uma quinta "causa" chegou a produzir
+  três correções antes de se revelar mal fundamentada: a identificação
+  das guardas havia sido feita **pelo nome do método**, não pela classe,
+  e apresentada como medida. Duas daquelas correções eram defeitos reais
+  e ficam de pé (o cache por pessoa e a sentinela publicada antes da
+  hora, na 0.20.2); a terceira — guarda única por processo — resolveu um
+  problema que naquele site não existia, e continua correta pelo próprio
+  mérito. **A lição:** relatório de medição não é a medição. Listar por
+  **classe** foi o que distinguiu cópias prefixadas; listar por **nome
+  de método** confundiu duas cópias diferentes da mesma biblioteca com
+  duas instâncias da mesma cópia.
+
 ## [0.20.2] — 2026-09-07
 
 ### Corrigido

@@ -218,6 +218,47 @@ terceiros" é defeito de autorização, não de conveniência. Em outras
 palavras: `user_can( $outro, 'v3r_nav_...' )` **não é** uma pergunta que
 esta camada saiba responder.
 
+### ⚠️ As capabilities sintéticas são POR PLUGIN — o Strauss não prefixa o valor de uma constante
+
+Medido em produção em 07/09/2026, num WordPress com oito plugins da casa
+instalados juntos (RIT360 Flow + V3RLGPD): a biblioteca é embutida em cada
+plugin pelo Strauss, que prefixa **classes e namespaces** — mas **não
+prefixa o valor de uma string**. A capability sintética da tela
+(`v3r_nav_<slug>`) escapa desse risco porque o `<slug>` vem do plugin e
+tende a ser único; a da **entrada raiz do menu**, antes uma constante fixa
+da biblioteca, era a MESMA string em todas as cópias prefixadas.
+
+Efeito: a guarda do plugin A respondia `true` para a raiz (ele enxerga
+tela), e a guarda do plugin B — outra cópia, outro `add_filter()`, mas
+reconhecendo a MESMA string como sua própria raiz — respondia `false` logo
+em seguida (B não tinha tela visível para aquela pessoa), sobrescrevendo o
+`true` de A no mesmo `$allcaps`. Quem respondia por último vencia: em
+qualquer site com dois plugins da casa adotando esta camada, um cancelava a
+entrada de menu do outro. Só a raiz falhava — as capabilities por tela já
+eram únicas — e a reprodução com um plugin só nunca falhava, porque o
+defeito só aparece com dois `add_filter()` concorrendo pelo mesmo
+`$allcaps`.
+
+**A correção:** a capability da raiz agora deriva do **slug do menu** que
+cada plugin declara em `registerMenu()` (§6) — `v3r_nav_root_<menuSlug>` em
+vez de uma string fixa. Como o slug do menu já precisa ser único por plugin
+(é o `menu_slug` do próprio `add_menu_page()` do WordPress), a colisão
+deixa de existir.
+
+**E perguntada sobre a raiz de um slug que ela não reconhece — de outro
+plugin, mesmo prefixo —, a guarda se cala:** não concede, não nega, não
+mexe em `$allcaps`. É a mesma disciplina que já valia para a capability de
+tela desconhecida (`v3r_nav_<slug>` sem tela correspondente registrada) —
+sem essa disciplina, uma cópia da biblioteca continuaria respondendo (e
+podendo sobrescrever) por capabilities que não são dela. É o que permite
+oito plugins da casa conviverem no mesmo painel sem um apagar a entrada do
+outro.
+
+⚠️ `view_admin_dashboard` **não muda com esta correção** — continua
+agregando TODAS as declarações do processo (ver abaixo), porque ela é do
+ecossistema: várias cópias concedendo é inofensivo e correto, ao contrário
+da raiz, que precisa ser exclusiva de um plugin.
+
 ### `view_admin_dashboard`: a saída para conviver com WooCommerce e afins
 
 Medido em produção em 06/09/2026 (RIT360 Flow): num WordPress com WooCommerce

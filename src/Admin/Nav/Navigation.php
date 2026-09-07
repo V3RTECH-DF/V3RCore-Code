@@ -233,6 +233,13 @@ final class Navigation {
 	public function registerMenu( MenuEntry $entry ): void {
 		$this->menuEntry = $entry;
 
+		// Avisa a guarda de acesso direto, imediatamente — não espera o hook
+		// `admin_menu` disparar, porque outra coisa (accessMap() consultado
+		// cedo, outro plugin perguntando) pode perguntar pela capability da
+		// raiz antes disso (ver docblock de NavCapabilityGate, "A capability
+		// da entrada raiz é POR PLUGIN").
+		NavCapabilityGate::registerRootMenu( $this->registry, $this->access, $entry->slug() );
+
 		if ( ! function_exists( 'add_action' ) ) {
 			return;
 		}
@@ -260,11 +267,14 @@ final class Navigation {
 	}
 
 	/**
-	 * A capability da entrada visível é a sintética `ROOT_CAPABILITY`
-	 * (`NavCapabilityGate`), nunca `'read'` — a entrada é o nó raiz da
-	 * árvore, e visibilidade de um nó com filhos é sempre derivada dos
-	 * filhos (§5): sem nenhuma tela visível para o usuário, a entrada
-	 * some da coluna do painel em vez de abrir numa tela vazia.
+	 * A capability da entrada visível é a sintética
+	 * `NavCapabilityGate::rootCapabilityFor( $entry->slug() )`, nunca
+	 * `'read'` — a entrada é o nó raiz da árvore, e visibilidade de um nó
+	 * com filhos é sempre derivada dos filhos (§5): sem nenhuma tela
+	 * visível para o usuário, a entrada some da coluna do painel em vez de
+	 * abrir numa tela vazia. Derivar do slug do MENU (não de uma constante
+	 * fixa da biblioteca) é o que torna esta capability própria de CADA
+	 * plugin — ver docblock de `NavCapabilityGate`.
 	 */
 	private function addMainMenuPage( MenuEntry $entry ): void {
 		if ( ! function_exists( 'add_menu_page' ) ) {
@@ -274,7 +284,7 @@ final class Navigation {
 		add_menu_page(
 			$entry->title(),
 			$entry->title(),
-			NavCapabilityGate::ROOT_CAPABILITY,
+			NavCapabilityGate::rootCapabilityFor( $entry->slug() ),
 			$entry->slug(),
 			static function (): void {
 				// Esta camada não desenha nada (§7) — quem consome

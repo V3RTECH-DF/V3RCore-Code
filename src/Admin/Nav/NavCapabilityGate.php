@@ -26,10 +26,11 @@ namespace V3R\Core\Admin\Nav;
  * nem negada explicitamente — o filtro simplesmente não mexe nela.
  *
  * **A entrada raiz do menu segue a mesma regra de derivação dos grupos
- * (§5, §6):** `ROOT_CAPABILITY` só é concedida quando ao menos uma tela
- * registrada é visível para o usuário — o mesmo "grupo vazio não
- * aparece" aplicado ao nível mais alto da árvore, para a entrada nunca
- * abrir numa tela vazia para quem não pode ver nada dentro dela.
+ * (§5, §6):** a capability sintética da raiz (`rootCapabilityFor()`) só é
+ * concedida quando ao menos uma tela registrada é visível para o usuário —
+ * o mesmo "grupo vazio não aparece" aplicado ao nível mais alto da árvore,
+ * para a entrada nunca abrir numa tela vazia para quem não pode ver nada
+ * dentro dela.
  *
  * **`view_admin_dashboard` (defeito medido em produção em 06/09/2026, na
  * primeira adoção real desta camada, RIT360 Flow):** não é capability
@@ -44,8 +45,8 @@ namespace V3R\Core\Admin\Nav;
  * 403 (correto), mas a tela PERMITIDA também nunca era alcançada, porque o
  * WooCommerce já tinha expulsado a pessoa do painel antes de chegar lá.
  * A correção: conceder `view_admin_dashboard` a quem enxerga ao menos uma
- * tela nossa, reaproveitando o MESMO cálculo agregado que já respondia por
- * `ROOT_CAPABILITY`. Nunca a NEGAMOS explicitamente — só acrescentamos o
+ * tela nossa, reaproveitando o MESMO cálculo agregado que já responde pela
+ * capability da raiz. Nunca a NEGAMOS explicitamente — só acrescentamos o
  * `true` quando aplicável — porque ela não é nossa: outro plugin ou papel
  * pode já tê-la concedido por outro motivo, e negar tiraria acesso que não
  * nos pertence conceder nem revogar. O mesmo risco de bloqueio silencioso
@@ -143,7 +144,7 @@ namespace V3R\Core\Admin\Nav;
  *   REGISTRO que declarou aquela tela — registros com respondentes
  *   diferentes continuam cada um respondendo pelas próprias telas, nunca
  *   pelo respondente de outro registro;
- * - o agregado ("enxerga ao menos uma tela?", usado por `ROOT_CAPABILITY`
+ * - o agregado ("enxerga ao menos uma tela?", usado pela capability da raiz
  *   e por `view_admin_dashboard`) é verdadeiro se QUALQUER registro tiver
  *   uma tela visível para a pessoa — a busca pára no primeiro `true`
  *   encontrado, percorrendo os registros na ordem em que foram feitos e,
@@ -159,6 +160,44 @@ namespace V3R\Core\Admin\Nav;
  * normalmente para qualquer um. A resposta final não pode depender de qual
  * `NavCapabilityGate` "ganhou" a corrida de registrar o filtro primeiro:
  * com a agregação, não importa mais qual foi.
+ *
+ * **A capability da entrada raiz é POR PLUGIN, nunca da biblioteca (defeito
+ * medido num WordPress com oito plugins da casa, 07/09/2026, RIT360 Flow +
+ * V3RLGPD instalados juntos):** o Strauss prefixa classes e namespaces, mas
+ * **não prefixa o valor de uma constante de texto** — a antiga
+ * `ROOT_CAPABILITY` era uma string fixa (`'v3r_nav_root_menu_entry'`) igual
+ * em TODAS as cópias prefixadas da biblioteca. Cada plugin roda a própria
+ * cópia (própria classe, próprio estado estático de processo — ver "Um
+ * filtro por PROCESSO" acima), mas a string era a mesma nas duas. Resultado:
+ * o `grant()` do plugin A respondia `true` para `v3r_nav_root_menu_entry`
+ * (ele enxerga tela), e o `grant()` do plugin B — outra classe, outro
+ * `add_filter()`, mas reconhecendo a MESMA string como sua própria raiz —
+ * respondia `false` logo em seguida (B não tem tela visível para aquela
+ * pessoa), sobrescrevendo o `true` de A no mesmo `$allcaps`. Quem respondia
+ * por último vencia — e como isso só afeta a capability agregada da raiz
+ * (as capabilities por tela já usam `CAPABILITY_PREFIX . $slug`, que difere
+ * entre plugins), a reprodução por linha de comando com um plugin só nunca
+ * falhava.
+ *
+ * A correção: a capability da raiz agora deriva do **slug do menu**
+ * declarado por CADA plugin (`rootCapabilityFor()`, análogo a
+ * `capabilityFor()` para telas) — `v3r_nav_root_<menuSlug>`, e
+ * `Navigation::registerMenu()` avisa esta classe (`registerRootMenu()`) qual
+ * slug este PROCESSO (= este plugin, depois do Strauss) reconhece como seu.
+ * `grant()`, perguntado por uma capability com o prefixo de raiz, só
+ * responde se o slug pedido está entre os que este processo registrou —
+ * capability de raiz de OUTRO plugin (mesmo prefixo, slug que este processo
+ * nunca viu) não é da conta desta cópia e o filtro se cala, mesma disciplina
+ * já aplicada à capability sintética de tela desconhecida (`resolveScreen()`
+ * devolvendo `null`). Como o slug do menu já precisa ser único por plugin
+ * (é o `menu_slug` do próprio `add_menu_page()` do WordPress), a colisão que
+ * causava o defeito deixa de existir.
+ *
+ * ⚠️ `WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY` **não muda**: continua agregando
+ * TODAS as declarações conhecidas do processo (não é por slug de menu),
+ * porque ela é do ecossistema — várias cópias concedendo é inofensivo e
+ * correto (ver docblock dela). Só a capability da raiz precisava de escopo
+ * por plugin.
  *
  * ⚠️ **Exceção deliberada a "sem estado estático"** (o padrão do resto da
  * biblioteca): o filtro `user_has_cap` do WordPress É estado de processo —
@@ -186,12 +225,15 @@ final class NavCapabilityGate {
 	public const WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY = 'view_admin_dashboard';
 
 	/**
-	 * A capability sintética da entrada raiz do menu (§6) — nunca deriva de
-	 * um slug de tela, por isso não usa `CAPABILITY_PREFIX` seguido de um
-	 * slug real: evita colisão com uma tela que por acaso se chamasse
-	 * `root`.
+	 * Prefixo da capability sintética da entrada raiz do menu (§6) — SEMPRE
+	 * seguido do slug do MENU (`MenuEntry::slug()`), nunca do slug de uma
+	 * tela: é o que torna a capability POR PLUGIN em vez de compartilhada
+	 * entre todas as cópias prefixadas da biblioteca (ver docblock da
+	 * classe, "A capability da entrada raiz é POR PLUGIN"). Distinto de
+	 * `CAPABILITY_PREFIX` para não colidir com a capability de uma tela cujo
+	 * slug por acaso comece com `root_`.
 	 */
-	public const ROOT_CAPABILITY = 'v3r_nav_root_menu_entry';
+	public const ROOT_CAPABILITY_PREFIX = 'v3r_nav_root_';
 
 	/** @var Registry */
 	private $registry;
@@ -210,6 +252,23 @@ final class NavCapabilityGate {
 	private static $registrations = array();
 
 	/**
+	 * @var array<string, array<string, true>> Para cada slug de menu
+	 * (`MenuEntry::slug()`, §6) que ESTE processo reconhece como próprio, o
+	 * CONJUNTO de declarações (chaves de `$registrations`) associadas a ele
+	 * — alimentado por `registerRootMenu()`, chamado por
+	 * `Navigation::registerMenu()` assim que o plugin declara a entrada.
+	 * `grant()` só responde por uma capability de raiz
+	 * (`ROOT_CAPABILITY_PREFIX . $slug`) cujo `$slug` estiver aqui —
+	 * capability de raiz de outro plugin (mesmo prefixo, slug que este
+	 * processo nunca registrou) fica de fora e o filtro se cala (ver
+	 * docblock da classe). E quando o cálculo acontece, ele varre SÓ as
+	 * declarações amarradas a ESTE slug — nunca todas as conhecidas do
+	 * processo — para que a raiz de UM menu não misture telas de OUTRO menu
+	 * do mesmo plugin.
+	 */
+	private static $rootMenuRegistrations = array();
+
+	/**
 	 * @var bool Se o filtro `user_has_cap` já foi pendurado NESTE processo
 	 * — no máximo uma vez, qualquer que seja a quantidade de instâncias
 	 * construídas (ver docblock da classe).
@@ -217,33 +276,41 @@ final class NavCapabilityGate {
 	private static $hooked = false;
 
 	/**
-	 * @var array<int|string, bool> Resultado agregado cacheado do cálculo
-	 * "alguma tela de algum registro é visível?", por chave de usuário
-	 * corrente (currentUserCacheKey()) — vazio até a primeira consulta (ou
-	 * depois de invalidado, ver $registrationsSignature). Uma resposta
-	 * calculada para uma pessoa nunca é servida para outra.
+	 * @var array<string, array<int|string, bool>> Resultado agregado
+	 * cacheado do cálculo "alguma tela é visível?", por ESCOPO (`view:` +
+	 * `WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY`, agregando TODAS as declarações
+	 * do processo; ou `root:` + o slug do menu, agregando só as declarações
+	 * daquele menu — ver `hasAnyVisibleScreen()`) e, dentro de cada escopo,
+	 * por chave de usuário corrente (`currentUserCacheKey()`) — vazio até a
+	 * primeira consulta daquele escopo/pessoa (ou depois de invalidado, ver
+	 * `$registrationsSignature`). Uma resposta calculada para uma pessoa
+	 * nunca é servida para outra, e uma calculada para um escopo nunca é
+	 * servida para outro.
 	 */
-	private static $rootVisibleByUser = array();
+	private static $visibleByScopeAndUser = array();
 
 	/**
-	 * @var array<string, int> Assinatura da última vez em que o cache
-	 * agregado foi calculado: quantidade de telas de cada registro (mesma
-	 * chave de `$registrations`), no momento do cálculo. Usada para
-	 * invalidar o mapa inteiro quando QUALQUER registro muda de conjunto de
-	 * telas, ou quando um registro novo aparece/desaparece.
+	 * @var array<string, int> Assinatura da última vez em que QUALQUER
+	 * cache agregado foi calculado: quantidade de telas de cada declaração
+	 * conhecida (mesma chave de `$registrations`, todas — não só as do
+	 * escopo em cálculo), no momento do cálculo. Usada para invalidar TODOS
+	 * os escopos de uma vez quando QUALQUER declaração muda de conjunto de
+	 * telas, ou quando uma declaração nova aparece/desaparece — mais
+	 * conservador que invalidar só o escopo afetado, e mais simples.
 	 */
 	private static $registrationsSignature = array();
 
 	/**
-	 * @var array<int|string, bool> Melhor resultado conhecido de um cálculo
-	 * agregado AINDA EM ANDAMENTO, por chave de usuário — existe uma
-	 * entrada aqui só entre o início e o fim da varredura para aquela
-	 * pessoa (ver hasAnyVisibleScreen()). `true` quando a varredura em
-	 * andamento já encontrou uma tela visível; `false` enquanto ainda não
-	 * encontrou — nunca é o resultado final publicado, só o estado interno
-	 * de uma varredura que ainda não terminou.
+	 * @var array<string, array<int|string, bool>> Melhor resultado
+	 * conhecido de um cálculo agregado AINDA EM ANDAMENTO, por escopo e por
+	 * chave de usuário — existe uma entrada aqui só entre o início e o fim
+	 * da varredura daquele escopo para aquela pessoa (ver
+	 * hasAnyVisibleScreen()). `true` quando a varredura em andamento já
+	 * encontrou uma tela visível; `false` enquanto ainda não encontrou —
+	 * nunca é o resultado final publicado, só o estado interno de uma
+	 * varredura que ainda não terminou.
 	 */
-	private static $inProgressByUser = array();
+	private static $inProgressByScopeAndUser = array();
 
 	public function __construct( Registry $registry, ScreenAccess $access ) {
 		$this->registry = $registry;
@@ -253,6 +320,47 @@ final class NavCapabilityGate {
 	/** A capability sintética correspondente a uma tela. Nunca verificada diretamente pelo plugin (§4). */
 	public static function capabilityFor( string $slug ): string {
 		return self::CAPABILITY_PREFIX . $slug;
+	}
+
+	/**
+	 * A capability sintética correspondente à entrada raiz do menu de UM
+	 * plugin específico — nunca verificada diretamente pelo plugin (§4),
+	 * mesma disciplina de `capabilityFor()`. `$menuSlug` é o `slug()` do
+	 * `MenuEntry` que o plugin declarou em `Navigation::registerMenu()` — o
+	 * que torna esta capability distinta entre plugins, mesmo depois do
+	 * Strauss (ver docblock da classe).
+	 */
+	public static function rootCapabilityFor( string $menuSlug ): string {
+		return self::ROOT_CAPABILITY_PREFIX . $menuSlug;
+	}
+
+	/**
+	 * Associa a declaração `$registry` + `$access` ao slug `$menuSlug` como
+	 * a entrada raiz do menu que ela alimenta — chamado por
+	 * `Navigation::registerMenu()` assim que o plugin declara a entrada, não
+	 * esperando o hook `admin_menu` disparar (outra coisa pode perguntar
+	 * pela capability antes disso). `grant()` só responde por
+	 * `rootCapabilityFor( $menuSlug )` quando `$menuSlug` está aqui, e o
+	 * cálculo agregado ("enxerga ao menos uma tela?") varre SÓ as
+	 * declarações amarradas a ESTE slug — nunca as de outro menu deste
+	 * mesmo processo, nem as de outro plugin (ver docblock da classe, "A
+	 * capability da entrada raiz é POR PLUGIN").
+	 *
+	 * `$registry`/`$access` precisam já ter sido passados a `register()`
+	 * (a própria `Navigation::registerMenu()` garante isso: o construtor já
+	 * chamou `$this->gate->register()` antes de `registerMenu()` poder ser
+	 * chamado) — associar um par nunca registrado não quebra nada, só não
+	 * conta para nenhum cálculo (a declaração continua ausente de
+	 * `$registrations`).
+	 *
+	 * Idempotente: associar o mesmo par ao mesmo slug mais de uma vez (duas
+	 * `Navigation` do mesmo plugin, ambas chamando `registerMenu()` com o
+	 * mesmo slug) não muda nada.
+	 */
+	public static function registerRootMenu( Registry $registry, ScreenAccess $access, string $menuSlug ): void {
+		$key = spl_object_id( $registry ) . ':' . spl_object_id( $access );
+
+		self::$rootMenuRegistrations[ $menuSlug ][ $key ] = true;
 	}
 
 	/**
@@ -302,11 +410,12 @@ final class NavCapabilityGate {
 	 * estático (ver docblock da classe, "Exceção deliberada").
 	 */
 	public static function resetForTests(): void {
-		self::$registrations          = array();
-		self::$hooked                 = false;
-		self::$rootVisibleByUser      = array();
-		self::$registrationsSignature = array();
-		self::$inProgressByUser       = array();
+		self::$registrations            = array();
+		self::$rootMenuRegistrations    = array();
+		self::$hooked                   = false;
+		self::$visibleByScopeAndUser    = array();
+		self::$registrationsSignature   = array();
+		self::$inProgressByScopeAndUser = array();
 	}
 
 	/**
@@ -331,8 +440,25 @@ final class NavCapabilityGate {
 		}
 
 		foreach ( $caps as $cap ) {
-			if ( self::ROOT_CAPABILITY === $cap ) {
-				$visible = self::hasAnyVisibleScreen();
+			if ( 0 === strpos( $cap, self::ROOT_CAPABILITY_PREFIX ) ) {
+				$menuSlug = substr( $cap, strlen( self::ROOT_CAPABILITY_PREFIX ) );
+
+				if ( ! array_key_exists( $menuSlug, self::$rootMenuRegistrations ) ) {
+					// Capability de raiz de OUTRO plugin (mesmo prefixo, mas
+					// um slug que este processo nunca registrou via
+					// registerRootMenu()) — não é da nossa conta. Mesma
+					// disciplina de resolveScreen() devolvendo null: silêncio,
+					// sem conceder nem negar (ver docblock da classe, "A
+					// capability da entrada raiz é POR PLUGIN").
+					continue;
+				}
+
+				// Varre SÓ as declarações amarradas a ESTE menu — nunca
+				// todas as conhecidas do processo (ver registerRootMenu()).
+				$visible = self::hasAnyVisibleScreen(
+					array_keys( self::$rootMenuRegistrations[ $menuSlug ] ),
+					'root:' . $menuSlug
+				);
 
 				if ( null !== $visible ) {
 					// `null` só acontece numa consulta reentrante, disparada
@@ -352,8 +478,11 @@ final class NavCapabilityGate {
 			if ( self::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY === $cap ) {
 				// Nunca negar: capability alheia, só acrescentamos o `true`
 				// (ver docblock da classe). Um valor já concedido por outra
-				// origem (outro plugin, outro papel) é preservado.
-				if ( true === self::hasAnyVisibleScreen() ) {
+				// origem (outro plugin, outro papel) é preservado. Esta,
+				// diferente da capability de raiz, agrega TODAS as
+				// declarações conhecidas do processo — ela é do ecossistema,
+				// não de um menu específico (ver docblock da classe).
+				if ( true === self::hasAnyVisibleScreen( array_keys( self::$registrations ), self::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ) ) {
 					$allcaps[ $cap ] = true;
 				}
 				continue;
@@ -400,72 +529,93 @@ final class NavCapabilityGate {
 	}
 
 	/**
-	 * Se alguma tela de QUALQUER registro conhecido é visível para o
-	 * usuário corrente — varre todos os registros, na ordem em que foram
-	 * feitos e, dentro de cada um, na ordem de declaração das telas, na
-	 * primeira chamada da requisição **para esta pessoa**, e pára no
-	 * primeiro `true` encontrado; chamadas seguintes da MESMA pessoa
-	 * devolvem o valor cacheado, sem tocar em nenhum `ScreenAccess` de
-	 * novo, **enquanto a assinatura combinada dos registros não mudar**
-	 * (ver docblock da classe) — mudou, o mapa inteiro se invalida e cada
-	 * pessoa é recalculada na sua próxima consulta.
+	 * Se alguma tela de QUALQUER declaração em `$registrationKeys` é
+	 * visível para o usuário corrente — varre só essas declarações (as
+	 * chaves de `$registrations` passadas por quem chama: TODAS as
+	 * conhecidas do processo para `WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY`, ou
+	 * só as de UM menu para a capability de raiz daquele menu — ver
+	 * `grant()`), na ordem em que aparecem em `$registrationKeys` e, dentro
+	 * de cada uma, na ordem de declaração das telas, na primeira chamada da
+	 * requisição **para este escopo e esta pessoa**, e pára no primeiro
+	 * `true` encontrado; chamadas seguintes do MESMO escopo pela MESMA
+	 * pessoa devolvem o valor cacheado, sem tocar em nenhum `ScreenAccess`
+	 * de novo, **enquanto a assinatura combinada de TODOS os registros
+	 * conhecidos não mudar** (ver docblock da classe) — mudou, TODOS os
+	 * escopos se invalidam e cada um é recalculado na sua próxima consulta.
 	 *
 	 * Fora de uma reentrância, sempre devolve um resultado definitivo
 	 * (`true`/`false`) — a varredura roda inteira, síncrona, antes de
 	 * responder. Só devolve `null` quando CHAMADA REENTRANTEMENTE (de
 	 * dentro do próprio `ScreenAccess::canView()`, enquanto a varredura
-	 * desta mesma pessoa ainda está em andamento) e essa varredura ainda
-	 * não encontrou nenhuma tela visível: `null` é "ainda não sei", nunca
-	 * "não" — quem chama trata como silêncio (ver `grant()`). Achada uma
-	 * tela visível, a reentrância passa a receber `true` na hora, sem
-	 * nunca recomeçar um segundo laço (o que recursaria sem fim).
+	 * deste MESMO escopo para esta mesma pessoa ainda está em andamento) e
+	 * essa varredura ainda não encontrou nenhuma tela visível: `null` é
+	 * "ainda não sei", nunca "não" — quem chama trata como silêncio (ver
+	 * `grant()`). Achada uma tela visível, a reentrância passa a receber
+	 * `true` na hora, sem nunca recomeçar um segundo laço (o que recursaria
+	 * sem fim).
+	 *
+	 * @param string[] $registrationKeys Chaves de `$registrations` a varrer.
+	 * @param string   $scope            Identifica o cálculo nos caches
+	 *                                   (`$visibleByScopeAndUser`,
+	 *                                   `$inProgressByScopeAndUser`) — dois
+	 *                                   escopos nunca compartilham cache
+	 *                                   nem estado de varredura em
+	 *                                   andamento, mesmo na mesma pessoa.
 	 */
-	private static function hasAnyVisibleScreen(): ?bool {
+	private static function hasAnyVisibleScreen( array $registrationKeys, string $scope ): ?bool {
 		$userKey = self::currentUserCacheKey();
 
-		if ( array_key_exists( $userKey, self::$inProgressByUser ) ) {
-			return self::$inProgressByUser[ $userKey ] ? true : null;
+		if ( array_key_exists( $userKey, self::$inProgressByScopeAndUser[ $scope ] ?? array() ) ) {
+			return self::$inProgressByScopeAndUser[ $scope ][ $userKey ] ? true : null;
 		}
 
 		$signature = self::registrationsSignature();
 
 		if ( $signature !== self::$registrationsSignature ) {
-			self::$rootVisibleByUser      = array();
+			self::$visibleByScopeAndUser  = array();
 			self::$registrationsSignature = $signature;
 		}
 
-		if ( array_key_exists( $userKey, self::$rootVisibleByUser ) ) {
-			return self::$rootVisibleByUser[ $userKey ];
+		if ( array_key_exists( $userKey, self::$visibleByScopeAndUser[ $scope ] ?? array() ) ) {
+			return self::$visibleByScopeAndUser[ $scope ][ $userKey ];
 		}
 
-		self::$inProgressByUser[ $userKey ] = false;
+		self::$inProgressByScopeAndUser[ $scope ][ $userKey ] = false;
 
-		foreach ( self::$registrations as $registration ) {
+		foreach ( $registrationKeys as $key ) {
+			$registration = self::$registrations[ $key ] ?? null;
+
+			if ( null === $registration ) {
+				continue;
+			}
+
 			foreach ( $registration['registry']->screens() as $screen ) {
 				if ( $registration['access']->canView( $screen->permission() ) ) {
-					self::$inProgressByUser[ $userKey ] = true;
+					self::$inProgressByScopeAndUser[ $scope ][ $userKey ] = true;
 					break 2;
 				}
 			}
 		}
 
-		$result = self::$inProgressByUser[ $userKey ];
-		unset( self::$inProgressByUser[ $userKey ] );
+		$result = self::$inProgressByScopeAndUser[ $scope ][ $userKey ];
+		unset( self::$inProgressByScopeAndUser[ $scope ][ $userKey ] );
 
 		// Só o cálculo COMPLETO publica no cache — nunca o estado
 		// intermediário que uma consulta reentrante pôde ter lido acima.
-		self::$rootVisibleByUser[ $userKey ] = $result;
+		self::$visibleByScopeAndUser[ $scope ][ $userKey ] = $result;
 
 		return $result;
 	}
 
 	/**
-	 * A assinatura combinada de TODOS os registros conhecidos: quantidade
-	 * de telas de cada um, pela mesma chave de `$registrations`. Comparada
-	 * por igualdade de array (ordem e valores) contra
-	 * `$registrationsSignature` em `hasAnyVisibleScreen()` — muda quando
-	 * QUALQUER registro ganha/perde telas, ou quando um registro
-	 * novo aparece (chave nova no array).
+	 * A assinatura combinada de TODOS os registros conhecidos do processo
+	 * (não só os de um escopo/menu): quantidade de telas de cada um, pela
+	 * mesma chave de `$registrations`. Comparada por igualdade de array
+	 * (ordem e valores) contra `$registrationsSignature` em
+	 * `hasAnyVisibleScreen()` — muda quando QUALQUER registro ganha/perde
+	 * telas, ou quando um registro novo aparece (chave nova no array), e
+	 * invalida TODOS os escopos de uma vez (mais simples e mais
+	 * conservador que invalidar só o escopo afetado).
 	 *
 	 * @return array<string, int>
 	 */
