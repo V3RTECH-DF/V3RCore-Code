@@ -50,7 +50,21 @@ namespace V3R\Core\Admin\Nav;
  * implementação) vale por requisição **se, e só se**, o plugin criar um
  * respondente só e uma `Navigation` só. Duas instâncias de `Navigation`
  * construídas no mesmo ciclo com respondentes diferentes releem tudo duas
- * vezes — sem nada quebrar visivelmente.
+ * vezes em `tree()`/`canView()`/`accessMap()` — sem nada quebrar
+ * visivelmente, é só o custo de não reaproveitar o cache de uma instância
+ * na outra.
+ *
+ * **Construir `Navigation` mais de uma vez no mesmo ciclo é uso normal da
+ * API — o gate de acesso direto (`NavCapabilityGate`) é único por
+ * PROCESSO, não por instância** (defeito medido em produção no RIT360
+ * Flow, 07/09/2026: duas `Navigation`, uma no boot e outra ao montar a
+ * tela, penduravam cada uma o próprio filtro `user_has_cap`, e a segunda
+ * sobrescrevia a resposta da primeira — 403 para tela permitida). O que se
+ * paga por instância adicional é só releitura (parágrafo acima), nunca
+ * concorrência entre respostas: o gate agrega TODAS as declarações
+ * (`Registry`+`ScreenAccess`) de todas as `Navigation` construídas no
+ * processo antes de responder por qualquer capability sintética ou pela
+ * entrada raiz do menu (ver docblock de `NavCapabilityGate`).
  */
 final class Navigation {
 

@@ -156,8 +156,15 @@ mesmo respondente serve `tree()`, `accessMap()` e a guarda de acesso direto
 (§4). Um cache guardado dentro dele **vale por requisição se, e só se**, o
 plugin criar **um respondente só e uma `Navigation` só**. Dois `Navigation`
 construídos no mesmo ciclo com respondentes diferentes releem tudo duas
-vezes — **sem nada quebrar visivelmente**: cada consulta responde certo, só
-em dobro.
+vezes em `tree()`/`accessMap()` — sem nada quebrar visivelmente, é só o
+custo de não reaproveitar o cache de uma instância na outra.
+
+**Construir `Navigation` mais de uma vez no mesmo ciclo é permitido — a
+guarda de acesso direto é única por processo.** `NavCapabilityGate` agrega
+as declarações de TODAS as `Navigation` construídas, e pendura um único
+filtro `user_has_cap` por processo, qualquer que seja a quantidade de
+instâncias. O que se paga por instância adicional é só releitura (parágrafo
+acima), nunca concorrência entre respostas.
 
 ## 4. A guarda dupla
 

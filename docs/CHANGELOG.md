@@ -2,6 +2,57 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.20.2] — 2026-09-07
+
+### Corrigido
+- **`Admin\Nav\NavCapabilityGate` pendurava um filtro `user_has_cap` por
+  `Navigation` construída, não um por processo — a causa raiz do 403 na
+  entrada de menu do RIT360 Flow, com todas as telas declaradas abrindo
+  normalmente.** Construir a navegação mais de uma vez no mesmo ciclo é
+  uso normal da API publicada (o plugin constrói uma no boot e outra ao
+  levar a árvore para a tela), e cada construção pendurava o **próprio**
+  filtro, na mesma prioridade: duas instâncias respondendo em paralelo, a
+  segunda sobrescrevendo o que a primeira tinha concedido — o cálculo
+  respondia `true` numa instância e `false` na outra para a mesma pessoa
+  e a mesma tela. Correção: um único filtro por processo, agregando as
+  declarações de **todas** as instâncias conhecidas; cada tela continua
+  respondida pelo respondente do registro que a declarou. ⚠️ Ignorar o
+  segundo registro em vez de agregá-lo trocaria a corrida por um buraco
+  — as telas declaradas só nele ficariam sem guarda nenhuma, abrindo
+  normalmente para qualquer um, sem nada avisar. Exceção deliberada ao
+  padrão da biblioteca de evitar estado estático: o filtro do WordPress
+  **é** estado de processo, e representá-lo como tal é honesto — com
+  saída explícita (`resetForTests()`) para a suíte não ficar
+  ordem-dependente.
+- **O cálculo publicava `false` antes de terminar de varrer as telas.**
+  Enquanto o laço roda, ele chama o respondente de cada tela — o que
+  dispara o filtro `user_has_cap` inteiro do WordPress de novo — e uma
+  consulta reentrante nesse meio-tempo recebia o `false` provisório como
+  se fosse definitivo, mesmo quando a tela visível existia e seria
+  encontrada segundos depois: estado interno vazando como resposta.
+  Correção: o resultado só é publicado quando a varredura termina;
+  consulta reentrante recebe silêncio (nunca um `false` de mentira) e
+  nunca recomeça um segundo laço.
+- **O cache do resultado agregado não sabia de quem era a resposta.**
+  Guardado sem identificar a pessoa, o valor calculado para quem
+  perguntava cedo demais — inclusive para o usuário `0`, identidade
+  ainda não resolvida — era servido para qualquer outro na mesma
+  requisição. Correção: cache por pessoa, preservando a autoinvalidação
+  por mudança no conjunto de telas (0.20.1) e a promessa de consultar o
+  respondente no máximo uma vez por permissão distinta.
+
+  Os três foram achados investigando o mesmo 403, e o método é o que a
+  entrada registra: três hipóteses plausíveis — duas na biblioteca, uma
+  no consumidor — foram levantadas e refutadas por medição antes de a
+  causa aparecer; cada uma teria virado uma correção que não corrigia,
+  com o defeito de pé e aparência de resolvido.
+
+- **`docs/navegacao-do-painel.md` corrigido junto:** o aviso que dizia
+  para não construir a navegação duas vezes estava errado desde a causa
+  raiz acima e foi substituído — construir mais de uma vez é permitido,
+  a guarda é única, e o custo é só releitura, nunca concorrência de
+  resposta.
+
 ## [0.20.1] — 2026-09-07
 
 ### Corrigido

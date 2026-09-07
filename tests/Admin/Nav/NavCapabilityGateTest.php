@@ -9,6 +9,8 @@ use V3R\Core\Admin\Nav\Registry;
 use V3R\Core\Admin\Nav\Screen;
 use V3R\Core\Admin\Nav\TreeBuilder;
 use V3R\Core\Tests\Support\CountingScreenAccess;
+use V3R\Core\Tests\Support\ReentrantScreenAccess;
+use V3R\Core\Tests\Support\UserAwareScreenAccess;
 
 /**
  * A guarda de acesso direto (§4). `add_filter()`/`apply_filters()` já
@@ -26,6 +28,12 @@ final class NavCapabilityGateTest extends TestCase {
 		// Idem para o usuário corrente do stub get_current_user_id(): sem
 		// reset, um teste que o mude vazaria para o próximo.
 		$GLOBALS['v3r_core_test_current_user_id'] = 1;
+		// NavCapabilityGate agora guarda registros e caches em estado
+		// ESTÁTICO de processo, de propósito (ver docblock da classe, "Um
+		// filtro por PROCESSO") — sem este reset, o primeiro teste a
+		// chamar register() deixaria filtro e cache quentes para todos os
+		// testes seguintes deste processo PHPUnit.
+		NavCapabilityGate::resetForTests();
 	}
 
 	public function test_capability_for_usa_o_prefixo_v3r_nav(): void {
@@ -513,5 +521,485 @@ final class NavCapabilityGateTest extends TestCase {
 
 		self::assertTrue( $allcaps['v3r_nav_x'] );
 		self::assertSame( 1, $access->callsFor( 'perm_x' ) );
+	}
+
+	/**
+	 * Critério de aceite (defeito medido no RIT360 Flow, 07/09/2026):
+	 * calculado quando o usuário corrente é 0 (identidade ainda não
+	 * resolvida — algo perguntou cedo demais no ciclo do WordPress), o
+	 * agregado consultado depois, já com um usuário logado, precisa
+	 * responder SOBRE O USUÁRIO LOGADO, e não sobre o zero preso em cache.
+	 */
+	public function test_root_capability_calculada_para_usuario_zero_nao_vaza_para_usuario_logado_depois(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		// O respondente concede a quem TEM perm_a — usuário 0 (não
+		// resolvido) não tem nada, usuário 7 (logado depois) tem.
+		$access = new UserAwareScreenAccess(
+			array(
+				0 => array(),
+				7 => array( 'perm_a' ),
+			)
+		);
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		// Pergunta cedo demais: identidade ainda não resolvida (usuário 0).
+		$GLOBALS['v3r_core_test_current_user_id'] = 0;
+		$allcapsZero                              = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::ROOT_CAPABILITY ),
+			array( NavCapabilityGate::ROOT_CAPABILITY, 0 ),
+			null
+		);
+		self::assertFalse( $allcapsZero[ NavCapabilityGate::ROOT_CAPABILITY ], 'Usuário 0 não enxerga nada — a resposta calculada para ele é "não".' );
+
+		// Mesma requisição, agora com a identidade resolvida (usuário 7 logado).
+		$GLOBALS['v3r_core_test_current_user_id'] = 7;
+		$allcapsSete                              = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::ROOT_CAPABILITY ),
+			array( NavCapabilityGate::ROOT_CAPABILITY, 7 ),
+			null
+		);
+		self::assertTrue( $allcapsSete[ NavCapabilityGate::ROOT_CAPABILITY ], 'O "não" calculado para o usuário 0 não pode vazar para o usuário 7, logado depois na mesma requisição.' );
+	}
+
+	/**
+	 * Critério de aceite: duas pessoas diferentes, com permissões
+	 * diferentes, na mesma requisição, recebem respostas diferentes — o
+	 * cache agregado não pode misturar as duas.
+	 */
+	public function test_duas_pessoas_diferentes_recebem_respostas_diferentes_na_mesma_requisicao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new UserAwareScreenAccess(
+			array(
+				1 => array( 'perm_a' ), // Vê a tela.
+				2 => array(),           // Não vê nada.
+			)
+		);
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$GLOBALS['v3r_core_test_current_user_id'] = 1;
+		$allcaps1                                 = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::ROOT_CAPABILITY ),
+			array( NavCapabilityGate::ROOT_CAPABILITY, 1 ),
+			null
+		);
+
+		$GLOBALS['v3r_core_test_current_user_id'] = 2;
+		$allcaps2                                 = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::ROOT_CAPABILITY ),
+			array( NavCapabilityGate::ROOT_CAPABILITY, 2 ),
+			null
+		);
+
+		self::assertTrue( $allcaps1[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertFalse( $allcaps2[ NavCapabilityGate::ROOT_CAPABILITY ] );
+	}
+
+	/**
+	 * A promessa do §3 continua valendo POR PESSOA: a mesma pessoa,
+	 * consultada várias vezes sem mudança no Registry, só dispara uma
+	 * varredura — mesmo havendo outra pessoa intercalada nas consultas.
+	 */
+	public function test_cache_por_pessoa_nao_reavalia_para_a_mesma_pessoa_mesmo_com_outra_pessoa_intercalada(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new UserAwareScreenAccess(
+			array(
+				1 => array( 'perm_a' ),
+				2 => array(),
+			)
+		);
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$ask = function ( int $userId ): array {
+			$GLOBALS['v3r_core_test_current_user_id'] = $userId;
+			return apply_filters(
+				'user_has_cap',
+				array(),
+				array( NavCapabilityGate::ROOT_CAPABILITY ),
+				array( NavCapabilityGate::ROOT_CAPABILITY, $userId ),
+				null
+			);
+		};
+
+		$ask( 1 );
+		$ask( 2 );
+		$ask( 1 );
+		$ask( 1 );
+
+		self::assertSame( 1, $access->callsFor( 1, 'perm_a' ), 'O usuário 1 deveria ter sido consultado apenas na primeira vez que perguntou — as chamadas seguintes reaproveitam o cache dele.' );
+		self::assertSame( 1, $access->callsFor( 2, 'perm_a' ) );
+	}
+
+	/**
+	 * A `view_admin_dashboard` segue a mesma regra: concedida a quem
+	 * enxerga tela, e a resposta de uma pessoa não pode servir a outra.
+	 */
+	public function test_view_admin_dashboard_nao_vaza_entre_pessoas_diferentes(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new UserAwareScreenAccess(
+			array(
+				1 => array( 'perm_a' ),
+				2 => array(),
+			)
+		);
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$ask = function ( int $userId ): array {
+			$GLOBALS['v3r_core_test_current_user_id'] = $userId;
+			return apply_filters(
+				'user_has_cap',
+				array(),
+				array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+				array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, $userId ),
+				null
+			);
+		};
+
+		$allcaps1 = $ask( 1 );
+		$allcaps2 = $ask( 2 );
+
+		self::assertTrue( $allcaps1[ NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ] );
+		self::assertArrayNotHasKey( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, $allcaps2 );
+	}
+
+	/**
+	 * Defeito de 07/09/2026: uma consulta REENTRANTE (disparada de dentro
+	 * de `ScreenAccess::canView()`, como o WordPress faz de verdade quando
+	 * `current_user_can()` dispara `user_has_cap` de novo) não pode receber
+	 * o `false` provisório publicado antes de a varredura terminar. Com a
+	 * tela `a` visível, a versão antiga publicava `$rootVisible = false`
+	 * ANTES do laço — a consulta reentrante via exatamente esse `false`
+	 * como se fosse a resposta final. Agora ela não recebe `false`
+	 * nenhum: a chave nem é tocada (silêncio) enquanto o resultado ainda
+	 * não é conhecido.
+	 */
+	public function test_consulta_reentrante_nao_recebe_false_provisorio_com_tela_visivel(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = $this->askRootCapability();
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ], 'A resposta final, depois da varredura completa, precisa ser true — a tela é visível.' );
+		self::assertSame(
+			array( false ),
+			$access->reentrantKeyWasPresent(),
+			'A consulta reentrante não pode ver a chave ROOT_CAPABILITY publicada — nem como false.'
+		);
+		self::assertSame( array( null ), $access->reentrantValues() );
+	}
+
+	/**
+	 * Controle negativo do teste acima: SEM tela visível, a resposta final
+	 * (depois de a varredura terminar) É `false` de verdade — isto não é
+	 * o defeito, é a resposta correta e definitiva depois do cálculo
+	 * completo, publicada só uma vez, no fim.
+	 */
+	public function test_root_capability_sem_tela_visivel_e_false_apos_o_calculo_completo_mesmo_com_gatilho_reentrante(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new ReentrantScreenAccess( array(), 'perm_a' ); // Nega tudo.
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = $this->askRootCapability();
+
+		self::assertFalse( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertSame(
+			array( false ),
+			$access->reentrantKeyWasPresent(),
+			'Durante o cálculo (ainda incompleto), a consulta reentrante continua sem ver a chave — mesmo que a resposta final também venha a ser false.'
+		);
+	}
+
+	/**
+	 * Critério de aceite: a consulta reentrante não pode disparar um
+	 * segundo laço completo nem recursar sem fim — `perm_a` só pode ter
+	 * sido consultada UMA vez, mesmo intermediada por uma reentrância no
+	 * meio.
+	 */
+	public function test_consulta_reentrante_nao_dispara_segundo_laco_nem_recursao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$this->askRootCapability();
+
+		self::assertSame( 1, $access->callsFor( 'perm_a' ), 'Uma consulta reentrante não pode provocar uma segunda varredura completa (nem recursão) da mesma permissão.' );
+	}
+
+	/**
+	 * A reentrância no meio do laço não atrapalha o restante da varredura:
+	 * a tela seguinte (não-gatilho, visível) ainda é encontrada e
+	 * publicada normalmente depois que a consulta reentrante retorna.
+	 */
+	public function test_calculo_continua_normalmente_apos_a_consulta_reentrante_no_meio_do_laco(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) ); // Gatilho, negada — o laço continua.
+		$registry->add( new Screen( 'b', 'B', null, 'perm_b' ) ); // Visível — encontrada depois da reentrância.
+
+		$access = new ReentrantScreenAccess( array( 'perm_b' ), 'perm_a' );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = $this->askRootCapability();
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertSame( 1, $access->callsFor( 'perm_a' ) );
+		self::assertSame( 1, $access->callsFor( 'perm_b' ) );
+	}
+
+	/**
+	 * O cache só publica o resultado do cálculo COMPLETO: depois que a
+	 * consulta reentrante (no meio da primeira varredura) e a resposta
+	 * final já aconteceram, uma segunda consulta pela raiz reaproveita o
+	 * cache — sem repetir a varredura.
+	 */
+	public function test_cache_agregado_so_publica_apos_calculo_completo_mesmo_com_reentrancia(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new ReentrantScreenAccess( array( 'perm_a' ), 'perm_a' );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$this->askRootCapability();
+		$allcaps = $this->askRootCapability();
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+		self::assertSame( 1, $access->callsFor( 'perm_a' ), 'A segunda consulta (fora da reentrância) precisa reaproveitar o cache do cálculo completo.' );
+	}
+
+	/**
+	 * Defeito medido em produção no RIT360 Flow (07/09/2026): duas
+	 * `Navigation` construídas no mesmo processo — cada uma com o próprio
+	 * `NavCapabilityGate` — só podem pendurar UM filtro `user_has_cap` no
+	 * total, não um por instância.
+	 */
+	public function test_duas_instancias_registradas_penduram_um_unico_filtro(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) );
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array( 'perm_b' ) );
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		self::assertCount( 1, $GLOBALS['v3r_core_test_puc_filters']['user_has_cap'], 'Duas instâncias registradas não podem pendurar dois filtros.' );
+	}
+
+	/**
+	 * Critério central da correção: uma tela declarada SÓ na segunda
+	 * `Navigation`/registro continua guardada de verdade — negada para
+	 * quem não pode, permitida para quem pode. Ignorar o segundo registro
+	 * trocaria a corrida por um buraco (a tela abriria sem guarda nenhuma).
+	 */
+	public function test_tela_declarada_so_no_segundo_registro_continua_negada_para_quem_nao_pode(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) );
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array() ); // Nega tudo.
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_b' ), array( 'v3r_nav_b', 1 ), null );
+
+		self::assertFalse( $allcaps['v3r_nav_b'] );
+	}
+
+	/** Controle negativo do teste acima: permitida para quem pode, mesma tela do segundo registro. */
+	public function test_tela_declarada_so_no_segundo_registro_e_permitida_para_quem_pode(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) );
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array( 'perm_b' ) );
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_b' ), array( 'v3r_nav_b', 1 ), null );
+
+		self::assertTrue( $allcaps['v3r_nav_b'] );
+	}
+
+	/** Cada tela é respondida pelo respondente DO SEU registro — mesmo com respondentes diferentes que concordariam nunca fica implícito nem confuso. */
+	public function test_cada_registro_responde_pelas_proprias_telas_com_respondentes_diferentes(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) ); // Concede a de A.
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array() ); // Nega a de B.
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		$allcapsA = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_a' ), array( 'v3r_nav_a', 1 ), null );
+		$allcapsB = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_b' ), array( 'v3r_nav_b', 1 ), null );
+
+		self::assertTrue( $allcapsA['v3r_nav_a'] );
+		self::assertFalse( $allcapsB['v3r_nav_b'] );
+		// accessA nunca deveria ter sido consultado pela permissão de B, nem vice-versa.
+		self::assertSame( 0, $accessA->callsFor( 'perm_b' ) );
+		self::assertSame( 0, $accessB->callsFor( 'perm_a' ) );
+	}
+
+	/** O agregado (ROOT_CAPABILITY) é verdadeiro se QUALQUER registro tiver tela visível — mesmo que o primeiro registrado não tenha nenhuma. */
+	public function test_root_capability_verdadeira_se_qualquer_registro_tiver_tela_visivel(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array() ); // Nega tudo em A.
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array( 'perm_b' ) ); // Concede em B.
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+	}
+
+	/** Controle negativo: nenhum registro com tela visível, o agregado é falso. */
+	public function test_root_capability_falsa_quando_nenhum_registro_tem_tela_visivel(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array() );
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array() );
+
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+
+		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+	}
+
+	/**
+	 * O defeito medido em produção, na forma exata em que apareceu: a
+	 * resposta final não pode depender da ORDEM em que as `Navigation`
+	 * foram construídas. Registrar B antes de A dá o mesmo resultado que
+	 * registrar A antes de B.
+	 */
+	public function test_resposta_nao_depende_da_ordem_de_construcao(): void {
+		$registryA = new Registry();
+		$registryA->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$accessA = new CountingScreenAccess( array( 'perm_a' ) );
+
+		$registryB = new Registry();
+		$registryB->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+		$accessB = new CountingScreenAccess( array() );
+
+		// B primeiro, depois A — o inverso da ordem dos testes acima.
+		( new NavCapabilityGate( $registryB, $accessB ) )->register();
+		( new NavCapabilityGate( $registryA, $accessA ) )->register();
+
+		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+
+		$allcapsA = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_a' ), array( 'v3r_nav_a', 1 ), null );
+		$allcapsB = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_b' ), array( 'v3r_nav_b', 1 ), null );
+
+		self::assertTrue( $allcapsA['v3r_nav_a'] );
+		self::assertFalse( $allcapsB['v3r_nav_b'] );
+	}
+
+	/** Registrar o MESMO par Registry+ScreenAccess mais de uma vez não duplica nada nem dispara consulta em dobro. */
+	public function test_registrar_o_mesmo_par_duas_vezes_nao_duplica(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm_x' ) );
+		$access = new CountingScreenAccess( array( 'perm_x' ) );
+
+		$gate1 = new NavCapabilityGate( $registry, $access );
+		$gate1->register();
+		// Um SEGUNDO NavCapabilityGate embrulhando o MESMO par.
+		$gate2 = new NavCapabilityGate( $registry, $access );
+		$gate2->register();
+
+		self::assertCount( 1, $GLOBALS['v3r_core_test_puc_filters']['user_has_cap'] );
+
+		apply_filters( 'user_has_cap', array(), array( 'v3r_nav_x' ), array( 'v3r_nav_x', 1 ), null );
+
+		self::assertSame( 1, $access->callsFor( 'perm_x' ), 'O mesmo par registrado duas vezes não pode consultar em dobro.' );
+	}
+
+	/**
+	 * ResetForTests() zera de fato o estado estático: (a) o registro
+	 * anterior deixa de responder pela própria tela, e (b) a flag "já
+	 * pendurei o filtro" também zera — a próxima chamada de register()
+	 * pendura um SEGUNDO filtro no global de teste (o global do stub, ao
+	 * contrário do estado da classe, não é limpo por resetForTests(); quem
+	 * o limpa é setUp() do próprio teste — aqui deixamos o filtro antigo de
+	 * propósito para provar que a classe pendura um novo por cima).
+	 */
+	public function test_reset_for_tests_zera_registros_e_a_flag_de_filtro_pendurado(): void {
+		$registryOld = new Registry();
+		$registryOld->add( new Screen( 'x', 'X', null, 'perm_x' ) );
+		$accessOld = new CountingScreenAccess( array( 'perm_x' ) );
+
+		( new NavCapabilityGate( $registryOld, $accessOld ) )->register();
+		self::assertCount( 1, $GLOBALS['v3r_core_test_puc_filters']['user_has_cap'] );
+
+		NavCapabilityGate::resetForTests();
+
+		$registryNew = new Registry();
+		$registryNew->add( new Screen( 'y', 'Y', null, 'perm_y' ) );
+		$accessNew = new CountingScreenAccess( array( 'perm_y' ) );
+
+		( new NavCapabilityGate( $registryNew, $accessNew ) )->register();
+
+		self::assertCount(
+			2,
+			$GLOBALS['v3r_core_test_puc_filters']['user_has_cap'],
+			'Depois do reset, a flag de "já pendurei" deveria ter zerado — register() pendura um segundo filtro.'
+		);
+
+		// O callback antigo (do registro anterior ao reset) ainda está no
+		// global do stub, mas o ESTADO DA CLASSE que ele lê foi zerado —
+		// então ele não sabe mais responder pela tela 'x' que só existia
+		// no registro descartado.
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_x' ), array( 'v3r_nav_x', 1 ), null );
+		self::assertArrayNotHasKey( 'v3r_nav_x', $allcaps, 'A tela do registro anterior ao reset não deveria mais ser reconhecida.' );
+
+		// A tela nova, declarada depois do reset, responde normalmente.
+		$allcapsNew = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_y' ), array( 'v3r_nav_y', 1 ), null );
+		self::assertTrue( $allcapsNew['v3r_nav_y'] );
 	}
 }
