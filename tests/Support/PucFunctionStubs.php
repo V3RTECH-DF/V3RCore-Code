@@ -185,6 +185,19 @@ if ( ! function_exists( 'wp_using_ext_object_cache' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	// Usado por NavCapabilityGateTest (defeito #2, "guarda responde sobre a
+	// pessoa errada"): o ID do usuário corrente, mutável por teste via
+	// `$GLOBALS['v3r_core_test_current_user_id']`. O default (1) casa com o
+	// `$args[1] = 1` que os testes existentes já passam para `apply_filters`,
+	// sem exigir que nenhum teste antigo declare o usuário explicitamente.
+	$GLOBALS['v3r_core_test_current_user_id'] = 1;
+
+	function get_current_user_id(): int {
+		return $GLOBALS['v3r_core_test_current_user_id'];
+	}
+}
+
 if ( ! function_exists( 'get_site_option' ) ) {
 	$GLOBALS['v3r_core_test_puc_site_options'] = array();
 

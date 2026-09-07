@@ -59,6 +59,34 @@ namespace V3R\Core\Admin\Nav;
  * de bloqueio silencioso vale para qualquer plugin da casa com navegação
  * por papel próprio convivendo com WooCommerce, ou com plugin de
  * associação/área do cliente que restrinja o painel do mesmo jeito.
+ *
+ * **Autoinvalidação do cache agregado (defeito medido investigando um 403 do
+ * RIT360 Flow, 07/09/2026):** `$rootVisible` era calculado uma única vez e
+ * reusado para sempre — se qualquer coisa perguntasse pela capability antes
+ * de o plugin terminar de declarar as telas (outro plugin, o WooCommerce,
+ * qualquer código que rode cedo no ciclo do WordPress), a resposta "não"
+ * ficava presa pelo resto da requisição, mesmo depois de o `Registry` se
+ * completar. `hasAnyVisibleScreen()` agora guarda também a quantidade de
+ * telas do `Registry` no momento em que calculou `$rootVisible`
+ * (`$rootVisibleScreenCount`) e recalcula sempre que essa contagem muda —
+ * deduzido do próprio `Registry`, sem o consumidor precisar avisar nada.
+ * Como `Registry` só acumula (não há remoção), a contagem muda se e somente
+ * se o conjunto de telas declaradas mudou, então isto não sacrifica a
+ * promessa do §3 (uma consulta por permissão distinta enquanto o `Registry`
+ * não muda): entre duas chamadas com a mesma contagem, nada é reconsultado.
+ *
+ * **Guarda responde só sobre o usuário corrente (defeito medido no mesmo
+ * levantamento):** `grant()` recebe, no terceiro argumento (`$args`), o ID
+ * do usuário sobre quem a pergunta é feita — `user_can( $outro, ... )` é uso
+ * normal do WordPress e dispara este mesmo filtro para QUALQUER usuário, não
+ * só o corrente. A guarda respondia sempre com base no usuário logado,
+ * ignorando esse ID — podendo conceder ou negar errado para terceiros
+ * (defeito de autorização, não de conveniência). `ScreenAccess::canView()`
+ * responde por contrato (§3) sobre "a pessoa corrente"; perguntado sobre
+ * outra pessoa, este filtro agora se cala — não mexe em `$allcaps`, nem
+ * concede nem nega — porque inventar resposta para quem o respondente não
+ * sabe responder seria pior que não responder. Vale para as capabilities
+ * sintéticas e para `view_admin_dashboard`, sem exceção.
  */
 final class NavCapabilityGate {
 
@@ -90,8 +118,11 @@ final class NavCapabilityGate {
 	/** @var bool */
 	private $registered = false;
 
-	/** @var bool|null Resultado agregado cacheado de hasAnyVisibleScreen() — null até a primeira consulta. */
+	/** @var bool|null Resultado agregado cacheado de hasAnyVisibleScreen() — null até a primeira consulta (ou depois de invalidado, ver $rootVisibleScreenCount). */
 	private $rootVisible;
+
+	/** @var int Quantidade de telas do Registry na última vez em que $rootVisible foi calculado — usada para autoinvalidar o cache quando o conjunto de telas declaradas muda. */
+	private $rootVisibleScreenCount = 0;
 
 	public function __construct( Registry $registry, ScreenAccess $access ) {
 		$this->registry = $registry;
@@ -131,6 +162,14 @@ final class NavCapabilityGate {
 	 * @return array<string, bool>
 	 */
 	public function grant( array $allcaps, array $caps, array $args, $user = null ): array {
+		if ( ! $this->isAboutCurrentUser( $args ) ) {
+			// Pergunta sobre outra pessoa (`user_can( $outro, ... )`):
+			// ScreenAccess::canView() só sabe responder sobre o usuário
+			// corrente (§3 do contrato). Calar-se — sem conceder, sem negar
+			// — é o fail-safe honesto; ver docblock da classe.
+			return $allcaps;
+		}
+
 		foreach ( $caps as $cap ) {
 			if ( self::ROOT_CAPABILITY === $cap ) {
 				$allcaps[ $cap ] = $this->hasAnyVisibleScreen();
@@ -166,13 +205,19 @@ final class NavCapabilityGate {
 
 	/**
 	 * Se alguma tela registrada é visível para o usuário corrente —
-	 * varre `Registry::screens()` só na primeira chamada da requisição e
-	 * pára no primeiro `true` encontrado; chamadas seguintes devolvem o
-	 * valor cacheado, sem tocar em `ScreenAccess` de novo.
+	 * varre `Registry::screens()` na primeira chamada da requisição e pára
+	 * no primeiro `true` encontrado; chamadas seguintes devolvem o valor
+	 * cacheado, sem tocar em `ScreenAccess` de novo, **enquanto o conjunto
+	 * de telas do Registry não mudar** — mudou (a contagem de telas é
+	 * diferente da última varredura), o cache se invalida sozinho e varre
+	 * de novo (ver docblock da classe).
 	 */
 	private function hasAnyVisibleScreen(): bool {
-		if ( null === $this->rootVisible ) {
-			$this->rootVisible = false;
+		$screenCount = count( $this->registry->screens() );
+
+		if ( null === $this->rootVisible || $screenCount !== $this->rootVisibleScreenCount ) {
+			$this->rootVisible            = false;
+			$this->rootVisibleScreenCount = $screenCount;
 
 			foreach ( $this->registry->screens() as $screen ) {
 				if ( $this->access->canView( $screen->permission() ) ) {
@@ -183,5 +228,31 @@ final class NavCapabilityGate {
 		}
 
 		return $this->rootVisible;
+	}
+
+	/**
+	 * `$args` é o array cru que o WordPress passa ao filtro `user_has_cap`:
+	 * `array( $cap, $userId, ...$originalArgs )` — `$args[1]` é o ID do
+	 * usuário sobre quem a pergunta é feita, que pode ser QUALQUER usuário
+	 * (`user_can( $outro, ... )`), não só o corrente.
+	 *
+	 * Sem como determinar (função do WordPress ausente, ou `$args[1]`
+	 * ausente/nulo) o fail-safe é responder que sim — mesmo comportamento
+	 * de sempre, para não regredir nenhum consumidor existente.
+	 *
+	 * @param array<int, mixed> $args
+	 */
+	private function isAboutCurrentUser( array $args ): bool {
+		if ( ! function_exists( 'get_current_user_id' ) ) {
+			return true;
+		}
+
+		$userId = $args[1] ?? null;
+
+		if ( null === $userId ) {
+			return true;
+		}
+
+		return (int) get_current_user_id() === (int) $userId;
 	}
 }

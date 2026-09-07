@@ -141,6 +141,14 @@ consultas. O cache vive só durante a requisição e não persiste — vale para
 função e para objeto: quem fornece o respondente é responsável por cachear a
 própria resposta.
 
+⚠️ **O respondente responde sobre o usuário CORRENTE — nunca sobre um
+terceiro.** `current_user_can()`, a função/objeto de exemplo acima, e o
+contrato de `canView()` inteiro pressupõem "a pessoa que está navegando
+agora". `user_can( $outroUsuario, 'v3r_nav_<slug>' )` é uso normal do
+WordPress e não é uma pergunta que esta camada saiba responder — a guarda do
+§4 se cala nesse caso (não concede, não nega) em vez de inventar uma
+resposta com base no usuário errado.
+
 ### ⚠️ Ciclo de vida: quem constrói o respondente é o plugin, e a biblioteca o reusa
 
 `Navigation` não cria o respondente — recebe o que o plugin já construiu, e o
@@ -189,6 +197,19 @@ e sem que a biblioteca trave em `current_user_can()`.
 
 ⚠️ A capability sintética **não** é permissão de verdade: ela só existe para
 responder ao WordPress. Nada no plugin deve verificá-la diretamente.
+
+⚠️ **`user_has_cap` dispara para QUALQUER usuário, não só o corrente** —
+`user_can( $outro, 'v3r_nav_<slug>' )` é uso normal do WordPress, e é assim
+que um plugin hospedeiro (ou outro código do próprio WordPress) pode
+perguntar pela permissão de um terceiro. `ScreenAccess::canView()` responde
+por contrato (§3) sobre "a pessoa corrente" — não sabe responder sobre
+outra. Perguntada sobre alguém que não é o usuário corrente, a guarda **não
+responde**: não concede, não nega, deixa `$allcaps` como estava. É o
+fail-safe honesto — inventar resposta para quem o respondente não sabe
+responder seria pior que se calar, e "conceder ou negar errado para
+terceiros" é defeito de autorização, não de conveniência. Em outras
+palavras: `user_can( $outro, 'v3r_nav_...' )` **não é** uma pergunta que
+esta camada saiba responder.
 
 ### `view_admin_dashboard`: a saída para conviver com WooCommerce e afins
 

@@ -2,6 +2,46 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.20.1] — 2026-09-07
+
+### Corrigido
+- **`Admin\Nav\NavCapabilityGate` guardava a resposta agregada de "esta
+  pessoa enxerga ao menos uma tela?" na primeira consulta e nunca a
+  revia.** ⚠️ Se algo perguntasse antes de o plugin terminar de declarar
+  as telas — outro plugin, o WooCommerce, qualquer código que rode cedo
+  — a resposta era **não**, com o registro ainda vazio, e ficava presa
+  no não pelo resto da requisição. Sintoma medido na adoção do RIT360
+  Flow: usuário não administrador recebia **403 na entrada de menu do
+  produto**, com **todas as telas declaradas abrindo normalmente** —
+  elas têm permissão própria e não dependem dessa conta agregada; o
+  administrador não via nada, porque passa por outro caminho. ⚠️ O que
+  travou o diagnóstico: reproduzir a checagem por linha de comando
+  respondia "pode", e a requisição real dava 403 — as duas leituras
+  estavam certas, porque o WordPress avalia a permissão da entrada
+  **enquanto monta o menu** e guarda o veredito ali; depois disso a
+  resposta pode mudar sem desfazer o que já foi decidido. Correção: o
+  cache se invalida sozinho quando o conjunto de telas declaradas muda,
+  deduzido do próprio registro, sem o consumidor precisar avisar nada —
+  a promessa de responder o respondente no máximo uma vez por permissão
+  distinta continua valendo enquanto nada muda, e tem teste que a
+  protege.
+- **A guarda respondia sobre a pessoa errada.** O filtro `user_has_cap`
+  do WordPress é disparado para **qualquer** usuário —
+  `user_can( $outro, ... )` é uso normal — e a guarda ignorava sobre
+  quem era a pergunta, respondendo sempre sobre o usuário corrente. É
+  defeito de autorização, não de conveniência: podia conceder ou negar
+  errado para terceiros. Não era a causa do 403 acima, e ninguém tinha
+  notado — morderia na primeira tela que listasse pessoas com o que
+  cada uma pode, com a resposta parecendo certa em toda revisão.
+  Correção: pergunta sobre alguém que não é o usuário corrente **não é
+  respondida** — a guarda se cala, sem conceder e sem negar. O
+  respondente sabe responder só sobre a pessoa corrente, por contrato;
+  inventar resposta para outra seria pior que se calar. Limitação
+  documentada no contrato (§3 e §4).
+
+Os dois defeitos foram achados investigando o 403 relatado pela adoção
+do RIT360 Flow.
+
 ## [0.20.0] — 2026-09-07
 
 ### Adicionado

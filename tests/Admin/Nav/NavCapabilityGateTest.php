@@ -23,6 +23,9 @@ final class NavCapabilityGateTest extends TestCase {
 		// PucFunctionStubs.php acumula filtros num global só, sem remoção
 		// entre testes.
 		$GLOBALS['v3r_core_test_puc_filters'] = array();
+		// Idem para o usuário corrente do stub get_current_user_id(): sem
+		// reset, um teste que o mude vazaria para o próximo.
+		$GLOBALS['v3r_core_test_current_user_id'] = 1;
 	}
 
 	public function test_capability_for_usa_o_prefixo_v3r_nav(): void {
@@ -387,5 +390,128 @@ final class NavCapabilityGateTest extends TestCase {
 		);
 
 		self::assertFalse( $allcaps['v3r_nav_certificado'] );
+	}
+
+	/**
+	 * Defeito #1: consultada ANTES de o Registry terminar de acumular
+	 * telas — como aconteceria se outro plugin/o WooCommerce perguntasse
+	 * cedo no ciclo do WordPress —, a resposta "não" não pode ficar presa
+	 * pelo resto da requisição depois que a tela é declarada.
+	 */
+	public function test_root_capability_reavalia_apos_declarar_tela_depois_da_primeira_consulta(): void {
+		$registry = new Registry();
+		// Registry ainda vazio: a primeira consulta acontece "cedo demais".
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ], 'Sem tela nenhuma declarada, a raiz não pode ser concedida.' );
+
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		self::assertTrue( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ], 'Depois de declarar a tela, a segunda consulta precisa reavaliar — não pode continuar presa no "não" da primeira.' );
+	}
+
+	/** Mesmo cenário para a guarda de acesso direto (capability sintética por tela), não só a raiz. */
+	public function test_endereco_direto_reavalia_apos_declarar_tela_depois_da_primeira_consulta(): void {
+		$registry = new Registry();
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		// Uma primeira consulta qualquer, antes de a tela existir, para
+		// forçar o cache agregado a computar "false" cedo.
+		self::assertFalse( $this->askRootCapability()[ NavCapabilityGate::ROOT_CAPABILITY ] );
+
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_a' ), array( 'v3r_nav_a', 1 ), null );
+		self::assertTrue( $allcaps['v3r_nav_a'] );
+	}
+
+	/**
+	 * A promessa do §3 (uma consulta por permissão distinta enquanto o
+	 * Registry não muda) não pode ser sacrificada pela correção do
+	 * defeito #1: sem nenhuma mudança no Registry entre as chamadas, a
+	 * varredura não pode se repetir.
+	 */
+	public function test_cache_agregado_nao_reavalia_sem_mudanca_no_registry(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'b', 'B', null, 'perm_b' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_b' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$this->askRootCapability();
+		$this->askRootCapability();
+		$this->askRootCapability();
+
+		self::assertSame( 1, $access->callsFor( 'perm_a' ), 'Sem mudança no Registry, a varredura não pode se repetir.' );
+		self::assertSame( 1, $access->callsFor( 'perm_b' ) );
+	}
+
+	/**
+	 * Defeito #2: `grant()` é chamado para QUALQUER usuário
+	 * (`user_can( $outro, ... )`), não só o corrente. Perguntada sobre
+	 * outra pessoa, a guarda não pode responder — nem conceder, nem negar.
+	 */
+	public function test_pergunta_sobre_outro_usuario_nao_altera_allcaps_para_capability_sintetica(): void {
+		$GLOBALS['v3r_core_test_current_user_id'] = 1;
+
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm_x' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_x' ) ); // Concederia, se fosse consultado.
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		// Pergunta sobre o usuário 99, não o corrente (1).
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_x' ), array( 'v3r_nav_x', 99 ), null );
+
+		self::assertArrayNotHasKey( 'v3r_nav_x', $allcaps, 'Pergunta sobre outra pessoa não pode conceder nem negar — allcaps não pode ser tocado.' );
+		self::assertSame( 0, $access->callsFor( 'perm_x' ), 'ScreenAccess só sabe responder sobre o usuário corrente — não deveria nem ser consultado.' );
+	}
+
+	/** Mesmo controle, para view_admin_dashboard: também se cala sobre terceiros. */
+	public function test_pergunta_sobre_outro_usuario_nao_altera_view_admin_dashboard(): void {
+		$GLOBALS['v3r_core_test_current_user_id'] = 1;
+
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_a' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY ),
+			array( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, 99 ),
+			null
+		);
+
+		self::assertArrayNotHasKey( NavCapabilityGate::WOOCOMMERCE_ADMIN_ACCESS_CAPABILITY, $allcaps );
+	}
+
+	/** Controle negativo: pergunta sobre o próprio usuário corrente continua funcionando como sempre. */
+	public function test_pergunta_sobre_o_usuario_corrente_continua_concedendo_normalmente(): void {
+		$GLOBALS['v3r_core_test_current_user_id'] = 42;
+
+		$registry = new Registry();
+		$registry->add( new Screen( 'x', 'X', null, 'perm_x' ) );
+
+		$access = new CountingScreenAccess( array( 'perm_x' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters( 'user_has_cap', array(), array( 'v3r_nav_x' ), array( 'v3r_nav_x', 42 ), null );
+
+		self::assertTrue( $allcaps['v3r_nav_x'] );
+		self::assertSame( 1, $access->callsFor( 'perm_x' ) );
 	}
 }
