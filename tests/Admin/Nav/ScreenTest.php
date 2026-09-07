@@ -58,4 +58,17 @@ final class ScreenTest extends TestCase {
 
 		self::assertSame( 40, $screen->order() );
 	}
+
+	/** Declaração existente, sem o sinalizador, continua funcionando sem alteração — hidden cai para false. */
+	public function test_hidden_e_falso_por_padrao(): void {
+		$screen = new Screen( 'dashboard', 'Painel', null, 'perm' );
+
+		self::assertFalse( $screen->hidden() );
+	}
+
+	public function test_hidden_declarada_e_exposta(): void {
+		$screen = new Screen( 'certificado', 'Certificado', null, 'perm', null, true );
+
+		self::assertTrue( $screen->hidden() );
+	}
 }

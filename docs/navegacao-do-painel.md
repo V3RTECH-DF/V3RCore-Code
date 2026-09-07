@@ -46,6 +46,13 @@ $registry->addGroup( new Group( key: 'pessoas', label: 'Pessoas', order: 20 ) );
 dele aparecer, e some quando nenhuma sobra. Visibilidade de grupo é sempre
 derivada dos filhos — ver §5.
 
+### Tela oculta
+
+Uma tela pode ser declarada com `hidden: true`. Ela continua registrada,
+guardada e endereçável como qualquer outra — só não entra na árvore que
+`tree()` devolve. É a saída para quem roteia no cliente (§4) e precisa
+declarar rota transitória ou fora do menu sem abrir mão da guarda.
+
 ### A declaração é acumulativa
 
 `Registry::add()` é chamado por **qualquer parte do plugin**, quantas vezes for
@@ -85,11 +92,25 @@ consultas. O cache vive só durante a requisição e não persiste.
 Sumir com o item de navegação é cosmético: quem digita o endereço entra. São
 **três** camadas, e nenhuma substitui a outra:
 
+⚠️ **Regra dura, aprendida com o RIT360 Flow (06/09/2026): rota de cliente sem
+tela declarada não tem guarda nenhuma.** Quem roteia no cliente — painel
+inteiro num endereço só, roteador do navegador decidindo o que desenhar —
+precisa declarar **todas** as rotas, inclusive as transitórias e as que não
+aparecem no menu, porque é a declaração que alimenta a guarda, não o menu. A
+saída para não poluir a navegação é a tela oculta (§2), nunca deixar de
+declarar.
+
 1. **O WordPress barra o acesso direto.** Cada tela é registrada como página
    oculta (`add_submenu_page` com `parent_slug` vazio) com a permissão **dela**.
 2. **A tela confere de novo** antes de desenhar qualquer coisa.
 3. **Nova conferência depois da navegação dentro da própria tela**, sem recarregar
-   a página — por onde a falha voltaria.
+   a página. Em quem roteia no servidor, isto é reforço — a camada 1 já bloqueou
+   o endereço. **Em quem roteia inteiramente no cliente** (painel numa página só,
+   `HashRouter` e afins), o que vem depois do `#` **nunca chega ao servidor**: a
+   camada 1 simplesmente não alcança essas rotas, e esta conferência do roteador
+   é a **única** guarda que elas têm. `Navigation::accessMap()` (§5) é o dado que
+   a torna possível — sem ele, o roteador não tem como saber, antes de desenhar,
+   o que a pessoa corrente pode abrir.
 
 ### Como a camada 1 funciona com motor de permissão próprio
 
@@ -139,6 +160,10 @@ Regras que a construção garante:
   para a navegação não mudar de forma conforme a permissão de cada pessoa;
 - **sem nenhum grupo declarado, a árvore é plana** — navegação plana é caso de
   primeira classe, não degenerado. É o que V3REvent, V3RLicense e V3RHelp usam.
+- **tela oculta não entra na árvore** — nem solta, nem dentro de grupo; grupo
+  cujas telas restantes são todas ocultas some pela mesma regra do primeiro
+  item. Ela continua guardada e endereçável (§4) e continua contando para
+  "enxerga ao menos uma tela" (§6) — só a árvore não a lista.
 
 **`order` ordena entre irmãos, em qualquer nível.** Tela solta e grupo usam a
 mesma escala no primeiro nível — é o que permite uma tela solta com `order`
@@ -153,6 +178,32 @@ declara com quem não compara duas escalas diferentes — valor declarado contra
 posição de inserção — e o resultado surpreende. A biblioteca não lança exceção
 nesse caso (ela roda dentro do `admin_menu` do WordPress, e exceção ali derruba
 o painel inteiro do hospedeiro): a disciplina é do plugin que declara.
+
+### `accessMap()`: o mapa que autoriza, ao lado da árvore que desenha
+
+```php
+$accessMap = $navigation->accessMap();
+// [ 'pessoas-cadastro' => true, 'pessoas-relatorio' => false, 'fluxos-editor-legado' => true, ... ]
+```
+
+**Árvore e mapa não são a mesma lista, e servem a perguntas diferentes:**
+
+| | `tree()` | `accessMap()` |
+| --- | --- | --- |
+| Para que serve | desenhar o menu | autorizar uma rota antes de desenhar |
+| Telas ocultas | **de fora** (§2) | **incluídas** |
+| Tela sem permissão | de fora (filtrada) | **dentro, com `false`** — nunca omitida |
+| Formato | árvore de grupos e telas | mapa plano `slug => bool` |
+
+Quem usa a árvore como fonte de autorização deixa exatamente as rotas ocultas
+sem guarda — foi esse o defeito medido no RIT360 Flow (§4) que motivou o mapa.
+Tela sem permissão entra com `false` em vez de sumir pelo mesmo motivo: omitida,
+ela ficaria indistinguível de um slug que nunca foi declarado, e é exatamente
+essa distinção que o roteador de quem roteia no cliente precisa para decidir.
+
+`accessMap()` reaproveita o mesmo `ScreenAccess` e o mesmo cache por permissão
+que `tree()` já paga (§3) — nenhuma tela custa uma consulta a mais só por
+existir o mapa.
 
 ## 6. A entrada no menu do WordPress
 

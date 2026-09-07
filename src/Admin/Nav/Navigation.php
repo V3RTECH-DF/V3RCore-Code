@@ -13,6 +13,10 @@ namespace V3R\Core\Admin\Nav;
  *   tela, exposta para a própria tela reconferir antes de desenhar (§4,
  *   camada 2) — sem WordPress, sem capability nenhuma, só a mesma
  *   `Screen::permission()` via o mesmo `ScreenAccess`;
+ * - `accessMap()` — `canView()` para TODAS as telas de uma vez, inclusive
+ *   as ocultas, pensado para virar dado da página e ser consultado pelo
+ *   roteador de quem roteia no cliente (§4, RIT360 Flow, 06/09/2026) —
+ *   ver docblock do método;
  * - `registerMenu()` — a entrada única no menu (§6) e o registro das
  *   páginas ocultas que sustentam a camada 1 da guarda dupla (§4).
  *
@@ -71,6 +75,61 @@ final class Navigation {
 		}
 
 		return $this->access->canView( $screen->permission() );
+	}
+
+	/**
+	 * `canView()` estendido para TODAS as telas declaradas de uma vez —
+	 * visíveis e ocultas —, no formato pensado para virar dado da página
+	 * (ex.: `wp_localize_script`) e ser consultado por slug, sem o
+	 * consumidor percorrer nada: `array<slug, bool>`.
+	 *
+	 * Nasceu do buraco medido no RIT360 Flow (06/09/2026, §4): quem roteia
+	 * inteiramente no cliente (`HashRouter` e afins) tem um roteador que
+	 * decide o que desenhar **antes** de qualquer requisição ao servidor —
+	 * e `tree()` não serve de fonte de autorização para ele, porque omite
+	 * as ocultas (§5) e o deixaria sem guarda exatamente nas rotas
+	 * transitórias que motivaram `hidden`. Este método é o dado que falta
+	 * para o roteador saber, e não só a árvore desenhar.
+	 *
+	 * ⚠️ Tela sem permissão para o usuário corrente **entra no mapa com
+	 * `false`** — nunca é omitida. Omitir a tornaria indistinguível de
+	 * slug inexistente, e é exatamente essa distinção que o roteador
+	 * precisa para diferenciar "não pode" de "não existe".
+	 *
+	 * Reaproveita o mesmo `ScreenAccess` (§3): `canView()` dele é chamado
+	 * no máximo uma vez por permissão DISTINTA, mesmo com muitas telas
+	 * compartilhando a mesma permissão — o cache é desta função (não deste
+	 * método reaproveitar o cache interno de uma implementação específica
+	 * de `ScreenAccess`, que é opcional; aqui é garantido sempre).
+	 *
+	 * Tela duplicada (mesmo slug declarado duas vezes) produz uma entrada
+	 * só no mapa — a do primeiro registro, mesmo critério que
+	 * `Registry::findScreen()` (e por extensão `canView()`) já usam para
+	 * decidir qual `Screen` responde por um slug.
+	 *
+	 * @return array<string, bool>
+	 */
+	public function accessMap(): array {
+		$map          = array();
+		$byPermission = array();
+
+		foreach ( $this->registry->screens() as $screen ) {
+			$slug = $screen->slug();
+
+			if ( array_key_exists( $slug, $map ) ) {
+				continue;
+			}
+
+			$permission = $screen->permission();
+
+			if ( ! array_key_exists( $permission, $byPermission ) ) {
+				$byPermission[ $permission ] = $this->access->canView( $permission );
+			}
+
+			$map[ $slug ] = $byPermission[ $permission ];
+		}
+
+		return $map;
 	}
 
 	/**

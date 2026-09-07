@@ -2,6 +2,52 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.17.0] — 2026-09-06
+
+### Adicionado
+- **`Screen` ganha tela oculta, e `Navigation` ganha `accessMap()` — a
+  guarda passa a alcançar rota que o servidor nunca vê.** Apurado na
+  adoção do RIT360 Flow (`RIT-DF/RIT360-Flow-Code#124`), medindo com
+  usuário sem permissão: o contrato tratava "aparecer na navegação" e "ser
+  alcançável e guardada" como a mesma declaração. Para plugin que roteia
+  no servidor, coincide. **Para plugin que roteia no cliente, não.**
+- **O buraco:** o painel do Flow é uma tela só, com roteamento por
+  fragmento de URL — tudo vive em `admin.php?page=v3rflow`, e o que vem
+  depois do `#` nunca chega ao servidor. Duas consequências, ambas
+  medidas: telas em transição precisavam sair do menu, mas continuavam
+  existindo como rota — tiradas da declaração, ficaram sem guarda nenhuma,
+  entre elas a do certificado de assinatura. E, mesmo declarando, a
+  camada 1 da guarda não alcança rota de fragmento: o portão existe num
+  endereço que o roteador do consumidor nunca visita. Três telas de
+  configuração abriram para quem não podia; duas nem consultaram o
+  servidor — simplesmente desenharam. ⚠️ É a diferença entre **protegido**
+  e **ainda não vazou**.
+- **`Screen` ganha o parâmetro opcional `hidden`, no fim do construtor**
+  — declaração existente continua valendo. Tela oculta é declarada,
+  guardada e endereçável, mas fora da árvore de navegação: não aparece
+  nem solta nem dentro de grupo; grupo que só tenha telas ocultas some,
+  pela regra de grupo vazio que já existia; e continua contando para
+  "enxerga ao menos uma tela", que governa a entrada raiz do menu e a
+  concessão de `view_admin_dashboard`. É o padrão que o GE Associados já
+  usava em produção, e que ficou de fora ao escrever o contrato.
+- **`Navigation::accessMap()` — o mapa que autoriza.** Devolve, para
+  todas as telas declaradas (visíveis e ocultas), se o usuário corrente
+  pode abri-la, por identificação da tela. Tela negada aparece com valor
+  negativo, **nunca omitida** — omitir a tornaria indistinguível de rota
+  inexistente, que é justamente a diferença que o roteador precisa.
+  Reaproveita o mesmo respondente e o mesmo cache por requisição, sem
+  consulta nova por tela.
+- ⚠️ **Árvore e mapa não são a mesma lista:** a árvore omite as ocultas, o
+  mapa não. Quem usar a árvore como fonte de autorização deixa exatamente
+  as rotas ocultas sem guarda — o defeito que originou esta versão.
+- **A regra que passa a valer, mais dura que a anterior:** rota de cliente
+  sem tela declarada não tem guarda nenhuma. Quem roteia no cliente
+  declara todas as rotas, inclusive as transitórias e as que não aparecem
+  no menu — a saída para não poluir o menu é a tela oculta, não deixar de
+  declarar. E a conferência do roteador, nesse desenho, não é reforço: é
+  a única guarda daquelas rotas. Contrato completo em
+  `docs/navegacao-do-painel.md` §2, §4 e §5.
+
 ## [0.16.0] — 2026-09-06
 
 ### Adicionado

@@ -31,6 +31,14 @@ namespace V3R\Core\Admin\Nav;
  * quem declara com quem não compara duas escalas diferentes (valor
  * declarado contra posição de inserção) e o resultado surpreende.
  *
+ * **Tela oculta (`Screen::hidden()`) nunca entra aqui** — nem como item
+ * solto, nem dentro de grupo, nem para decidir se um grupo usa a forma
+ * plana ou agrupada. Ela continua contando para a guarda de acesso direto
+ * e para "enxerga ao menos uma tela" (`NavCapabilityGate`); só a árvore a
+ * ignora. Um grupo cujas telas restantes são todas ocultas some pela
+ * mesma regra 1 acima — telas ocultas são filtradas antes de qualquer
+ * outra coisa, então "restarem zero telas visíveis" é o caso comum.
+ *
  * @phpstan-type ScreenNode array{type: 'screen', slug: string, label: string}
  * @phpstan-type GroupNode array{type: 'group', key: string, label: string, screens: ScreenNode[]}
  */
@@ -51,7 +59,14 @@ final class TreeBuilder {
 	 * @return array<int, array<string, mixed>> Lista de ScreenNode|GroupNode, já filtrada e ordenada.
 	 */
 	public function build(): array {
-		$screens = $this->registry->screens();
+		$screens = array_values(
+			array_filter(
+				$this->registry->screens(),
+				static function ( Screen $screen ): bool {
+					return ! $screen->hidden();
+				}
+			)
+		);
 
 		$usesGroups = false;
 		foreach ( $screens as $screen ) {

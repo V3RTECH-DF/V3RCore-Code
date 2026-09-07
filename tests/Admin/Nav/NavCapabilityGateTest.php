@@ -329,4 +329,63 @@ final class NavCapabilityGateTest extends TestCase {
 		self::assertSame( 1, $access->callsFor( 'perm_b' ) );
 		self::assertSame( 0, $access->callsFor( 'perm_c' ), 'A busca deveria ter parado no primeiro true, sem chegar até aqui.' );
 	}
+
+	/**
+	 * Critério de aceite mais fácil de errar sem notar: quem enxerga
+	 * APENAS uma tela oculta continua contando para "enxerga ao menos uma
+	 * tela" — a árvore não lista a tela oculta, mas a guarda (e a entrada
+	 * raiz do menu) não distinguem tela oculta de tela normal.
+	 */
+	public function test_root_capability_e_concedida_a_quem_so_enxerga_uma_tela_oculta(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'certificado', 'Certificado', null, 'perm_certificado', null, true ) );
+
+		$access = new CountingScreenAccess( array( 'perm_certificado' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = $this->askRootCapability();
+
+		self::assertTrue( $allcaps[ NavCapabilityGate::ROOT_CAPABILITY ] );
+	}
+
+	/** A guarda de acesso direto trata tela oculta exatamente como tela normal: concede a quem tem a permissão. */
+	public function test_endereco_direto_de_tela_oculta_e_liberado_para_quem_tem_a_permissao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'certificado', 'Certificado', null, 'perm_certificado', null, true ) );
+
+		$access = new CountingScreenAccess( array( 'perm_certificado' ) );
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( 'v3r_nav_certificado' ),
+			array( 'v3r_nav_certificado', 1 ),
+			null
+		);
+
+		self::assertTrue( $allcaps['v3r_nav_certificado'] );
+	}
+
+	/** Controle negativo: e barra quem não tem, mesma tela oculta. */
+	public function test_endereco_direto_de_tela_oculta_e_barrado_para_quem_nao_tem_a_permissao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'certificado', 'Certificado', null, 'perm_certificado', null, true ) );
+
+		$access = new CountingScreenAccess( array() ); // Nega tudo.
+		$gate   = new NavCapabilityGate( $registry, $access );
+		$gate->register();
+
+		$allcaps = apply_filters(
+			'user_has_cap',
+			array(),
+			array( 'v3r_nav_certificado' ),
+			array( 'v3r_nav_certificado', 1 ),
+			null
+		);
+
+		self::assertFalse( $allcaps['v3r_nav_certificado'] );
+	}
 }

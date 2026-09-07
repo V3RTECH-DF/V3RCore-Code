@@ -19,6 +19,14 @@ namespace V3R\Core\Admin\Nav;
  * declare `order` para todos ou para nenhum — misturar quem declara com
  * quem não compara escalas diferentes (valor declarado contra posição de
  * inserção) e o resultado surpreende (docs/navegacao-do-painel.md §5).
+ *
+ * `hidden` é a terceira opção que faltava ao contrato (RIT360 Flow,
+ * 06/09/2026): tela declarada, guardada e endereçável como qualquer outra,
+ * mas fora da árvore que `TreeBuilder` devolve — para quem roteia no
+ * cliente e precisa declarar rota transitória sem poluir o menu, sem por
+ * isso perder a guarda (docs/navegacao-do-painel.md §4). Nome em inglês,
+ * coerente com o resto da classe (`slug`/`label`/`group`/`permission`/
+ * `order` já são inglês).
  */
 final class Screen {
 
@@ -37,10 +45,13 @@ final class Screen {
 	/** @var int|null */
 	private $order;
 
+	/** @var bool */
+	private $hidden;
+
 	/**
 	 * @throws \InvalidArgumentException `slug`, `label` ou `permission` vazios.
 	 */
-	public function __construct( string $slug, string $label, ?string $group, string $permission, ?int $order = null ) {
+	public function __construct( string $slug, string $label, ?string $group, string $permission, ?int $order = null, bool $hidden = false ) {
 		if ( '' === trim( $slug ) ) {
 			throw new \InvalidArgumentException( 'Screen::slug não pode ser vazio.' );
 		}
@@ -58,6 +69,7 @@ final class Screen {
 		$this->group      = ( null !== $group && '' !== trim( $group ) ) ? $group : null;
 		$this->permission = $permission;
 		$this->order      = $order;
+		$this->hidden     = $hidden;
 	}
 
 	public function slug(): string {
@@ -81,5 +93,15 @@ final class Screen {
 	/** Ordem declarada entre irmãos, ou `null` — cai para a ordem de declaração (§5). */
 	public function order(): ?int {
 		return $this->order;
+	}
+
+	/**
+	 * Fora da árvore (`TreeBuilder`), mas registrada, guardada e
+	 * endereçável como qualquer outra — a guarda (§4) e a contagem de
+	 * "enxerga ao menos uma tela" (`NavCapabilityGate`) não distinguem
+	 * tela oculta de tela normal; só a árvore distingue.
+	 */
+	public function hidden(): bool {
+		return $this->hidden;
 	}
 }

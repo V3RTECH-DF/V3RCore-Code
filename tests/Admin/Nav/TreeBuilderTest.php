@@ -302,4 +302,115 @@ final class TreeBuilderTest extends TestCase {
 			$tree
 		);
 	}
+
+	/** Tela oculta, mesmo visível para o ScreenAccess, não entra na árvore plana. */
+	public function test_tela_oculta_nao_aparece_na_arvore_plana(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'certificado', 'Certificado', null, 'perm_c', null, true ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_c' ) ) ) )->build();
+
+		self::assertCount( 1, $tree );
+		self::assertSame( 'a', $tree[0]['slug'] );
+	}
+
+	/** Controle negativo: a MESMA tela, sem `hidden`, aparece normalmente. */
+	public function test_tela_nao_oculta_aparece_na_arvore_plana(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_a' ) );
+		$registry->add( new Screen( 'certificado', 'Certificado', null, 'perm_c' ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_c' ) ) ) )->build();
+
+		self::assertCount( 2, $tree );
+	}
+
+	/** Grupo com telas visíveis e ocultas mostra só as visíveis — a oculta não vaza para o grupo. */
+	public function test_grupo_com_telas_visiveis_e_ocultas_mostra_so_as_visiveis(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'configuracoes', 'Configurações', 10 ) );
+		$registry->add( new Screen( 'config-geral', 'Geral', 'configuracoes', 'perm_a' ) );
+		$registry->add( new Screen( 'config-certificado', 'Certificado', 'configuracoes', 'perm_b', null, true ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b' ) ) ) )->build();
+
+		self::assertCount( 1, $tree );
+		self::assertSame( 'group', $tree[0]['type'] );
+		self::assertCount( 1, $tree[0]['screens'] );
+		self::assertSame( 'config-geral', $tree[0]['screens'][0]['slug'] );
+	}
+
+	/**
+	 * O caso do RIT360 Flow (06/09/2026): grupo com treze telas declaradas,
+	 * cinco ocultas — a árvore mostra só as oito, o grupo aparece (regra 1
+	 * não some o grupo, porque sobram visíveis) e nenhuma oculta vaza.
+	 */
+	public function test_grupo_com_treze_telas_cinco_ocultas_mostra_apenas_oito(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'configuracoes', 'Configurações', 10 ) );
+
+		$visiveis = array();
+		for ( $i = 1; $i <= 8; $i++ ) {
+			$slug       = "config-visivel-{$i}";
+			$visiveis[] = $slug;
+			$registry->add( new Screen( $slug, "Visível {$i}", 'configuracoes', "perm_{$slug}" ) );
+		}
+		for ( $i = 1; $i <= 5; $i++ ) {
+			$slug = "config-oculta-{$i}";
+			$registry->add( new Screen( $slug, "Oculta {$i}", 'configuracoes', "perm_{$slug}", null, true ) );
+		}
+
+		$permissoesConcedidas = array_map(
+			static function ( string $slug ): string {
+				return "perm_{$slug}";
+			},
+			$visiveis
+		);
+		// As cinco ocultas também são concedidas — a exclusão é da árvore, não da permissão.
+		for ( $i = 1; $i <= 5; $i++ ) {
+			$permissoesConcedidas[] = "perm_config-oculta-{$i}";
+		}
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( $permissoesConcedidas ) ) )->build();
+
+		self::assertCount( 1, $tree );
+		self::assertSame( 'group', $tree[0]['type'], 'Grupo com telas visíveis sobrando não pode sumir.' );
+		self::assertCount( 8, $tree[0]['screens'] );
+
+		foreach ( $tree[0]['screens'] as $node ) {
+			self::assertStringNotContainsString( 'oculta', $node['slug'] );
+		}
+	}
+
+	/** Grupo cujas telas são TODAS ocultas some — mesma regra do grupo totalmente filtrado. */
+	public function test_grupo_so_com_telas_ocultas_nao_aparece(): void {
+		$registry = new Registry();
+		$registry->addGroup( new Group( 'configuracoes', 'Configurações', 10 ) );
+		$registry->add( new Screen( 'config-certificado', 'Certificado', 'configuracoes', 'perm_a', null, true ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a' ) ) ) )->build();
+
+		self::assertSame( array(), $tree );
+	}
+
+	/** Sem nenhuma tela visível declarando grupo, a árvore plana não é forçada a agrupar por causa de uma oculta. */
+	public function test_apenas_tela_oculta_com_grupo_nao_forca_arvore_agrupada(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'solta', 'Solta', null, 'perm_a' ) );
+		$registry->add( new Screen( 'config-certificado', 'Certificado', 'configuracoes', 'perm_b', null, true ) );
+
+		$tree = ( new TreeBuilder( $registry, new CountingScreenAccess( array( 'perm_a', 'perm_b' ) ) ) )->build();
+
+		self::assertSame(
+			array(
+				array(
+					'type'  => 'screen',
+					'slug'  => 'solta',
+					'label' => 'Solta',
+				),
+			),
+			$tree
+		);
+	}
 }

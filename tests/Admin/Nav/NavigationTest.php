@@ -69,6 +69,83 @@ final class NavigationTest extends TestCase {
 		self::assertFalse( $navigation->canView( 'nao-existe' ) );
 	}
 
+	public function test_accessMap_inclui_tela_oculta_permitida_e_negada(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'oculta-permitida', 'Oculta permitida', null, 'perm_a', null, true ) );
+		$registry->add( new Screen( 'oculta-negada', 'Oculta negada', null, 'perm_b', null, true ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm_a' ) ) );
+
+		self::assertSame(
+			array(
+				'oculta-permitida' => true,
+				'oculta-negada'    => false,
+			),
+			$navigation->accessMap()
+		);
+	}
+
+	public function test_accessMap_inclui_tela_visivel_permitida_e_negada(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'visivel-permitida', 'Visível permitida', null, 'perm_a' ) );
+		$registry->add( new Screen( 'visivel-negada', 'Visível negada', null, 'perm_b' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm_a' ) ) );
+
+		self::assertSame(
+			array(
+				'visivel-permitida' => true,
+				'visivel-negada'    => false,
+			),
+			$navigation->accessMap()
+		);
+	}
+
+	/**
+	 * O critério que mais tenta ser "simplificado": tela sem permissão não
+	 * pode sumir do mapa — precisa aparecer com `false`, senão fica
+	 * indistinguível de slug inexistente para quem consulta por chave.
+	 */
+	public function test_accessMap_nao_omite_tela_sem_permissao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'negada', 'Negada', null, 'perm_negada' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array() ) );
+
+		$map = $navigation->accessMap();
+
+		self::assertArrayHasKey( 'negada', $map );
+		self::assertFalse( $map['negada'] );
+	}
+
+	public function test_accessMap_consulta_screen_access_no_maximo_uma_vez_por_permissao(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'a', 'A', null, 'perm_compartilhada' ) );
+		$registry->add( new Screen( 'b', 'B', null, 'perm_compartilhada' ) );
+		$registry->add( new Screen( 'c', 'C', null, 'perm_compartilhada', null, true ) );
+
+		$access     = new CountingScreenAccess( array( 'perm_compartilhada' ) );
+		$navigation = new Navigation( $registry, $access );
+
+		$navigation->accessMap();
+
+		self::assertSame( 1, $access->callsFor( 'perm_compartilhada' ) );
+	}
+
+	/** Mesmo slug declarado duas vezes: uma entrada só, a do primeiro registro. */
+	public function test_accessMap_nao_duplica_entrada_para_slug_repetido(): void {
+		$registry = new Registry();
+		$registry->add( new Screen( 'repetida', 'Primeira', null, 'perm_a' ) );
+		$registry->add( new Screen( 'repetida', 'Segunda', null, 'perm_b' ) );
+
+		$navigation = new Navigation( $registry, new CountingScreenAccess( array( 'perm_b' ) ) );
+
+		$map = $navigation->accessMap();
+
+		self::assertCount( 1, $map );
+		self::assertFalse( $map['repetida'], 'Deve valer a permissão do primeiro registro (perm_a, negada), não a do segundo.' );
+	}
+
 	public function test_renderMenu_registra_a_entrada_unica_visivel(): void {
 		$navigation = new Navigation( new Registry(), new CountingScreenAccess( array() ) );
 		$navigation->registerMenu( new MenuEntry( 'RIT360 Flow', 'v3rflow', Family::RIT ) );
