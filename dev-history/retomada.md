@@ -138,10 +138,22 @@ capacidade com um consumidor só não é promovida.
 
 ## Próximo passo
 
-Implementar a `#25` (posição das entradas de menu da família): dois blocos contíguos —
-família RIT e depois família V3RTECH —, ordem alfabética dentro de cada bloco, com o ícone
-de família já salvo. A decisão de projeto está fechada; falta só a implementação e o
-teste de convivência num site com mais de um plugin da casa instalado.
+A próxima sessão tem escopo definido, nesta ordem:
+
+1. **`#25` — posição das entradas de menu da família.** Dois blocos contíguos (família RIT,
+   depois família V3RTECH), ordem alfabética dentro de cada bloco, ícone de família já
+   salvo. Decisão de projeto fechada; falta implementar e medir num site com mais de um
+   plugin da casa instalado.
+2. **`#19` — a tela de licença consulta o servidor duas vezes a cada abertura.** Correção
+   pequena, lentidão que o cliente sente.
+3. **`#14` + `#13` + `#7` — padronizar a publicação dos plugins e fechar o CI.** Um
+   trabalho só. ⚠️ **A `#34` (o guard de prefixação em três cópias divergentes) se decide
+   junto**: as três cópias existem porque cada fluxo de publicação carregou a sua, então
+   unificar a publicação sem unificar o guard deixa a divergência de pé.
+
+⚠️ Ao unificar as três cópias do guard, a regra que vale é **unificação não pode reduzir**:
+levantar o que cada cópia já pegava antes de escolher a que fica — a mais restritiva tende
+a ganhar sem ninguém decidir.
 
 ## Comandos úteis
 
