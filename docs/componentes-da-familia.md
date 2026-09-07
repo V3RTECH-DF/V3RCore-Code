@@ -5,6 +5,9 @@
 > família. O que não estiver aqui é que se constrói.
 >
 > Atualizada em 07/09/2026.
+>
+> ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
+> capacidade com um consumidor só — e capacidade com nenhum.
 
 ## Por que ela existe
 
@@ -45,7 +48,8 @@ WordPress.
 | **Notificação** | despacho de mensagem multi-canal (hoje, e-mail) | primeiras versões | Flow | — |
 | **Assinatura com certificado** | código de autenticidade, leitura do certificado, modo de assinatura | 0.11.0 | Flow | `assinatura-com-certificado.md` |
 | **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço | 0.14.0 | V3RLGPD, Flow | `navegacao-do-painel.md` |
-| **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | — | `papeis-orientados-a-dados.md` |
+| **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando | 0.19.0 | V3RLGPD | `navegacao-do-painel.md` §7 |
+| **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | V3RLGPD | `papeis-orientados-a-dados.md` |
 
 ## O que o pacote de tela oferece
 
@@ -55,7 +59,7 @@ WordPress.
 | **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow |
 | **Área de avisos do painel** | põe os avisos do WordPress no lugar certo | 0.1.0 | V3RLGPD, Flow |
 | **Guarda de rota** | responde se a pessoa pode abrir uma rota, negando o desconhecido | 0.2.0 | V3RLGPD, Flow |
-| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente | 0.6.0 | — |
+| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente | 0.6.0 | V3RLGPD (painel) |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
 
@@ -68,6 +72,12 @@ ninguém mais foi atrás.
 **E cinco dos nove plugins ainda apontam para a `0.7.0`**, de agosto. Estão em
 produção e funcionando — só não alcançam nada do que veio depois. Quase tudo
 listado aqui está disponível para plugins que não sabem que existe.
+
+⚠️ **Adoção validada sozinha não prova convivência.** Cinco defeitos desta
+camada só apareceram quando o **segundo** plugin adotou — e um deles fazia um
+produto **cancelar a entrada de menu do outro**, coisa que nenhuma quantidade
+de teste em um plugin só revelaria. Quem adotar deve medir num site com mais de
+um plugin da casa instalado.
 
 ## Como consumir
 
