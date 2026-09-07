@@ -84,6 +84,21 @@ então dois produtos nossos com versões diferentes no mesmo WordPress não coli
 pacotes do JavaScript instala a raiz de um repositório git, nunca uma subpasta.
 É por isso que ele não mora dentro do `Code/`.
 
+## O índice de componentes é obrigação, não cortesia
+
+`Code/docs/componentes-da-familia.md` é a lista do que os plugins da casa podem
+consumir, nos **dois** repositórios. É a página que um plugin lê antes de
+escrever qualquer coisa.
+
+⚠️ **Toda capacidade nova, promovida ou publicada, entra no índice na mesma
+entrega** — não depois, não "quando der". Índice que mente por omissão é pior
+que índice nenhum: quem consulta e não encontra conclui que não existe, e
+reimplementa. Foi assim que o envio de documento nasceu três vezes.
+
+Vale também para **versão nova de peça já listada** quando ela muda o que a peça
+resolve, e para **consumidor novo** — a coluna "quem consome" é o que revela
+capacidade com um usuário só, e capacidade sem nenhum.
+
 ## Proteção da biblioteca (a partir da v0.2.0)
 
 A `v3r-core` **não se auto-prefixa mais** — até a `v0.1.0` rodava Strauss internamente,

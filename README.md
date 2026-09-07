@@ -117,6 +117,9 @@ docs/
 
 ### Documentação técnica
 
+- **`docs/componentes-da-familia.md` — o índice do que a família pode consumir,
+  nos dois repositórios. É a página que se lê ANTES de construir qualquer
+  coisa.**
 - `docs/api-contract.md` — contrato completo cliente↔servidor.
 - `docs/integracao-em-plugin.md` — receita testada de integração num plugin
   hospedeiro (declaração da dependência, Strauss, empacotamento, verificação).
