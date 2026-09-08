@@ -58,7 +58,7 @@ biblioteca agrupa; nenhum site vê o efeito enquanto os produtos não anunciarem
    trechos, um deles abaixo de Configurações; depois, um bloco só.
 2. **`#19` — apurada e devolvida**: não era da biblioteca. Ver "Premissas que caíram".
    Corrigida no RIT360 Solidário (2.26.5, publicada).
-3. **Frente da publicação (`#14`/`#34`/`#13`/`#7`)**: levantamento dos nove produtos,
+3. **Frente da publicação (`#14`/`#34`, mais a `#13` e a `#7` do CI)**: levantamento dos nove produtos,
    duas decisões tomadas, repositório `v3r-release` criado, contrato escrito e a
    **primeira fatia entregue** — a conferência do pacote.
 4. **Consertos de rota que apareceram no caminho**: a CI desta biblioteca estava
@@ -95,9 +95,9 @@ biblioteca agrupa; nenhum site vê o efeito enquanto os produtos não anunciarem
   dobro. E **não era o modo estrito do React** — os dois renderizadores da página
   reportam build de produção.
 - **`#13` e `#7` descreviam um estado que não existe mais.** Os dez repositórios já
-  validam commit em push e PR; a `#7` estava corrigida aqui desde 27/08. O que sobrou é
-  desigualdade de *conteúdo*: cinco produtos têm estilo e análise configurados e **não
-  os rodam**.
+  validam commit em push e PR; a `#7` estava corrigida aqui desde 27/08. As duas foram
+  fechadas, e o que sobrou virou a **`#41`**: cinco produtos têm estilo e análise
+  configurados e **não os rodam** — e, mais grave, falha de CI não chega a ninguém.
 - **"A cópia mais completa do guard" não existe.** Nenhuma contém as outras — cinco
   produtos têm, cada um, uma verificação exclusiva. Unificar é **somar**.
 - **Fixture escrito por quem escreveu a verificação concorda com ela.** A conferência
@@ -115,7 +115,8 @@ biblioteca agrupa; nenhum site vê o efeito enquanto os produtos não anunciarem
 |---|---|---|
 | 33 | O registro de ativação nunca aprende a versão nova | defeito com efeito em produção — o painel de licenças mostra versão errada de todo mundo |
 | 40 | Adoção da posição de menu nos oito plugins | a biblioteca já agrupa; sem isso nenhum cliente vê diferença nenhuma |
-| 14 + 34 + 13 | Receita única de publicação, guard e conteúdo do CI | em andamento; já derrubou o checkout de quatro sites uma vez |
+| 14 + 34 | Receita única de publicação e o guard de prefixação | em andamento; já derrubou o checkout de quatro sites uma vez |
+| 41 | O CI confere coisas diferentes em cada produto, e a vermelhidão não chega a ninguém | anda junto da `#14`, que já vai declarar os comandos de cada produto; nivelar antes cria a nona cópia |
 | 16 | Padronizar a geração de PDF (o catálogo já saiu) | é a mesma reimplementação em triplicata que fez esta biblioteca existir; grande, e por isso adiada |
 | 38 | Identificador de tela vira endereço global do WordPress, sem proteção contra colisão | dois plugins podem sequestrar a tela um do outro; ainda não aconteceu |
 | 31 | Vocabulário de recusa do V3RSigner | a biblioteca tem o contrato do assinador e nada sobre o que o serviço responde ao recusar |
