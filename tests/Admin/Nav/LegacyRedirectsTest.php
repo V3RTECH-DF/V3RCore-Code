@@ -71,6 +71,56 @@ final class LegacyRedirectsTest extends TestCase {
 		);
 	}
 
+	public function test_targetFor_compoe_slug_de_pagina_do_painel_preservando_os_demais_parametros(): void {
+		$_GET = array(
+			'page' => 'gea-antigo',
+			'id'   => '42',
+		);
+
+		$redirects = new LegacyRedirects( 'gea', array( 'gea-antigo' => 'gea-charge-detail' ) );
+
+		self::assertSame(
+			'https://example.test/wp-admin/admin.php?page=gea-charge-detail&id=42',
+			$redirects->targetFor( 'gea-antigo' )
+		);
+	}
+
+	public function test_targetFor_slug_de_pagina_nao_vaza_o_page_do_endereco_antigo(): void {
+		// Controle negativo do teste acima: o `page` da requisição original
+		// (o endereço antigo) não pode aparecer duplicado nem sobrepor o
+		// `page` do destino composto.
+		$_GET = array( 'page' => 'gea-antigo' );
+
+		$redirects = new LegacyRedirects( 'gea', array( 'gea-antigo' => 'gea-charge-detail' ) );
+
+		self::assertSame(
+			'https://example.test/wp-admin/admin.php?page=gea-charge-detail',
+			$redirects->targetFor( 'gea-antigo' )
+		);
+	}
+
+	public function test_construtor_recusa_destino_ambiguo_com_barra(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( "o destino 'gea/charge-detail'" );
+
+		new LegacyRedirects( 'gea', array( 'gea-antigo' => 'gea/charge-detail' ) );
+	}
+
+	public function test_construtor_recusa_destino_ambiguo_com_cara_de_dominio_sem_esquema(): void {
+		$this->expectException( \InvalidArgumentException::class );
+		$this->expectExceptionMessage( "o destino 'ajuda.v3rtech.com.br'" );
+
+		new LegacyRedirects( 'gea', array( 'gea-antigo' => 'ajuda.v3rtech.com.br' ) );
+	}
+
+	public function test_construtor_aceita_slug_simples_sem_barra_nem_ponto(): void {
+		// Controle negativo dos dois testes acima: um slug de página comum
+		// não deve ser recusado.
+		$redirects = new LegacyRedirects( 'gea', array( 'gea-antigo' => 'gea-charge-detail' ) );
+
+		self::assertInstanceOf( LegacyRedirects::class, $redirects );
+	}
+
 	public function test_targetFor_devolve_null_para_slug_nao_mapeado(): void {
 		$redirects = new LegacyRedirects( 'v3rlgpd', array( 'v3rlgpd-ropa' => '/ropa' ) );
 

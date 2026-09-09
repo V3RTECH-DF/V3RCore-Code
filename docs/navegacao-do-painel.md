@@ -522,17 +522,41 @@ $legacyRedirects = new V3R\Core\Admin\Nav\LegacyRedirects(
     array(
         'v3rlgpd-atendimento' => '/atendimento',  // rota interna (fragmento)
         'v3rlgpd-docs'        => 'https://ajuda.v3rtech.com.br/v3rlgpd', // URL absoluta
+        'gea-charge-old'      => 'gea-charge-detail', // slug de outra página do painel
     )
 );
 $legacyRedirects->register();
 ```
 
-Destino começando com `/` ou `#` é composto como fragmento sobre a entrada
-única (`?page=v3rlgpd&...#/atendimento`), preservando os demais parâmetros da
-requisição original — `page=v3rlgpd-ropa&id=5` chega ao destino com o `id`,
-perder contexto de link profundo em silêncio seria o mesmo tipo de defeito
-que esta peça existe para fechar. Qualquer outro valor é uma URL absoluta,
-usada exatamente como está, sem parâmetro nenhum acrescentado.
+**Destino em três formas, todas detectadas pelo próprio valor** — e **duas
+delas preservam os demais parâmetros da requisição, uma não**:
+
+- começando com `/` ou `#` — composto como fragmento sobre a entrada única
+  (`?page=v3rlgpd&...#/atendimento`), **preservando** os demais parâmetros:
+  `page=v3rlgpd-ropa&id=5` chega ao destino com o `id`, perder contexto de
+  link profundo em silêncio é o mesmo tipo de defeito que esta peça existe
+  para fechar;
+- com esquema (`://`) — URL absoluta, usada exatamente como está, **sem**
+  parâmetro nenhum acrescentado. Ela pode apontar para fora do site, e
+  misturar parâmetro do WordPress ali não faz sentido — comportamento
+  deliberado, mantido como está;
+- qualquer outro valor — slug de **outra página do próprio painel**,
+  composto como `?page=<slug>&...`, também **preservando** os demais
+  parâmetros: é o caso do GE Associados, que roteia por endereço real em vez
+  de fragmento — `?page=gea-charge-old&id=42` precisa chegar como
+  `?page=gea-charge-detail&id=42`, não como `?page=gea-charge-detail` sem o
+  `id`.
+
+⚠️ **Só a URL absoluta não preserva parâmetro** — ler "preserva os demais
+parâmetros" como comportamento da classe inteira, em vez de dois dos três
+ramos, é o engano que este parágrafo existe para fechar.
+
+⚠️ **Slug de página é reconhecido, não adivinhado.** Um destino que não é
+rota interna nem tem esquema, mas contém `/` ou `.` (cara de caminho ou de
+domínio digitado sem `https://`), é **recusado no construtor** —
+`InvalidArgumentException` nomeando o destino, mesma política do laço de
+redirecionamento logo abaixo. Corrigir o destino, ou antecedê-lo de
+`https://` quando a intenção era mesmo uma URL absoluta.
 
 ⚠️ **O mapa é recusado na declaração, não no redirecionamento, se contiver o
 slug da própria entrada única.** Mapear a entrada única para si mesma cria um

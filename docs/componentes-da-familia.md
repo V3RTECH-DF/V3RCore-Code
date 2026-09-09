@@ -48,7 +48,7 @@ WordPress.
 | **Notificação** | despacho de mensagem multi-canal (hoje, e-mail) | primeiras versões | Flow | — |
 | **Assinatura com certificado** | código de autenticidade, leitura do certificado, modo de assinatura | 0.11.0 | Flow | `assinatura-com-certificado.md` |
 | **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço, posição e contiguidade da família na coluna do painel | 0.22.0 | V3RLGPD, Flow | `navegacao-do-painel.md` |
-| **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando | 0.19.0 | V3RLGPD | `navegacao-do-painel.md` §7 |
+| **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando — inclusive preservando parâmetros quando o destino é rota interna ou outra página do painel | 0.19.0 (slug de página do painel: próxima publicação) | V3RLGPD, GE Associados (previsto) | `navegacao-do-painel.md` §7 |
 | **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | V3RLGPD | `papeis-orientados-a-dados.md` |
 | **Versão embutida em tempo de execução** | `Version::CURRENT` diz qual versão da biblioteca chegou de fato ao pacote — o guard de prefixação só confere que ela chegou | próxima publicação (#44) | `v3r-release` (item 20) | `integracao-em-plugin.md` §7.5 |
 

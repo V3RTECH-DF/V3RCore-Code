@@ -2,6 +2,27 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.23.0] — 2026-09-09
+
+### Adicionado
+- **`Admin\Nav\LegacyRedirects` ganha um terceiro caso: destino que é o slug
+  de outra página do próprio painel** (`docs/navegacao-do-painel.md` §7),
+  medido no GE Associados — primeiro consumidor que roteia por endereço real
+  em vez de fragmento. Antes, um destino assim caía no ramo de URL absoluta e
+  perdia os demais parâmetros da requisição em silêncio (ex.: o `id` de
+  `?page=gea-charge-detail&id=42`). Agora esse caso compõe `?page=<slug>&...`
+  preservando os parâmetros, com a mesma higienização e exclusão do `page`
+  antigo que a rota interna já tinha. O ramo de URL absoluta continua exatamente
+  como estava — usado como está, sem parâmetro acrescentado.
+- Guarda no construtor: destino ambíguo (contém `/`, ou tem cara de domínio
+  sem esquema — `.` sem `://`) é recusado com `InvalidArgumentException`
+  nomeando o destino, em vez de ser adivinhado como slug.
+
+### Corrigido
+- Docblock da classe e `docs/navegacao-do-painel.md` §7 descreviam "preserva
+  os demais parâmetros da requisição" como comportamento da classe inteira;
+  é comportamento de dois dos três ramos, não da URL absoluta.
+
 ## [0.22.0] — 2026-09-07
 
 ### Adicionado

@@ -18,11 +18,21 @@ namespace V3R\Core\Admin\Nav;
  * o laço de redirecionamento, a higienização, o momento certo do ciclo do
  * WordPress, a composição do destino e a preservação dos parâmetros.
  *
- * **Destino em duas formas, ambas detectáveis pelo próprio valor:**
+ * **Destino em três formas, todas detectáveis pelo próprio valor:**
  * - começando com `/` ou `#` — rota interna, composta como fragmento sobre
- *   o endereço da entrada única do plugin (`?page=<entrySlug>#<rota>`);
- * - qualquer outro valor — URL absoluta, usada exatamente como está, sem
- *   composição nem parâmetro nenhum acrescentado.
+ *   o endereço da entrada única do plugin (`?page=<entrySlug>#<rota>`),
+ *   **preservando os demais parâmetros da requisição**;
+ * - com esquema (`://`) — URL absoluta, usada exatamente como está, sem
+ *   composição nem parâmetro nenhum acrescentado (ela pode apontar para
+ *   fora do site; misturar parâmetro do WordPress ali não faz sentido);
+ * - qualquer outro valor **sem `/` nem `.`** — slug de outra página do
+ *   próprio painel, composta como `?page=<slug>`, **também preservando os
+ *   demais parâmetros da requisição** (mesma regra da rota interna: quem
+ *   perde é sempre o link profundo salvo por quem usa a tela todo dia).
+ *
+ * ⚠️ **Só a URL absoluta não preserva parâmetro.** Ler "preserva os demais
+ * parâmetros" como comportamento da classe inteira é o erro que já
+ * aconteceu — é comportamento de dois dos três ramos, não de todos.
  *
  * ⚠️ **Recusa na declaração, não no redirecionamento.** Um mapa que
  * contenha o slug da própria entrada única cria um laço infinito — o
@@ -31,13 +41,21 @@ namespace V3R\Core\Admin\Nav;
  * seguro: `InvalidArgumentException` na inicialização é visível na hora,
  * bem diferente do painel travado que ela evita.
  *
- * **Preserva os demais parâmetros da requisição** — só para a rota
- * interna. `page=v3rlgpd-ropa&id=5` precisa levar o `id` para o destino
- * composto; perder contexto de link profundo em silêncio é o mesmo tipo
- * de defeito que esta peça existe para fechar. A URL absoluta não recebe
+ * **Preserva os demais parâmetros da requisição** — na rota interna e no
+ * slug de outra página do painel, não na URL absoluta. `page=v3rlgpd-ropa
+ * &id=5` precisa levar o `id` para o destino composto, seja ele o
+ * fragmento de uma rota interna ou o `page` de outra tela do próprio
+ * painel; perder contexto de link profundo em silêncio é o mesmo tipo de
+ * defeito que esta peça existe para fechar. A URL absoluta não recebe
  * parâmetro nenhum, de propósito: "usada como está" é literal — ela pode
  * apontar para fora do plugin (ou fora do site), e misturar parâmetros do
  * WordPress ali não faz sentido.
+ *
+ * ⚠️ **Slug de página do painel é reconhecido, não adivinhado.** Um valor
+ * que pareça caminho ou domínio sem esquema (contém `/`, ou contém `.` —
+ * cara de domínio digitado sem `https://`) é recusado no construtor, pelo
+ * mesmo motivo do laço: falhar no boot é visível na hora; adivinhar
+ * errado falha em silêncio no dia em que alguém colar um link.
  *
  * **Não decide permissão.** Ela só redireciona; quem barra é o destino —
  * a guarda de rota do cliente ou a camada 1/2 desta mesma biblioteca
@@ -78,15 +96,22 @@ final class LegacyRedirects {
 	 *                                            o laço.
 	 * @param array<string, string> $map          `slug antigo => destino`. Destino
 	 *                                            começando com `/` ou `#` é composto
-	 *                                            como rota interna; qualquer outro valor
-	 *                                            é usado como URL absoluta.
+	 *                                            como rota interna; destino com esquema
+	 *                                            (`://`) é usado como URL absoluta;
+	 *                                            qualquer outro valor é tratado como slug
+	 *                                            de outra página do próprio painel — e é
+	 *                                            recusado no construtor se tiver `/` ou
+	 *                                            `.` (cara de caminho ou de domínio sem
+	 *                                            esquema).
 	 * @param callable|null         $terminate    `function(): void`, chamado depois do
 	 *                                            redirecionamento. Padrão: `exit`. Ponto
 	 *                                            de substituição só para teste.
 	 *
 	 * @throws \InvalidArgumentException `ownEntrySlug` vazio, uma chave/destino vazio no
-	 *                                    mapa, ou o mapa contendo o slug da própria
-	 *                                    entrada única (laço de redirecionamento).
+	 *                                    mapa, o mapa contendo o slug da própria entrada
+	 *                                    única (laço de redirecionamento), ou um destino
+	 *                                    ambíguo (nem rota interna, nem URL absoluta, mas
+	 *                                    com `/` ou `.` no valor).
 	 */
 	public function __construct( string $ownEntrySlug, array $map, ?callable $terminate = null ) {
 		if ( '' === trim( $ownEntrySlug ) ) {
@@ -107,6 +132,17 @@ final class LegacyRedirects {
 					"LegacyRedirects: o mapa contém a entrada '{$oldSlug}', que é o slug da própria " .
 					'entrada única do plugin. Mapear o slug único para si mesmo cria um laço de ' .
 					'redirecionamento infinito no painel (docs/navegacao-do-painel.md).'
+				);
+			}
+
+			if ( self::isAmbiguousPageSlug( $destination ) ) {
+				throw new \InvalidArgumentException(
+					"LegacyRedirects: o destino '{$destination}' (de '{$oldSlug}') não começa com " .
+					"'/' nem '#', e não tem esquema ('://') para ser tratado como URL absoluta — " .
+					"mas contém '/' ou '.', o que dá cara de caminho ou de domínio digitado sem " .
+					'esquema. Um slug de página do painel não tem essa forma, então este destino ' .
+					'não é aceito como tal: corrija o destino, ou anteceda-o de "https://" se a ' .
+					'intenção era mesmo uma URL absoluta.'
 				);
 			}
 		}
@@ -181,13 +217,42 @@ final class LegacyRedirects {
 			return $this->composeInternalRoute( $destination );
 		}
 
-		// URL absoluta: usada como está — nenhuma composição, nenhum
-		// parâmetro acrescentado (docblock da classe).
-		return $destination;
+		if ( self::isAbsoluteUrl( $destination ) ) {
+			// URL absoluta: usada como está — nenhuma composição, nenhum
+			// parâmetro acrescentado (docblock da classe).
+			return $destination;
+		}
+
+		// Slug de outra página do próprio painel: valor já validado no
+		// construtor (nem rota interna, nem URL absoluta, nem ambíguo).
+		return $this->composePageRoute( $destination );
 	}
 
 	private static function isInternalRoute( string $destination ): bool {
 		return 0 === strpos( $destination, '/' ) || 0 === strpos( $destination, '#' );
+	}
+
+	/**
+	 * Esquema explícito (`://`) é o único sinal usado para reconhecer URL
+	 * absoluta — nunca um domínio "adivinhado" pela presença de `.`, que é
+	 * exatamente o que a guarda de ambiguidade do construtor recusa.
+	 */
+	private static function isAbsoluteUrl( string $destination ): bool {
+		return false !== strpos( $destination, '://' );
+	}
+
+	/**
+	 * Um valor que não é rota interna nem URL absoluta só é aceito como
+	 * slug de página do painel se não tiver cara de caminho (`/`) nem de
+	 * domínio digitado sem esquema (`.`) — docblock da classe e do
+	 * construtor.
+	 */
+	private static function isAmbiguousPageSlug( string $destination ): bool {
+		if ( self::isInternalRoute( $destination ) || self::isAbsoluteUrl( $destination ) ) {
+			return false;
+		}
+
+		return false !== strpos( $destination, '/' ) || false !== strpos( $destination, '.' );
 	}
 
 	/**
@@ -197,11 +262,43 @@ final class LegacyRedirects {
 	 * funcionar também com o WordPress instalado em subdiretório.
 	 */
 	private function composeInternalRoute( string $route ): string {
-		$base = function_exists( 'admin_url' )
+		$base  = $this->adminBaseUrl();
+		$query = $this->queryWithPreservedParams( array( 'page' => $this->ownEntrySlug ) );
+
+		$fragment = '#' . ltrim( $route, '#' );
+
+		return $base . '?' . http_build_query( $query ) . $fragment;
+	}
+
+	/**
+	 * `?page=<slug>` + os demais parâmetros da requisição original (tudo
+	 * menos `page`, higienizado) — mesma preservação da rota interna, sem
+	 * fragmento, porque o destino já É a página do painel.
+	 */
+	private function composePageRoute( string $slug ): string {
+		$base  = $this->adminBaseUrl();
+		$query = $this->queryWithPreservedParams( array( 'page' => $this->sanitizeSlug( $slug ) ) );
+
+		return $base . '?' . http_build_query( $query );
+	}
+
+	private function adminBaseUrl(): string {
+		return function_exists( 'admin_url' )
 			? admin_url( 'admin.php' )
 			: 'admin.php';
+	}
 
-		$query = array( 'page' => $this->ownEntrySlug );
+	/**
+	 * `$seed` (tipicamente `array( 'page' => ... )`) + os demais parâmetros
+	 * de `$_GET` da requisição original, exceto `page` — o parâmetro do
+	 * endereço ANTIGO nunca vaza para o destino composto.
+	 *
+	 * @param array<string, string> $seed
+	 *
+	 * @return array<string, string>
+	 */
+	private function queryWithPreservedParams( array $seed ): array {
+		$query = $seed;
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- só leitura de navegação, cada valor é higienizado abaixo antes de compor o destino.
 		foreach ( $_GET as $param => $value ) {
@@ -213,9 +310,7 @@ final class LegacyRedirects {
 			$query[ $this->sanitizeSlug( (string) $param ) ] = $this->sanitizeSlug( (string) wp_unslash( $value ) );
 		}
 
-		$fragment = '#' . ltrim( $route, '#' );
-
-		return $base . '?' . http_build_query( $query ) . $fragment;
+		return $query;
 	}
 
 	/**
