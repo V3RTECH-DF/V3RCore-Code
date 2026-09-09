@@ -2,6 +2,39 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.24.0] — 2026-09-09
+
+### Adicionado
+- **`Admin\Nav\NavCapabilityGate::registerRootMenu()` passa a ser uso
+  SUPORTADO por chamada direta, com compromisso de contrato** — a assinatura
+  não muda sem versão MAIOR. Existe por um caso real: plugin com **página
+  real por tela** não pode chamar `Navigation::registerMenu()` (ele registra
+  toda tela oculta com callback vazio e esvaziaria o conteúdo das telas), e
+  ao recusá-lo pelo motivo certo ficava **sem a concessão de
+  `view_admin_dashboard`** — que é o que impede o WooCommerce de expulsar do
+  painel quem tem papel próprio. Agora esse plugin ativa o gate direto,
+  passando o mesmo par que já entregou a `Navigation`, sem que o desenho do
+  menu saia dele. Medido pelo GE Associados.
+
+### Documentação
+- ⚠️ **`Navigation::registerMenu()` PRESSUPÕE roteamento no cliente**, e o
+  docblock passa a dizê-lo: plugin com página real por tela adota a
+  declaração e as guardas (`Registry`/`Screen`, `canView()`, `accessMap()`)
+  e **mantém o registro das páginas**. É a segunda peça desta camada com o
+  pressuposto de fragmento embutido — a primeira foi a preservação de
+  parâmetros do `LegacyRedirects`, resolvida na 0.23.0 com um terceiro caso
+  explícito. Nas duas, quem descobriu foi o consumidor lendo o corpo do
+  método.
+- **Anuncie no ponto por onde TODOS os caminhos passam**, nunca dentro de um
+  ramo condicional do registro de menu — senão a entrada some do bloco
+  exatamente nos sites recém-instalados. Medido pelo RIT360 Solidário.
+- **O conjunto anunciado só está completo ao fim do `admin_menu`**; medir
+  antes disso mostra os adotantes da camada e não os da porta barata.
+- **Detecção sempre sobre classe** — a armadilha do `class_exists()` em
+  interface é do PHP, não desta camada, e se prende com teste.
+- `bin/sonda-cookie.php` e `bin/sonda-menu-familia.php`: sonda do
+  agrupamento do menu com sessão real, contribuída pelo V3RHelp.
+
 ## [0.23.0] — 2026-09-09
 
 ### Adicionado

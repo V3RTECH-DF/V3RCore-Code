@@ -356,6 +356,21 @@ final class NavCapabilityGate {
 	 * Idempotente: associar o mesmo par ao mesmo slug mais de uma vez (duas
 	 * `Navigation` do mesmo plugin, ambas chamando `registerMenu()` com o
 	 * mesmo slug) não muda nada.
+	 *
+	 * ⚠️ **CHAMADA DIRETA É USO SUPORTADO, e existe por um caso real.**
+	 * Plugin com **página real por tela** não pode chamar
+	 * `Navigation::registerMenu()` (ver o docblock de lá: ele registra toda
+	 * tela oculta com callback vazio, e esvaziaria o conteúdo das telas).
+	 * Recusando `registerMenu()` pelo motivo certo, esse plugin ficaria sem
+	 * a concessão de `view_admin_dashboard` — que é o que impede o
+	 * WooCommerce de expulsar do painel quem tem papel próprio.
+	 *
+	 * Então ele chama este método direto, passando o mesmo par que já
+	 * entregou a `Navigation` (o construtor dela já chamou `register()`), e
+	 * o gate passa a valer sem que o desenho do menu saia do plugin.
+	 *
+	 * **Compromisso de contrato:** esta assinatura não muda sem versão
+	 * MAIOR. Medido pelo GE Associados em 09/09/2026.
 	 */
 	public static function registerRootMenu( Registry $registry, ScreenAccess $access, string $menuSlug ): void {
 		$key = spl_object_id( $registry ) . ':' . spl_object_id( $access );
