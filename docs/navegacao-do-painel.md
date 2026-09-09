@@ -514,6 +514,17 @@ nada erra visivelmente, e a navegação simplesmente não é a compartilhada.
 (Para interface existe `interface_exists()`; mas, para detecção, prefira a
 classe — é um teste só, e não depende de quem lê lembrar da diferença.)
 
+⚠️ **A armadilha não é desta camada, é do PHP** — vale para qualquer nome
+que a biblioteca exporte, e reaparece a cada peça nova que tiver interface.
+Por isso a regra não é "lembre-se do `ScreenAccess`", é: **detecção sempre
+sobre classe.**
+
+**Prenda a regra com um teste, que é o que impede a "simplificação" futura**
+(contribuído pelo V3RProp na adoção de 09/09/2026): um teste que afirma que
+`class_exists()` sobre a interface responde `false`. Ele documenta a
+armadilha no lugar onde ela seria reintroduzida, e falha na cara de quem
+trocar a detecção de classe por interface achando que dá no mesmo.
+
 ## 7. Substituir submenus antigos pela entrada única (`LegacyRedirects`)
 
 Adotar esta camada troca vários submenus por **uma** entrada. Os endereços
