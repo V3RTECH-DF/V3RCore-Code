@@ -488,6 +488,15 @@ MenuOrder::announce( new MenuEntry( 'V3RProp', 'v3rprop', Family::V3RTECH ) );
 `add_menu_page()` — o anúncio governa **só** o agrupamento. Trocar o ícone
 pelo da família é decisão de quem adota a camada inteira.
 
+⚠️ **Anuncie no ponto por onde TODOS os caminhos passam, nunca dentro de um
+ramo condicional do registro de menu.** Plugin que registra menus diferentes
+conforme o estado do produto (setup completo ou não, licença ativa ou não)
+tem mais de um caminho até `add_menu_page()` — e anunciar dentro de um deles
+faz a entrada sumir do bloco **exatamente nos sites que caem no outro ramo**,
+que costumam ser os recém-instalados: o cenário que menos se testa e o que
+mais se parece com "a peça não funciona". Medido pelo RIT360 Solidário na
+adoção de 09/09/2026.
+
 ⚠️ **Anunciar dentro do `admin_menu` também vale** — e é onde o plugin que
 registra o menu do próprio jeito naturalmente vai chamar. Funciona porque
 `menu_order` roda **depois** de o `admin_menu` terminar; quem adota a camada
