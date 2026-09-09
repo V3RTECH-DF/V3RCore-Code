@@ -2,6 +2,33 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.25.0] — 2026-09-09
+
+### Adicionado
+- ⚠️ **O formato do anúncio de menu (`$GLOBALS['v3r_nav_family_menu_entries']`)
+  passa a ser CONTRATO PÚBLICO, com compromisso de não mudar sem versão
+  MAIOR** — nome da global e forma do registro (`slug => [ 'family', 'title' ]`).
+  Existe por um caso real: **produto da casa que não embute a biblioteca em
+  produção** (o servidor de licenças — ela é dependência de desenvolvimento,
+  usada só por teste de compatibilidade, e não vai no pacote). Para ele, a
+  "porta barata" não seria uma linha: seria passar a biblioteca para
+  produção, prefixar, empacotar e assumir risco de boot num site
+  institucional, para ganhar agrupamento de menu.
+
+  Agora ele **anuncia escrevendo direto na global**, sem dependência nenhuma,
+  com as garantias documentadas (chave é o slug do menu; `family` é `'rit'`
+  ou `'v3rtech'`; entrada malformada é ignorada e nunca derruba o menu).
+
+  ⚠️ **Limitação declarada:** quem escreve direto **não pendura os filtros de
+  reordenação**. Irrelevante onde algum adotante que embute a biblioteca
+  também anuncia; num site só com anunciantes diretos, nada reordena — e com
+  um anunciante só não há bloco a formar de qualquer maneira.
+
+  **A fachada continua sendo a forma preferida para quem tem a biblioteca
+  carregada.** A escrita direta é para quem não a tem, não atalho para quem
+  tem. Levantado pela sessão do V3RLicense, que recusou inventar a nona
+  variação e trouxe a decisão.
+
 ## [0.24.0] — 2026-09-09
 
 ### Adicionado

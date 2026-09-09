@@ -484,6 +484,45 @@ sem `Registry` e sem `Navigation`:
 MenuOrder::announce( new MenuEntry( 'V3RProp', 'v3rprop', Family::V3RTECH ) );
 ```
 
+#### E o plugin que NÃO embute a biblioteca? O anúncio é contrato público
+
+Existe produto da casa que não carrega a `v3r-core` em produção — o servidor
+de licenças é um: a biblioteca é dependência de **desenvolvimento**, usada
+só por teste de compatibilidade, e não vai no pacote. Para ele, "uma linha"
+não seria uma linha: seria passar a biblioteca para produção, prefixar,
+empacotar e assumir risco de boot num site institucional, para ganhar
+agrupamento de menu.
+
+⚠️ **Por isso o formato do anúncio é CONTRATO PÚBLICO, não detalhe interno** —
+ele já é compartilhado entre as cópias prefixadas de todos os adotantes, que
+é o que faz a reordenação convergir. Quem não embute a biblioteca escreve
+direto, no `admin_menu`, ao lado do `add_menu_page()` que já tem:
+
+```php
+$GLOBALS['v3r_nav_family_menu_entries']['v3rlicense'] = array(
+    'family' => 'v3rtech',   // 'rit' ou 'v3rtech'
+    'title'  => 'V3RLicense',
+);
+```
+
+**Garantias deste formato, para quem depende dele sem ter a classe:**
+
+- a **chave é o slug do menu** — o mesmo passado a `add_menu_page()`;
+- `family` é `'rit'` ou `'v3rtech'`; `title` é o nome exibido na coluna;
+- **entrada malformada é ignorada na leitura**, nunca derruba o menu;
+- **o nome da global e a forma do registro não mudam sem versão MAIOR.**
+
+⚠️ **A limitação, e ela é real:** quem escreve direto **não pendura os
+filtros de reordenação**. Num site onde algum adotante que embute a
+biblioteca também anuncia, isso é irrelevante — os filtros já estão lá, e a
+reordenação é função do conjunto anunciado, não de quem a pendurou. Num site
+com **apenas** anunciantes diretos, nada reordena. É aceitável porque, com um
+anunciante só, não há bloco a formar de qualquer maneira; mas dois
+não-consumidores sozinhos no mesmo site não se agrupam.
+
+**Prefira a fachada sempre que a biblioteca já estiver carregada.** A
+escrita direta existe para quem não a tem — não é atalho para quem tem.
+
 Ícone e posição continuam sendo os que o plugin declarou no próprio
 `add_menu_page()` — o anúncio governa **só** o agrupamento. Trocar o ícone
 pelo da família é decisão de quem adota a camada inteira.

@@ -29,5 +29,5 @@ final class Version {
 	/**
 	 * Versão semântica publicada, escrita pelo bump. Nunca vazia.
 	 */
-	public const CURRENT = '0.24.0';
+	public const CURRENT = '0.25.0';
 }

@@ -65,6 +65,17 @@ final class MenuOrder {
 	 * Chave da global compartilhada entre as cópias prefixadas da
 	 * biblioteca (ver docblock da classe). **Nunca prefixar** — o valor
 	 * igual em todas as cópias é o mecanismo, não um descuido.
+	 *
+	 * ⚠️ **É CONTRATO PÚBLICO, não detalhe interno.** Produto da casa que
+	 * não embute a biblioteca em produção (o servidor de licenças é um:
+	 * ela é dependência de desenvolvimento e não vai no pacote) anuncia
+	 * escrevendo direto nesta global — ver `docs/navegacao-do-painel.md`
+	 * §6, "E o plugin que NÃO embute a biblioteca?". O nome da global e a
+	 * forma do registro (`slug => [ 'family', 'title' ]`) **não mudam sem
+	 * versão MAIOR**.
+	 *
+	 * Quem escreve direto não pendura os filtros de reordenação — só quem
+	 * passa pela fachada o faz. Ver a limitação documentada no §6.
 	 */
 	public const GLOBAL_KEY = 'v3r_nav_family_menu_entries';
 
