@@ -24,6 +24,28 @@ que se usa tudo isto no dia a dia.
 `sync-code.sh` e `pull-code.sh` são excludentes: o código é nosso **ou** é
 espelho, nunca os dois. O `sync-all.sh` usa o que encontrar.
 
+### Medição do agrupamento do menu da família (`#25`/`#40`)
+
+| Script | Para que serve |
+|---|---|
+| `sonda-cookie.php` | Emite um cookie de sessão real de administrador, válido por uma hora. ⚠️ O valor é **credencial de sessão** — não deixar em log nem em histórico. |
+| `sonda-menu-familia.php` | Imprime a coluna do painel **depois** dos filtros de ordenação (o único momento em que a contiguidade se decide) e, ao lado, quem anunciou e se apareceu. |
+
+    COOKIE=$(docker exec <ctr> php /caminho/sonda-cookie.php)
+    docker exec -e V3R_PROBE_COOKIE="$COOKIE" <ctr> php /caminho/sonda-menu-familia.php
+
+⚠️ **São dois processos de propósito:** o cookie precisa existir **antes** de o
+WordPress carregar na passada que mede. Juntar num só reintroduz exatamente o
+defeito que a sonda existe para evitar — a identidade chegando tarde demais
+para quem captura o usuário corrente no boot.
+
+**Contribuída pelo V3RHelp em 09/09/2026**, depois de três sessões diagnosticarem
+errado o mesmo sintoma. Ela aborta se a identidade não resolver, em vez de medir
+e devolver número errado com cara de certo, e marca sozinha o cruzamento
+`anunciou × está na coluna` — que era a leitura feita a olho que produziu os
+diagnósticos errados. As armadilhas e a regra de leitura estão no cabeçalho dos
+próprios arquivos, que é onde se lê na hora que importa.
+
 ## Ordem canônica da cadeia (`sync-all.sh -a`)
 
 1. `sync-code` (ou `pull-code`) — código primeiro: o que vai para produção é
