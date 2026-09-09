@@ -39,6 +39,15 @@ PORTAL_REMOTE="${PORTAL_REPO:+https://github.com/$PORTAL_REPO.git}"
 
 MAIN_BRANCH="main"
 
+# ─── Pontos de versão (bump-version.sh) ──────────────────────────────────────
+# A versão PUBLICADA desta biblioteca (não a de nenhum plugin hospedeiro).
+# Único ponto hoje: a constante de classe que V3R\Core\Version expõe em
+# tempo de execução (V3RCore-Code#44) — não há cabeçalho de plugin nem
+# "version" em composer.json a manter alinhado aqui.
+VERSION_POINTS=(
+  "fallback:src/Version.php:CURRENT"
+)
+
 # ─── Manual (GitHub Pages) ───────────────────────────────────────────────────
 # Domínio próprio do manual. VAZIO = publica na URL padrão do Pages
 # (https://v3rtech-df.github.io// — o caminho preserva a CAIXA

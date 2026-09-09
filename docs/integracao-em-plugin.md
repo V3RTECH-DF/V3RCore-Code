@@ -772,6 +772,36 @@ material sensível direto numa pasta do plugin — e chame `sweepOrphans()`
 periodicamente (ex.: um cron do WordPress) para cobrir o caso de processo
 morto por sinal não capturável.
 
+## 7.5 Saber qual versão da biblioteca está embutida (V3RCore-Code#44)
+
+O guard de prefixação (§4) confere que a biblioteca chegou ao pacote —
+**não qual versão chegou**. Um `composer.lock` desatualizado (de outra
+máquina, ou de uma sincronização) faz o empacotamento embutir uma versão
+antiga em silêncio: suíte verde, guard aprovado, e a capacidade nova
+"não existe" em produção, com o código-fonte provando que ela existe.
+
+`V3R\Core\Version::CURRENT` é a defesa: uma constante de **classe**
+(nunca `define()` global — dois plugins da casa embutindo versões
+diferentes, cada um com o próprio prefixo, colidiriam num `define()` de
+nome fixo, porque a prefixação por namespace não alcança constante
+global), escrita só por `bin/bump-version.sh` no momento da publicação.
+
+```php
+use V3RTECH\MeuPlugin\Vendor\V3R\Core\Version;
+
+if ( class_exists( Version::class ) ) {
+	// diagnóstico, log, tela de suporte — nunca decisão de boot: a
+	// ausência da classe já é coberta pelo guard de class_exists() do
+	// resto da integração (§3, §7).
+	error_log( 'v3r-core embutida: ' . Version::CURRENT );
+}
+```
+
+A receita de empacotamento (`v3r-release`) usa o mesmo mecanismo para
+recusar um pacote cuja versão embutida diverge da esperada pelo build —
+ver `RELEASE_LIBRARY_VERSION_FILES` e `--expected-lib-version` em
+`v3r-release/docs/declaracao.md` (item 20 do §5 do contrato).
+
 ## 8. Configuração de produção: URL e chave pública via constantes
 
 > **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,

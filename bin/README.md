@@ -17,6 +17,7 @@ que se usa tudo isto no dia a dia.
 | `sync-code.sh` | Envia o repositório do código (quando o código é nosso). |
 | `pull-code.sh` | Traz o espelho somente-leitura do código (quando é do Lovable). |
 | `sync-tag.sh` | Publica a tag da versão corrente (`git describe --tags` a partir de HEAD) — nunca cria tag, nunca força, e só publica quando o servidor já tem o commit por trás (#30). |
+| `bump-version.sh` | Cópia canônica de `v3rtech-scripts` (ver cabeçalho do script). Sobe `V3R\Core\Version::CURRENT` (o único ponto declarado em `VERSION_POINTS`, `config.sh`) — nunca edite a constante à mão (#44). Não cria tag nem commita: `git tag` e `sync-tag.sh` continuam separados. |
 | `sync-project.sh` | Envia documentação, decisões e backlog. |
 | `publish-manual.sh` | Publica o manual do usuário no GitHub Pages. |
 

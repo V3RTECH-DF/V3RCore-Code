@@ -4,7 +4,7 @@
 > existe pronto para os plugins da casa consumirem, nos **dois** repositórios da
 > família. O que não estiver aqui é que se constrói.
 >
-> Atualizada em 07/09/2026.
+> Atualizada em 09/09/2026.
 >
 > ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
 > capacidade com um consumidor só — e capacidade com nenhum.
@@ -50,6 +50,7 @@ WordPress.
 | **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço, posição e contiguidade da família na coluna do painel | 0.22.0 | V3RLGPD, Flow | `navegacao-do-painel.md` |
 | **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando | 0.19.0 | V3RLGPD | `navegacao-do-painel.md` §7 |
 | **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | V3RLGPD | `papeis-orientados-a-dados.md` |
+| **Versão embutida em tempo de execução** | `Version::CURRENT` diz qual versão da biblioteca chegou de fato ao pacote — o guard de prefixação só confere que ela chegou | próxima publicação (#44) | `v3r-release` (item 20) | `integracao-em-plugin.md` §7.5 |
 
 ## O que o pacote de tela oferece
 
