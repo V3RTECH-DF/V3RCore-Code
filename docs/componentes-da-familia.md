@@ -47,7 +47,7 @@ WordPress.
 | **Acesso por link temporário** | a pessoa entra por um link enviado ao próprio e-mail | 0.8.0 | V3REvent | `acesso-por-link-temporario.md` |
 | **Notificação** | despacho de mensagem multi-canal (hoje, e-mail) | primeiras versões | Flow | — |
 | **Assinatura com certificado** | código de autenticidade, leitura do certificado, modo de assinatura | 0.11.0 | Flow | `assinatura-com-certificado.md` |
-| **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço, posição e contiguidade da família na coluna do painel | 0.22.0 | V3RLGPD, Flow, GE Associados (só declaração e guardas) | `navegacao-do-painel.md` |
+| **Navegação do painel** | entrada única no menu, navegação interna, permissão e bloqueio de endereço, posição e contiguidade da família na coluna do painel | 0.22.0 | **os 9** — Flow e V3RLGPD pela camada inteira; GE Associados só declaração e guardas; cinco pela porta barata; V3RLicense por escrita direta, sem embutir a biblioteca | `navegacao-do-painel.md` |
 | **Endereços antigos** | o endereço salvo de um submenu que deixou de existir continua funcionando — inclusive preservando parâmetros quando o destino é rota interna ou outra página do painel | 0.19.0 (slug de página do painel: próxima publicação) | V3RLGPD, GE Associados (previsto) | `navegacao-do-painel.md` §7 |
 | **Papéis orientados a dados** | papéis que o cliente edita, e quem pode o quê | 0.20.0 | V3RLGPD | `papeis-orientados-a-dados.md` |
 | **Versão embutida em tempo de execução** | `Version::CURRENT` diz qual versão da biblioteca chegou de fato ao pacote — o guard de prefixação só confere que ela chegou | próxima publicação (#44) | `v3r-release` (item 20) | `integracao-em-plugin.md` §7.5 |
