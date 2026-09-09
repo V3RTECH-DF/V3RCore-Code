@@ -488,6 +488,17 @@ MenuOrder::announce( new MenuEntry( 'V3RProp', 'v3rprop', Family::V3RTECH ) );
 `add_menu_page()` — o anúncio governa **só** o agrupamento. Trocar o ícone
 pelo da família é decisão de quem adota a camada inteira.
 
+⚠️ **Anunciar dentro do `admin_menu` também vale** — e é onde o plugin que
+registra o menu do próprio jeito naturalmente vai chamar. Funciona porque
+`menu_order` roda **depois** de o `admin_menu` terminar; quem adota a camada
+inteira anuncia mais cedo, no boot, por dentro do `registerMenu()`.
+
+**Consequência para quem mede, e ela já enganou:** o conjunto anunciado só
+está **completo ao fim do `admin_menu`**. Inspecionar a global antes disso
+mostra os adotantes da camada e **não** mostra os da porta barata — e a
+leitura natural do que falta é "aquele plugin não adotou", quando ele apenas
+ainda não chegou a anunciar.
+
 ### ⚠️ Detectar esta camada: teste uma classe, nunca a interface
 
 O padrão da casa para saber se a biblioteca chegou ao plugin é `class_exists()`
