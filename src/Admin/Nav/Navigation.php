@@ -229,6 +229,23 @@ final class Navigation {
 	 * chamável direto por teste, sem depender do hook disparar.
 	 *
 	 * No-op fora do WordPress, mesmo padrão do resto da biblioteca.
+	 *
+	 * ⚠️ **`registerMenu()` PRESSUPÕE roteamento no cliente, e isso não é
+	 * detalhe:** `addHiddenScreenPages()` registra toda tela oculta com
+	 * callback vazio (§7) — correto para quem tem UMA URL real e navega por
+	 * fragmento, que é o caso dos dois primeiros consumidores.
+	 *
+	 * **Plugin com PÁGINA REAL POR TELA não deve chamar este método** — ele
+	 * substituiria o conteúdo de todas as telas por um contêiner vazio.
+	 * Adote a declaração e as guardas (`Registry`/`Screen`, `canView()`,
+	 * `accessMap()`, `CapabilityAccess` ou motor próprio) e **mantenha o
+	 * registro das páginas no plugin**. A camada continua sendo fonte única
+	 * da permissão; só o desenho do menu fica com quem tem página real.
+	 *
+	 * Medido pelo GE Associados na adoção de 09/09/2026. É a segunda peça
+	 * desta camada com o pressuposto de fragmento embutido — a primeira foi
+	 * a preservação de parâmetros do `LegacyRedirects` (§7), resolvida com
+	 * um terceiro caso explícito.
 	 */
 	public function registerMenu( MenuEntry $entry ): void {
 		$this->menuEntry = $entry;
