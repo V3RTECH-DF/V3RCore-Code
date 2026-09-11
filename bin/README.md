@@ -28,23 +28,21 @@ espelho, nunca os dois. O `sync-all.sh` usa o que encontrar.
 
 | Script | Para que serve |
 |---|---|
-| `sonda-cookie.php` | Emite um cookie de sessão real de administrador, válido por uma hora. ⚠️ O valor é **credencial de sessão** — não deixar em log nem em histórico. |
-| `sonda-menu-familia.php` | Imprime a coluna do painel **depois** dos filtros de ordenação (o único momento em que a contiguidade se decide) e, ao lado, quem anunciou e se apareceu. |
+| `sonda-menu-familia.php` | Imprime a coluna do painel **depois** dos filtros de ordenação (o único momento em que a contiguidade se decide) e, ao lado, quem anunciou e se apareceu. Somente leitura. |
 
-    COOKIE=$(docker exec <ctr> php /caminho/sonda-cookie.php)
-    docker exec -e V3R_PROBE_COOKIE="$COOKIE" <ctr> php /caminho/sonda-menu-familia.php
+    docker exec -e V3R_PROBE_LOGIN=<usuario-de-teste> <ctr> php /caminho/sonda-menu-familia.php
 
-⚠️ **São dois processos de propósito:** o cookie precisa existir **antes** de o
-WordPress carregar na passada que mede. Juntar num só reintroduz exatamente o
-defeito que a sonda existe para evitar — a identidade chegando tarde demais
-para quem captura o usuário corrente no boot.
+⚠️ **Não emite credencial nenhuma** — não gera cookie, não cria sessão, não
+grava token. Diz ao WordPress, dentro do próprio processo, por qual usuário
+ler, e faz isso **antes** de o WordPress carregar: é o que evita a identidade
+chegar tarde demais para quem captura o usuário corrente no boot.
 
-**Contribuída pelo V3RHelp em 09/09/2026**, depois de três sessões diagnosticarem
-errado o mesmo sintoma. Ela aborta se a identidade não resolver, em vez de medir
-e devolver número errado com cara de certo, e marca sozinha o cruzamento
-`anunciou × está na coluna` — que era a leitura feita a olho que produziu os
-diagnósticos errados. As armadilhas e a regra de leitura estão no cabeçalho dos
-próprios arquivos, que é onde se lê na hora que importa.
+A versão anterior (09/09/2026, contribuída pelo V3RHelp) gerava um cookie de
+sessão de administrador num processo separado, e foi **substituída em
+11/09/2026** por conflitar com a regra de não gerar sessão sem autorização. As
+garantias continuam: aborta se a identidade não resolver, e marca sozinha o
+cruzamento `anunciou × está na coluna`. As armadilhas e a regra de leitura
+estão no cabeçalho do arquivo.
 
 ## Ordem canônica da cadeia (`sync-all.sh -a`)
 
