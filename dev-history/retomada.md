@@ -1,169 +1,105 @@
-# Retomada — V3RCore
+# Retomada — V3RCore (biblioteca e pacote de tela da família)
 
-_Escrito ao encerrar a sessão de 07/09/2026._
+_Escrito ao encerrar a sessão de 13/09/2026 (sessão aberta em 08/09, "GE Associados shared library migration")._
+
+## ⚠️ Primeira coisa a fazer ao abrir
+
+**Avise a sessão do V3RHelp que ela deve falar com você, e não com a sessão anterior (encerrada).** Ela está coordenando a `V3RHelp-Code#88` com o V3RCore.
+
+- Nome na frota: `v3rhelp-34`; endereço `uds:/run/user/1000/cc-socks/1012325.sock` (use `SendMessage` com `to` = esse endereço; se não resolver, `ListAgents` e procure `v3rhelp`).
+- Mensagem sugerida: "Aqui é a nova sessão do V3RCore — a anterior foi encerrada. Continue a #88 falando comigo: sigo aguardando o aviso de que o pacote das fatias 1+2+3 está instalado do ZIP no dev-wp para validar o acesso por pessoa antes de publicar."
+
+Canais entre sessões: sessões `local_…` do app → `mcp__ccd_session_mgmt__send_message` (ache o id com `mcp__ccd_session_mgmt__list_sessions`); sessões da frota (endereço `uds:` ou nome) → `SendMessage`. Para responder, copie o `from` da mensagem recebida.
 
 ## Onde você está
 
-O V3RCore não é um produto: é a **base compartilhada da família de plugins da casa**.
-O container `/mnt/trabalho/Projetos/V3RTECH/V3RCore/` abriga **dois repositórios
-independentes** — a raiz não é repositório, e `sync-all.sh` e `CLAUDE.md` na raiz são
-atalhos.
+Container `/mnt/trabalho/Projetos/V3RTECH/V3RCore` (a raiz **não** é repositório). Dois repositórios, ambos públicos:
+- `Code/` → `V3RTECH-DF/V3RCore-Code`, biblioteca PHP `v3rtech/v3r-core`, **v0.25.0**. Docs e gestão moram aqui (`docs/`, `dev-history/`).
+- `Front/` → `V3RTECH-DF/V3RFront-Code`, pacote de tela `@v3rtech/v3r-front`, **v0.6.0** (consumido por `github:V3RTECH-DF/V3RFront-Code#v0.6.0`, sem token).
 
-- **`Code/`** — a biblioteca PHP `v3rtech/v3r-core` (repo `V3RTECH-DF/V3RCore-Code`).
-  **Governa**: declara telas, resolve permissão, entrega a árvore de navegação
-  filtrada, posiciona a entrada no menu, bloqueia acesso direto, além de
-  licenciamento, assinatura, documentos, notificação e papéis.
-- **`Front/`** — o pacote de tela `@v3rtech/v3r-front` (repo `V3RTECH-DF/V3RFront-Code`,
-  público). **Desenha**: cabeçalho, barra de navegação, área de avisos, guarda de rota e
-  a correção de cascata do wp-admin.
+**Permitido:** commit, push e publicação sem pedir a cada vez (autorização durável do Bruno, 09/09). Envio por `sync-all.sh` da raiz, nunca `git push` cru. Porta de entrada do que existe: `Code/docs/componentes-da-familia.md` — atualizar na mesma entrega (capacidade nova, versão que muda o que a peça resolve, consumidor novo).
 
-⚠️ **A fronteira entre os dois é dado, não código** — o PHP produz a árvore, o
-componente consome uma forma documentada.
-
-**Uma terceira peça nasceu nesta sessão, fora do container:**
-`V3RTECH-DF/v3r-release` (clone em `/mnt/trabalho/Projetos/V3RTECH/v3r-release`), a
-receita única de empacotar, conferir e publicar os plugins. **Repositório público, e
-sem segredo dentro** — ver "Decisões".
-
-**O que é permitido:** commitar e publicar, com autorização permanente do Bruno para
-trabalho autônomo. **Push é dele.**
-
-⚠️ **Não existe `./sync-all.sh -p` neste container** (não há `bin/sync-project.sh`):
-documentação e gestão moram dentro de `Code/` e viajam no `-c`. Passar `-p` aborta o
-comando inteiro antes de enviar qualquer coisa.
+**Seu papel:** o Bruno pediu que a implantação de componente compartilhado nos plugins seja **orquestrada pelo V3RCore**; em divergência, o V3RCore decide. As sessões dos produtos dão alô, você orienta, e **valida por medição** as fatias de permissão antes de publicarem.
 
 ## Estado atual
 
-- **`v3rtech/v3r-core` v0.22.0** — publicada.
-- **`@v3rtech/v3r-front` v0.6.0** — publicada.
-- **`v3r-release`** — primeira fatia no ar (só a conferência; ainda sem tag).
+- **Agrupamento do menu da família: concluído nos 9 produtos da linha principal** (`V3RCore-Code#40`, fechada) e medido com até nove anunciantes. Quatro plugins de outra classe (Campos Extras, Descontos e Multas, Google Drive Viewer, EventMaster WP) ficam **fora por decisão do Bruno**.
+- **GE Associados migrou por inteiro** (GE 1.80.0, `GEAssociados-Code#183` fechada), validado por mim nas capacidades antes e depois da conversão de permissões.
+- **Migração de cabeçalho/menu/avisos/estilo:** feita em V3RLGPD, RIT360 Flow e GE. **Em andamento:** V3RHelp (`#88`). **Issues abertas em 13/09, aguardando alô de cada sessão:** `V3REvent-Code#180`, `V3RProp-Code#67`, `RIT360-Premiado-Code#212`, `RIT360-Solidario-Code#76` (migrar o painel para as peças compartilhadas) e `V3RLicense-Code#64` (só a parte visual).
 
-**Pronto e validado em produção, com dois consumidores:** navegação do painel,
-cabeçalho/barra/avisos, guarda de rota, correção de cascata — medidos no **V3RLGPD** e
-no **RIT360 Flow** convivendo no mesmo WordPress.
+## Coordenações em voo
 
-**Pronto e medido, esperando adoção:** a **posição das entradas no menu** (`#25`). A
-biblioteca agrupa; nenhum site vê o efeito enquanto os produtos não anunciarem — é a
-`#40`.
+| Produto | Onde está | O que espera de você |
+| --- | --- | --- |
+| V3RHelp (`#88`) | fatia 1 com o implementador | Cadência decidida pelo Bruno: **publicação 1 = fatias 1+2+3, só depois da sua validação de acesso por pessoa**; publicação 2 = fatia 4 (visual). |
+| V3REvent (`#180`) | não começou | Camada inteira (roteia por fragmento, entrada única). Tem área de avisos e cascata próprias, e dois bundles (painel + público). |
+| RIT360 Premiado (`#212`) | não começou | Camada inteira. Trocar o redirecionamento próprio de seções antigas pelo `LegacyRedirects` — conferir que quem não pode ver continua recusado. |
+| V3RProp (`#67`) | não começou | **Decidido pelo Bruno: uma entrada só no menu** (vale para toda a família). Falta a forma técnica: páginas próprias ocultas (como o GE) ou SPA por fragmento. `LegacyRedirects` para os submenus aposentados. |
+| RIT360 Solidário (`#76`) | não começou | **Uma entrada só no menu, decidido.** Levantar quais submenus são rotas do app e quais são páginas próprias; `LegacyRedirects` para os aposentados. |
+| V3RLicense (`#64`) | não começou | Só visual (não embute a biblioteca em produção). Decidir `FamilyNav` com árvore montada no produto ou manter navegação própria. |
 
-**Pela metade:** a `#16` (o catálogo saiu, a padronização do PDF não) e a receita única
-(`#14`/`#34`: confere, ainda não empacota).
+## Decisões pendentes do Bruno
 
-⚠️ **Cinco dos nove plugins ainda apontam para a `^0.7.0`**, de agosto.
+1. **`GEAssociados-Code#189` — Tesoureiro com usuário real**: o dev-wp não tem usuário nesse papel; criar ou alterar conta depende dele (opções: ele cria um usuário de teste; autoriza dar o papel a um usuário de teste existente e devolver; ou pular).
+2. **Reinstalar os plugins do dev-wp a partir dos pacotes publicados**: hoje GE, Flow e V3RLicense estão anteriores à adoção, e Premiado, Solidário, V3RHelp e V3RProp com **biblioteca antiga embutida apesar da versão nova** (copiados da árvore de trabalho). Medição de menu ali engana.
 
-## O que a última sessão fez
+## Como validar uma fatia de permissão (o método que funcionou no GE)
 
-1. **`#25` — entradas da família contíguas no menu** (`Admin\Nav\MenuOrder`, v0.22.0).
-   Medida num WordPress com oito plugins da casa: antes, produtos espalhados em quatro
-   trechos, um deles abaixo de Configurações; depois, um bloco só.
-2. **`#19` — apurada e devolvida**: não era da biblioteca. Ver "Premissas que caíram".
-   Corrigida no RIT360 Solidário (2.26.5, publicada).
-3. **Frente da publicação (`#14`/`#34`, mais a `#13` e a `#7` do CI)**: levantamento dos nove produtos,
-   duas decisões tomadas, repositório `v3r-release` criado, contrato escrito e a
-   **primeira fatia entregue** — a conferência do pacote.
-4. **Consertos de rota que apareceram no caminho**: a CI desta biblioteca estava
-   vermelha há 33 execuções; o `prj.sh` não via repositório nunca enviado; o manifesto
-   não registrava o `Front/`.
+1. Pacote **instalado do ZIP** no dev-wp (nunca cópia de árvore); conferir `Version::CURRENT` e a peça dentro do ZIP.
+2. Script de medição **somente leitura**, administrador que **não** é a conta pessoal, identidade resolvida **dentro do processo** semeando `$GLOBALS['wp_filter']['determine_current_user']` antes do `wp-load.php` (padrão de `Code/bin/sonda-menu-familia.php`) — **nunca gerar cookie ou sessão** (regra global).
+3. Listar `current_user_can` para as capacidades do produto, as calculadas (menu, licença, `v3r_nav_root_<slug>`, `v3r_nav_<tela>`, `view_admin_dashboard`) e a coluna/submenus; **antes × depois** da mudança, com `diff`.
+4. **Controle negativo que discrimina** (ex.: capacidade inventada gravada no papel tem de sair negada) — e isolar cada ponta (no GE, regravar a sonda **depois** da conversão provou a ponte, não só a limpeza).
+5. Snapshot dos papéis antes e depois da restauração, com `diff`. Registrar o resultado na issue do produto.
 
 ## Decisões, com o motivo
 
-- **O anúncio das entradas de menu é uma global compartilhada, NÃO prefixada** — cada
-  plugin embute a própria cópia da biblioteca, e uma reordenação que conhecesse só a
-  própria entrada faria as cópias brigarem. É o **oposto deliberado** do defeito da
-  v0.21.0: capability é *resposta sobre uma pessoa*, e responder pelo alheio é errado;
-  posição no menu é *fato sobre a coluna do site*, um só para todo mundo.
-- **Quem não adotou a camada de navegação entra no bloco com uma linha** — sem essa
-  porta, o benefício esperaria a adoção plugin a plugin.
-- **A receita de publicação mora em repositório PÚBLICO.** A alternativa privada faria
-  publicar depender de uma chave cadastrada em nove produtos — nove lugares para
-  expirar. ⚠️ Consequência: ali não entra segredo, endereço de site nem inventário.
-- **Régua única no que quebra o site; convenção declarada por produto**, com padrão de
-  fábrica "exige" — para não cumprir ser declaração visível com dono, não ausência que
-  ninguém enxerga.
-- **A conferência abre o pacote de verdade**, nunca o diretório que ia virar pacote —
-  quatro produtos param nessa meia prova.
-- **A versão esperada é argumento obrigatório.** Deduzi-la do nome do arquivo seria
-  circular, e a convenção nem existe entre os produtos.
+- **Todo plugin da família tem uma entrada só no menu do WordPress** (Bruno, 13/09) — menu lateral com várias entradas deixa de existir; navegação interna pela barra da família.
 
-## Premissas que caíram
+- **Formato do anúncio de menu é contrato público** (`$GLOBALS['v3r_nav_family_menu_entries'][slug] = ['family','title']`, não muda sem MAIOR) — produto que não embute a biblioteca anuncia por escrita direta (0.25.0).
+- **`NavCapabilityGate::registerRootMenu()` é uso suportado por chamada direta** (0.24.0) — plugin com página real por tela não pode chamar `registerMenu()` e ficaria sem `view_admin_dashboard` (WooCommerce expulsa papel próprio do painel).
+- **`LegacyRedirects` ganhou o caso "slug de página do painel"** preservando parâmetros (0.23.0); o ramo de URL absoluta continua literal de propósito (não vaza parâmetro para fora do site).
+- **Limitador de eixo único: origem como identificador** é uso suportado; um prefixo por ponto de limite; identificador vazio vira teto global.
+- **Não promover** caminho de conversão de capacidade nativa → matriz, nem marcador de conversão: um consumidor só (GE).
 
-- **`#19` culpava a biblioteca, e o custo descrito não existia.** O endereço de licença
-  lê só o cache local — não há ida ao servidor nem risco de dois tempos limite. O
-  defeito era do consumidor e maior: **a SPA inteira do Solidário montava duas vezes**,
-  porque o módulo de entrada era baixado por dois endereços (um com `?ver=`, outro sem,
-  pelo grafo de imports) e módulo ES é deduplicado por URL. Toda tela pedia tudo em
-  dobro. E **não era o modo estrito do React** — os dois renderizadores da página
-  reportam build de produção.
-- **`#13` e `#7` descreviam um estado que não existe mais.** Os dez repositórios já
-  validam commit em push e PR; a `#7` estava corrigida aqui desde 27/08. As duas foram
-  fechadas, e o que sobrou virou a **`#41`**: cinco produtos têm estilo e análise
-  configurados e **não os rodam** — e, mais grave, falha de CI não chega a ninguém.
-- **"A cópia mais completa do guard" não existe.** Nenhuma contém as outras — cinco
-  produtos têm, cada um, uma verificação exclusiva. Unificar é **somar**.
-- **Fixture escrito por quem escreveu a verificação concorda com ela.** A conferência
-  de nome de classe em texto passou em 25 testes e **reprovava todo pacote corretamente
-  prefixado** — o nome prefixado contém o original como sufixo. Só o pacote real pegou.
-- **CI verde no dia em que se escreveu não é rede de proteção.** A desta biblioteca
-  ficou vermelha 33 execuções seguidas, por um detalhe do teste do espelho JS, e
-  ninguém viu.
-- **Ferramenta que compara com o erro descartado responde "tudo em ordem".** O `prj.sh`
-  dizia isso para um repositório que nunca foi enviado.
+## Premissas que caíram (não repita)
 
-## Issues pendentes, por prioridade
+- **Enumerar adotantes por "quem consome a biblioteca"** deixou o V3RLicense (servidor, não cliente) de fora. A pergunta certa é "quem tem entrada no painel de um site da casa".
+- **`registerMenu()` e o ramo de parâmetros do `LegacyRedirects` pressupõem roteamento por fragmento** — descoberto pelo consumidor lendo o corpo do método, duas vezes. Página real por tela adota só declaração e guardas.
+- **`.v3r-typography` na própria raiz do `cascadeFix` não casa** — tem de ser descendente (contrato do pacote §3, corrigido).
+- **A primeira sonda do menu gerava cookie de administrador** — violava a regra global; substituída em 11/09.
+- **Busca textual não mede estrutura**: dois diagnósticos errados (CNPJ "sem validação", "quatro telas quebram com F5") e uma varredura de CI com falso positivo nasceram disso. Execute a estrutura.
+- **"Publicado" tem quatro posições**: commitado e enviado × tag empurrada × release publicada × rodando nas produções. E o `bump-version.sh` **não cria tag** — publique a tag à parte.
+- **Data de modificação não prova sobrescrita** (`rsync -a` preserva); a data de alteração (ctime) sim.
+- **Relatório de implementador não é prova**: no GE, um teste declarado como feito não existia na suíte.
 
-| # | Descrição curta | Por que está nesta posição |
-|---|---|---|
-| 33 | O registro de ativação nunca aprende a versão nova | defeito com efeito em produção — o painel de licenças mostra versão errada de todo mundo |
-| 40 | Adoção da posição de menu nos oito plugins | a biblioteca já agrupa; sem isso nenhum cliente vê diferença nenhuma |
-| 14 + 34 | Receita única de publicação e o guard de prefixação | em andamento; já derrubou o checkout de quatro sites uma vez |
-| 41 | O CI confere coisas diferentes em cada produto, e a vermelhidão não chega a ninguém | anda junto da `#14`, que já vai declarar os comandos de cada produto; nivelar antes cria a nona cópia |
-| 16 | Padronizar a geração de PDF (o catálogo já saiu) | é a mesma reimplementação em triplicata que fez esta biblioteca existir; grande, e por isso adiada |
-| 38 | Identificador de tela vira endereço global do WordPress, sem proteção contra colisão | dois plugins podem sequestrar a tela um do outro; ainda não aconteceu |
-| 31 | Vocabulário de recusa do V3RSigner | a biblioteca tem o contrato do assinador e nada sobre o que o serviço responde ao recusar |
-| 37 | Atributos comuns de bloco | espera deliberada pelo segundo consumidor — promover com um só repete o erro conhecido |
+## Issues abertas do V3RCore, por prioridade
 
-O que mais pesou na ordem: **o que o usuário sente vem antes da dívida interna**, e
-capacidade com um consumidor só não é promovida. A `#40` subiu porque é o que
-transforma trabalho já feito em algo visível.
+| # | Descrição curta | Por que nesta posição |
+| --- | --- | --- |
+| 44 | Versão da biblioteca embutida no pacote não era visível | ⚠️ **Dúvida para fechar**: capacidade entregue na 0.23.0 e conferência no `v3r-release`; falta a adoção no empacotamento dos produtos (`GEAssociados-Code#186`). Pergunte ao Bruno. |
+| 43 | Cabeçalho compartilhado transborda a tela em 375px | Afeta quem usa o painel no celular, em todos os adotantes. |
+| 42 | Promover montagem de chamada REST (8 cópias, 4 defeituosas) | Defeito latente em 4 produtos, quebra silenciosa com permalink simples. |
+| 45 | Matriz de papéis não distingue "nunca semeada" de "esvaziada" | Latente; tela que apagar todos os cargos ressuscitaria os padrões. |
+| 14 / 34 / 41 | Padronizar publicação, guard de prefixação divergente, CI que não avisa | Um bloco; a primeira fatia já saiu (`v3r-release`). |
+| 38 | Identificador de tela vira endereço global sem proteção de colisão | Latente. |
+| 33 | Registro de ativação não aprende a versão nova | Interno. |
+| 16 / 31 / 37 | PDF padronizado, vocabulário de recusa do V3RSigner, atributos de bloco | Aguardando segundo consumidor ou priorização. |
+
+O que mais pesou: impacto em quem usa o painel antes de dívida interna.
 
 ## Próximo passo
 
-**Segunda fatia do `v3r-release`: o empacotamento e a ação do robô, com o V3REvent
-migrado como prova** — medido antes de encostar nos outros oito. O V3REvent porque a
-`#14` já elege o fluxo dele como modelo, ele tem o script dentro do repositório do
-código, e é o único que confere o cache-busting dos artefatos de front, que é uma das
-verificações a preservar na soma.
+Avisar o `v3rhelp-34` (topo deste arquivo) e aguardar o pacote das fatias 1+2+3 do V3RHelp para validar com o método acima.
 
 ## Comandos úteis
 
-Da raiz do container (`/mnt/trabalho/Projetos/V3RTECH/V3RCore/`):
+```bash
+cd /mnt/trabalho/Projetos/V3RTECH/V3RCore && RIT_YES=1 ./sync-all.sh -c   # envia a biblioteca (Code/, com docs e gestão)
+cd /mnt/trabalho/Projetos/V3RTECH/V3RCore && RIT_YES=1 ./sync-all.sh -f   # envia o pacote de tela (código e tag)
+cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && composer check          # phpunit + phpstan + phpcs + testes JS
+cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && bin/bump-version.sh minor  # sobe Version::CURRENT; NÃO cria tag
+cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && git tag -a vX.Y.Z -m "..." && cd .. && RIT_YES=1 ./sync-all.sh -t   # publica a tag
+docker exec -e V3R_PROBE_LOGIN=<usuario-de-teste> dev-wp php /caminho/sonda-menu-familia.php   # coluna do painel + anunciantes (somente leitura)
+```
 
-    ./sync-all.sh -a          # commita e envia tudo o que existir
-    ./sync-all.sh -c          # só a biblioteca PHP (Code/) — leva docs e gestão junto
-    ./sync-all.sh -f          # só o pacote de tela (Front/) — publica código E tag
-    ./sync-all.sh -t          # publica a tag da versão corrente
-    ./sync-all.sh -a --dry-run
-
-Validação da biblioteca, dentro de `Code/`:
-
-    composer check            # phpunit + phpstan + phpcs
-
-Validação do pacote de tela, dentro de `Front/`:
-
-    npm run lint && npm run test && npm run build
-
-A conferência de pacote, em `/mnt/trabalho/Projetos/V3RTECH/v3r-release`:
-
-    bash tests/run-tests.sh          # a suíte
-    bash tests/run-tests-reais.sh    # contra os .zip publicados dos produtos
-
-Alinhar as máquinas (lê o manifesto em `v3rtech-scripts/configs/projetos.manifesto`):
-
-    utils/prj.sh              # situação
-    utils/prj.sh -s           # traz e envia
-
-⚠️ Mexeu no `v3rtech-scripts`? Rode `utils/publicar.sh` — quem está no PATH é a cópia
-publicada, não a árvore de desenvolvimento.
-
-Issues (a lista viva de trabalho) em `V3RTECH-DF/V3RCore-Code`. Para autenticar, carregue
-`Code/bin/config.sh` no **mesmo comando** do `gh`.
+Token do GitHub: `source <projeto>/bin/config.sh` no mesmo comando do `gh` (para repositórios RIT-DF, use o `config.sh` de um projeto RIT).
