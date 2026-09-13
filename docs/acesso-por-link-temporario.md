@@ -102,7 +102,21 @@ permitida e numa recusada.
   permanece bloqueada em vez de reabrir a cada expiração parcial.
 - **Nada identificável na chave** — identificador e origem são normalizados e
   derivados em `sha256`; nome de transient é legível na base.
-- **Origem vazia agrupa todo mundo num balde só** — falha fechando.
+- **Origem vazia agrupa todo mundo num balde só** — falha fechando. ⚠️ **Vale
+  igual para identificador vazio:** passar `''` como identificador transforma o
+  limite num **teto global do site inteiro**, e a primeira rajada bloqueia todo
+  mundo.
+- **Endpoint de eixo único é uso suportado: passe a própria origem como
+  identificador.** Onde não existe nada que a pessoa digite (simulador público,
+  disparo de rotina externa), `registerAttempt( $origem, $origem )` faz os dois
+  contadores andarem juntos, e o efeito é limite por endereço de rede — com o
+  registro incondicional preservado. Onde houver identificador real (a conta da
+  pessoa, o token digitado), use-o: aí são dois eixos de verdade. Levantado pelo
+  GE Associados em 12/09/2026, que tinha seis pontos de limite e só um com dois
+  eixos.
+- **Um prefixo de chave por endpoint.** Dois pontos de limite com o mesmo
+  `$keyPrefix` dividem a mesma cota — a janela e o teto de um passam a valer
+  para o outro.
 - **`resetIdentifier()` / `resetOrigin()`** para a tela de suporte, quando
   alguém legítimo esbarra no teto e não pode esperar a janela.
 - Padrões: janela de 900s, teto de 3 tentativas, ambos configuráveis.
