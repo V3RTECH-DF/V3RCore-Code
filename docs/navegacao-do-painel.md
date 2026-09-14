@@ -644,6 +644,41 @@ nenhum. Consequência aceita: quem não pode ver a tela é levado até ela e
 recebe a recusa **dentro do produto**, com mensagem melhor que o erro
 genérico do WordPress.
 
+### ⚠️ Slug antigo NÃO registrado por ninguém: o WordPress recusava antes de `admin_init` (0.26.0, `#40`)
+
+Até a `0.25.0`, `LegacyRedirects` só funcionava para um slug antigo que
+**coincidisse** com alguma página já registrada (a entrada única, uma tela
+oculta da própria camada, ou uma página que o plugin registrasse do próprio
+jeito). Medido em produção no V3RLGPD e na migração do RIT360 Premiado: um
+slug antigo que não coincide com NADA registrado nunca chega a
+`maybeRedirect()` — o `wp-admin/admin.php` decide se a página existe
+(`menu.php`, disparando `admin_menu`, e `user_can_access_admin_page()`)
+**antes** de disparar `admin_init`, e recusa a requisição com `wp_die()`
+(403) antes de a classe ter qualquer chance de agir.
+
+**A partir da `0.26.0`, `LegacyRedirects` fecha esse buraco sozinha.** Ela
+pendura um segundo hook, `registerMissingPages()`, em `admin_menu` (prioridade
+`PHP_INT_MAX` — depois que qualquer outro registro de menu da requisição já
+aconteceu, inclusive de outros plugins). Para cada slug do mapa que ainda não
+está em `$menu` nem em `$submenu` de nenhum pai, ela registra uma página
+oculta de marcação (`add_submenu_page( null, ..., 'read', $oldSlug,
+$callback-vazio )`) — só para o WordPress deixar a requisição passar até
+`admin_init`, onde `maybeRedirect()` intercepta antes de qualquer coisa ser
+desenhada. Slug que já coincide com algo registrado não ganha marcação e
+continua exatamente como já funcionava — nenhuma página duplicada.
+
+⚠️ **A capacidade da marcação é `read`, a mínima que todo usuário autenticado
+tem** — coerente com "não decide permissão", acima: ela só evita o 403 do
+WordPress, nunca decide quem pode ver o destino. Quem não pode ver o destino
+continua sendo recusado LÁ, dentro do produto.
+
+**Anônimo e a expulsão do WooCommerce não são afetados.** O WordPress manda o
+usuário não autenticado para o login antes de `menu.php` sequer carregar —
+fora do alcance desta classe. A expulsão do WooCommerce
+(`WC_Admin::prevent_admin_access`) roda em `admin_init`, no mesmo hook de
+`maybeRedirect()`, e continua decidindo só quem pode ver — não se a página
+existe, que é o problema que este parágrafo fecha.
+
 ### ⚠️ Preservar parâmetros **não** é a mesma proteção para os dois grupos
 
 Para quem roteia **no servidor**, preservar os demais parâmetros resolve de

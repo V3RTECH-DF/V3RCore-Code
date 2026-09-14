@@ -2,6 +2,33 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.26.0] — 2026-09-13
+
+### Corrigido
+- **`Admin\Nav\LegacyRedirects` deixa de recusar com 403 o endereço antigo
+  que ninguém registrou** (V3RCore-Code#40). No ciclo real do
+  `wp-admin/admin.php`, o WordPress decide se a página existe (`menu.php`,
+  disparando `admin_menu`) **antes** de disparar `admin_init` — um slug
+  antigo que não coincide com nenhuma página real nunca chegava a
+  `maybeRedirect()`, porque o hospedeiro recusava a requisição antes.
+  Medido no V3RLGPD em produção (`v3rlgpd-docs`, `v3rlgpd-ropa`) e no
+  RIT360 Premiado em migração.
+
+  A correção acrescenta `registerMissingPages()`, preso ao `admin_menu`
+  (prioridade `PHP_INT_MAX`, depois de qualquer outro registro de menu da
+  requisição): para cada slug do mapa que ainda não está em `$menu`/
+  `$submenu` de ninguém, registra uma página oculta de marcação
+  (capacidade mínima `read`, callback vazio) — só para o WordPress deixar
+  a requisição passar até `admin_init`, onde `maybeRedirect()` intercepta
+  antes de qualquer coisa ser desenhada. Slug já registrado (pela própria
+  camada, pelo plugin no próprio jeito, ou por outro) não ganha marcação e
+  continua exatamente como já funcionava. `LegacyRedirects` continua **não
+  decidindo permissão** — a marcação só evita o 403 do WordPress; quem não
+  pode ver o destino é recusado lá, dentro do produto.
+
+  API pública inalterada (construtor e `register()`); nenhum consumidor
+  precisa mudar código.
+
 ## [0.25.0] — 2026-09-09
 
 ### Adicionado
