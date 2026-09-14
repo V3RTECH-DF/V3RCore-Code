@@ -4,7 +4,7 @@
 > existe pronto para os plugins da casa consumirem, nos **dois** repositórios da
 > família. O que não estiver aqui é que se constrói.
 >
-> Atualizada em 13/09/2026.
+> Atualizada em 14/09/2026.
 >
 > ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
 > capacidade com um consumidor só — e capacidade com nenhum.
@@ -56,11 +56,11 @@ WordPress.
 
 | Peça | O que resolve | Desde | Quem consome hoje |
 | --- | --- | --- | --- |
-| **Cabeçalho** | logo, título da tela, versão e ações, na régua da família; quebra linha em tela estreita sem apagar o título | 0.1.0 (tela estreita: 0.7.0; título longo sem reticências no celular: 0.7.2) | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0) |
-| **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0) |
-| **Área de avisos do painel** | põe os avisos do WordPress no lugar certo — abaixo da barra de navegação — com o desenho do wp-admin preservado | 0.1.0 (desenho do aviso: 0.7.0) | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0) |
+| **Cabeçalho** | logo, título da tela, versão e ações, na régua da família; quebra linha em tela estreita sem apagar o título | 0.1.0 (tela estreita: 0.7.0; título longo sem reticências no celular: 0.7.2) | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0), RIT360 Premiado (2.33.0) |
+| **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0), RIT360 Premiado (2.33.0) |
+| **Área de avisos do painel** | põe os avisos do WordPress no lugar certo — abaixo da barra de navegação — com o desenho do wp-admin preservado | 0.1.0 (desenho do aviso: 0.7.0) | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0), RIT360 Premiado (2.33.0) |
 | **Guarda de rota** | responde se a pessoa pode abrir uma rota, negando o desconhecido | 0.2.0 | V3RLGPD, Flow, V3RHelp, V3REvent (1.87.0), RIT360 Premiado (2.32.0), V3RProp (1.31.0), RIT360 Solidário (2.28.0) |
-| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava — só dentro do wp-admin, sem impor esse desenho em página pública | 0.6.0 (⚠️ use 0.7.3: a 0.6.0 apaga checkbox, radio e o desenho do aviso; a 0.7.0 encolhe esses controles e o aviso no celular; a 0.7.1 deixa checkbox e radio ovais dentro de linha flex estreita; a 0.7.0–0.7.2 pintam o checkbox com o azul do wp-admin também fora dele) | V3RLGPD (painel e gestão pública), GE Associados, V3RHelp (1.34.0, painel e embutido), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0) |
+| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava — só dentro do wp-admin, sem impor esse desenho em página pública | 0.6.0 (⚠️ use 0.7.3: a 0.6.0 apaga checkbox, radio e o desenho do aviso; a 0.7.0 encolhe esses controles e o aviso no celular; a 0.7.1 deixa checkbox e radio ovais dentro de linha flex estreita; a 0.7.0–0.7.2 pintam o checkbox com o azul do wp-admin também fora dele) | V3RLGPD (painel e gestão pública), GE Associados, V3RHelp (1.34.0, painel e embutido), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0), RIT360 Premiado (2.33.0) |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
 
