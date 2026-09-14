@@ -9,7 +9,7 @@ _Escrito em 13/09/2026, ao passar a orquestração para uma sessão nova (a ante
 
 ## ✅ Migração concluída (14/09/2026)
 
-Todos os produtos da rodada publicaram a camada e a visual, medidos antes de cada publicação: V3RHelp 1.34.1, GE Associados 1.81.2, V3RProp 1.32.0, V3RLicense 0.35.0, RIT360 Solidário 2.29.0, V3RLGPD 1.79.2, V3REvent 1.88.0, RIT360 Premiado 2.33.0. RIT360 Flow ficou fora (plugin congelado). V3RCore-Code#43 e #46 fechadas. Continuam abertas, fora da migração: V3RCore-Code#49 (fecha quando uma superfície pública for medida com a v0.7.3 — V3RLGPD-Code#120), #50 (LegacyRedirects com 403 para quem não tem a permissão da tela), #47, #48, #38. Nos produtos: V3RProp #68/#69/#70, Premiado #214, V3REvent #181–#184, Solidário #79/#80, V3RLGPD #120.
+Todos os produtos da rodada publicaram a camada e a visual, medidos antes de cada publicação, e estão no site da V3RTECH e na atualização automática: V3RHelp 1.34.2, GE Associados 1.81.2, V3RProp 1.32.0, V3RLicense 0.35.0, RIT360 Solidário 2.29.0, V3RLGPD 1.79.2, V3REvent 1.88.0, RIT360 Premiado 2.33.0. RIT360 Flow ficou fora (plugin congelado). V3RCore-Code#43 e #46 fechadas. Continuam abertas, fora da migração: V3RCore-Code#49 (fecha quando uma superfície pública for medida com a v0.7.3 — V3RLGPD-Code#120), #50 (LegacyRedirects com 403 para quem não tem a permissão da tela), #47, #48, #38. Nos produtos: V3RProp #68/#69/#70, Premiado #214, V3REvent #181–#184, Solidário #79/#80, V3RLGPD #120.
 
 ## Papel desta sessão
 
