@@ -22,7 +22,7 @@ O Bruno pediu que a migração dos plugins para as peças compartilhadas seja **
 
 | Produto | Publicação 1 (camada + guarda) | Publicação 2 (visual) | Próximo passo |
 |---|---|---|---|
-| V3RHelp | 1.33.0 ✅ | 1.34.0 + 1.34.1 (checkbox no celular) ✅ | Issue #88 fechada. Falta a confirmação de que a recaptura do manual terminou e deixou os usuários 98/99 intactos. |
+| V3RHelp | 1.33.0 ✅ | 1.34.0 + 1.34.1 (checkbox no celular) ✅ | Concluído. Issue #88 fechada; recaptura do manual terminou com os usuários 97/98/99 intactos (conferido pela sessão do V3RHelp). |
 | GE Associados | (já migrado) | 1.81.2 com v0.7.1 ✅ | Concluído (GEAssociados-Code#201 fechada). |
 | V3REvent | 1.87.0 ✅ | fatia 4 instalada no dev-wp, **bloqueada** | Check-in em branco: pedaços sob demanda importavam `./admin.js`/`./front.js`, e a query `?ver=` gerava uma segunda cópia do React. A correção (entrada fina com `import()` do app) está com o implementador. Rótulos da barra: "API" volta a "Shortcodes e API"; "Painel"/"Dashboard" seguem a opção (c), cada superfície com o rótulo de hoje, e há issue para o Bruno unificar. Depois: subir para v0.7.2, remedir (viewport criada já em 375, `matchMedia` registrado, padding do aviso) e liberar. |
 | RIT360 Premiado | 2.32.0 ✅ | fatia 4 instalada, ajustes pedidos | O aviso ainda fica entre cabeçalho e barra (tem de ficar abaixo); botões e alguns inputs não estão em Exo 2 (apurar a regra vencedora); subir para v0.7.2 (título truncado em 375). Página pública idêntica ✅. |
@@ -36,7 +36,7 @@ O Bruno pediu que a migração dos plugins para as peças compartilhadas seja **
 
 1. **Quem republica o V3RLGPD e o Flow**: ele abre uma sessão para cada um (recomendado) ou esta sessão faz direto.
 2. **Reabrir a sessão do V3RLicense.**
-3. **Cor do Solidário** (a sessão do produto leva a ele).
+3. ~~Cor do Solidário~~ — **decidida pelo Bruno: #24ae9c** (verde-azulado do documento de identidade), em `--v3r-accent` num ponto único.
 
 ## Regras da família decididas nesta rodada (valem para toda adoção)
 
