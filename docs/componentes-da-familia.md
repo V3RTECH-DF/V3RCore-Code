@@ -60,7 +60,7 @@ WordPress.
 | **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0) |
 | **Área de avisos do painel** | põe os avisos do WordPress no lugar certo — abaixo da barra de navegação — com o desenho do wp-admin preservado | 0.1.0 (desenho do aviso: 0.7.0) | V3RLGPD, Flow, GE Associados, V3RHelp (1.34.0) |
 | **Guarda de rota** | responde se a pessoa pode abrir uma rota, negando o desconhecido | 0.2.0 | V3RLGPD, Flow, V3RHelp, V3REvent (1.87.0), RIT360 Premiado (2.32.0) |
-| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava | 0.6.0 (⚠️ use 0.7.0: a 0.6.0 apaga checkbox, radio e o desenho do aviso) | V3RLGPD (painel e gestão pública), GE Associados, V3RHelp (1.34.0, painel e embutido) |
+| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava | 0.6.0 (⚠️ use 0.7.1: a 0.6.0 apaga checkbox, radio e o desenho do aviso; a 0.7.0 encolhe esses controles e o aviso no celular) | V3RLGPD (painel e gestão pública), GE Associados, V3RHelp (1.34.0, painel e embutido) |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
 
