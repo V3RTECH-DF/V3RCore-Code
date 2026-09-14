@@ -41,6 +41,8 @@ def parse(user, page, full):
             if m:
                 put(f"{m.group(1)} {m.group(2)}", user, m.group(3))
             continue
+        if direto and s.startswith(("mensagem:", "diagnostico:")):
+            continue  # detalhe da recusa: fica no .txt, não na matriz
         if direto and s.startswith("resultado:"):
             put(f"acesso direto ?page={page}", user, s.split(":", 1)[1].strip())
             continue
