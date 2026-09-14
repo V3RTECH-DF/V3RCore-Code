@@ -71,6 +71,35 @@ namespace V3R\Core\Admin\Nav;
  * evita que o hospedeiro chegue a desenhar (ou não desenhar) qualquer
  * coisa para o endereço antigo.
  *
+ * **A recusa acontece ANTES de `admin_init`, para slug antigo que ninguém
+ * registrou** (V3RCore-Code#40). No `wp-admin/admin.php` real, a ordem é:
+ * `menu.php` monta `$menu`/`$submenu` (dispara `admin_menu`) e chama
+ * `user_can_access_admin_page()` — que devolve `wp_die()` 403 quando o
+ * `page` pedido não bate com nada registrado — e só DEPOIS disso o
+ * WordPress dispara `admin_init`. Um slug antigo que não coincide com
+ * nenhuma página real nunca chega a `maybeRedirect()`: o hospedeiro recusa
+ * antes. Esta classe fecha esse buraco registrando, em `admin_menu`
+ * (`registerMissingPages()`, prioridade `PHP_INT_MAX` — depois que
+ * qualquer outro registro de menu da requisição já aconteceu), uma página
+ * oculta de marcação (`add_submenu_page( null, ..., 'read', $oldSlug,
+ * $callback-vazio )`) para cada slug do mapa que ainda não está em
+ * `$menu`/`$submenu`. A marcação não desenha nada — só existe para o
+ * WordPress deixar a requisição passar até `admin_init`, onde
+ * `maybeRedirect()` intercepta antes de qualquer coisa ser desenhada.
+ *
+ * ⚠️ **A capacidade da página de marcação é `read`, a mínima que todo
+ * usuário autenticado tem** — coerente com "não decide permissão" (abaixo):
+ * ela só evita o 403 do WordPress, nunca decide quem pode ver o destino.
+ * Quem não pode ver o destino é recusado LÁ, dentro do produto, exatamente
+ * como já acontecia para o slug que coincidia com página real.
+ *
+ * ⚠️ **Anônimo e a expulsão do WooCommerce não são afetados.** O WordPress
+ * manda o usuário não autenticado para o login antes de `menu.php` sequer
+ * carregar (fora do alcance desta classe). A expulsão do WooCommerce
+ * (`WC_Admin::prevent_admin_access`) roda em `admin_init`, no mesmo hook de
+ * `maybeRedirect()` — inalterada por esta correção: ela só decide se a
+ * PÁGINA existe, nunca quem pode vê-la.
+ *
  * **Testabilidade do redirecionamento real:** `maybeRedirect()` precisa
  * interromper a requisição depois de mandar o cabeçalho — em produção,
  * `exit`. Em vez de chamar `exit` direto (intestável sem matar o processo
@@ -155,9 +184,11 @@ final class LegacyRedirects {
 	}
 
 	/**
-	 * Prende `maybeRedirect()` ao hook `admin_init`. `maybeRedirect()`
-	 * continua público e chamável direto por teste, sem depender do hook
-	 * disparar (mesmo padrão de `Navigation::renderMenu()`).
+	 * Prende `registerMissingPages()` ao `admin_menu` (prioridade
+	 * `PHP_INT_MAX`, para rodar depois de qualquer outro registro de menu
+	 * da requisição) e `maybeRedirect()` ao `admin_init`. Os dois métodos
+	 * continuam públicos e chamáveis direto por teste, sem depender de
+	 * hook nenhum disparar (mesmo padrão de `Navigation::renderMenu()`).
 	 *
 	 * No-op fora do WordPress.
 	 */
@@ -166,7 +197,71 @@ final class LegacyRedirects {
 			return;
 		}
 
+		add_action( 'admin_menu', array( $this, 'registerMissingPages' ), PHP_INT_MAX );
 		add_action( 'admin_init', array( $this, 'maybeRedirect' ) );
+	}
+
+	/**
+	 * Chamado pelo hook `admin_menu`. Para cada slug antigo do mapa que
+	 * ainda não corresponde a nenhuma página registrada (nem `$menu`, nem
+	 * `$submenu` de nenhum pai — docblock da classe), registra uma página
+	 * oculta de marcação, só para o WordPress deixar a requisição passar
+	 * até `admin_init` em vez de recusar com 403 antes de chegar lá.
+	 *
+	 * Slug já registrado por qualquer um (a própria camada de navegação,
+	 * o plugin no próprio jeito, ou outro plugin) não ganha marcação —
+	 * continua exatamente como já funcionava.
+	 */
+	public function registerMissingPages(): void {
+		if ( ! function_exists( 'add_submenu_page' ) ) {
+			return;
+		}
+
+		foreach ( array_keys( $this->map ) as $oldSlug ) {
+			if ( self::isSlugAlreadyRegistered( $oldSlug ) ) {
+				continue;
+			}
+
+			add_submenu_page(
+				null,
+				$oldSlug,
+				$oldSlug,
+				'read',
+				$oldSlug,
+				static function (): void {
+					// Marcação para o WordPress deixar a requisição chegar a
+					// `admin_init` — nunca desenhada, porque `maybeRedirect()`
+					// intercepta antes (docblock da classe).
+				}
+			);
+		}
+	}
+
+	/**
+	 * Varre `$menu` (entradas de topo) e `$submenu` (de QUALQUER pai,
+	 * inclusive as páginas ocultas com pai `null`, que o WordPress guarda
+	 * em `$submenu['']`) — a mesma dupla de globais que o próprio
+	 * WordPress usa para saber se um `page` existe. Não confiar só no
+	 * `hookname`/`_registered_pages`: eles dependem da página-mãe da
+	 * REQUISIÇÃO ATUAL (`get_admin_page_parent()`), que não é a do slug
+	 * antigo sendo verificado aqui.
+	 */
+	private static function isSlugAlreadyRegistered( string $slug ): bool {
+		foreach ( (array) ( $GLOBALS['menu'] ?? array() ) as $item ) {
+			if ( isset( $item[2] ) && $slug === $item[2] ) {
+				return true;
+			}
+		}
+
+		foreach ( (array) ( $GLOBALS['submenu'] ?? array() ) as $items ) {
+			foreach ( (array) $items as $item ) {
+				if ( isset( $item[2] ) && $slug === $item[2] ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	/**

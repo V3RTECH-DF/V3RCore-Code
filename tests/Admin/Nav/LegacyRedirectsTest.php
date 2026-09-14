@@ -12,6 +12,14 @@ use V3R\Core\Admin\Nav\LegacyRedirects;
  * submenu antigo levando ao destino certo, URL absoluta usada como está,
  * requisição alheia não interceptada, o laço de redirecionamento
  * recusado na declaração, e subdiretório.
+ *
+ * `registerMissingPages()` cobre o segundo defeito (V3RCore-Code#40):
+ * slug antigo NÃO registrado por ninguém era recusado pelo WordPress
+ * antes de `admin_init` disparar, então `maybeRedirect()` nunca era
+ * chamado. A prova de que a recusa acontecia e deixou de acontecer é do
+ * WordPress real (`bin/sonda-acesso-por-pessoa.php`); aqui só se prova a
+ * composição correta da marcação e a discriminação entre slug ausente e
+ * já registrado.
  */
 final class LegacyRedirectsTest extends TestCase {
 
@@ -20,13 +28,19 @@ final class LegacyRedirectsTest extends TestCase {
 
 	protected function setUp(): void {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- só guarda o $_GET original para restaurar em tearDown(), teste não processa formulário.
-		$this->originalGet                         = $_GET;
-		$GLOBALS['v3r_core_test_safe_redirects']   = array();
-		$GLOBALS['v3r_core_test_admin_url_prefix'] = 'https://example.test/wp-admin/';
+		$this->originalGet                                 = $_GET;
+		$GLOBALS['v3r_core_test_safe_redirects']           = array();
+		$GLOBALS['v3r_core_test_admin_url_prefix']         = 'https://example.test/wp-admin/';
+		$GLOBALS['v3r_core_test_registered_submenu_pages'] = array();
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- stub de teste: simula $menu/$submenu que o WordPress real popula em admin_menu, para provar registerMissingPages() sem wp-admin/menu.php carregado.
+		$GLOBALS['menu'] = array();
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- mesmo motivo da linha acima.
+		$GLOBALS['submenu'] = array();
 	}
 
 	protected function tearDown(): void {
 		$_GET = $this->originalGet;
+		unset( $GLOBALS['menu'], $GLOBALS['submenu'] );
 	}
 
 	public function test_targetFor_compoe_rota_interna_preservando_os_demais_parametros(): void {
@@ -240,6 +254,97 @@ final class LegacyRedirectsTest extends TestCase {
 		self::assertSame(
 			'https://example.test/wp/wp-admin/admin.php?page=v3rlgpd#/ropa',
 			$redirects->targetFor( 'v3rlgpd-ropa' )
+		);
+	}
+
+	/**
+	 * Reprodução do defeito (V3RCore-Code#40): `v3rlgpd-docs` nunca é
+	 * registrado por ninguém (não é a entrada única, nem coincide com
+	 * página oculta de nenhum `Screen`) — sem `registerMissingPages()`, o
+	 * WordPress recusaria a requisição com 403 antes de `admin_init`
+	 * sequer disparar. Este teste prova o registro da marcação que evita
+	 * essa recusa; a recusa em si só é observável no WordPress real (ver
+	 * `bin/sonda-acesso-por-pessoa.php`).
+	 */
+	public function test_registerMissingPages_registra_pagina_oculta_para_slug_nao_registrado(): void {
+		$redirects = new LegacyRedirects(
+			'v3rlgpd',
+			array( 'v3rlgpd-docs' => 'https://ajuda.v3rtech.com.br/v3rlgpd' )
+		);
+
+		$redirects->registerMissingPages();
+
+		self::assertCount( 1, $GLOBALS['v3r_core_test_registered_submenu_pages'] );
+
+		$pagina = $GLOBALS['v3r_core_test_registered_submenu_pages'][0];
+
+		self::assertNull( $pagina['parent_slug'] );
+		self::assertSame( 'v3rlgpd-docs', $pagina['menu_slug'] );
+		self::assertSame( 'read', $pagina['capability'] );
+	}
+
+	/**
+	 * Controle negativo do teste acima: um slug do mapa que JÁ está
+	 * registrado — aqui simulando a coincidência com uma página oculta de
+	 * `Screen` já anunciada em `$submenu['']`, o caso real medido no
+	 * V3RLGPD (`v3rlgpd-settings`) — não ganha marcação duplicada.
+	 */
+	public function test_registerMissingPages_nao_registra_marcacao_para_slug_ja_registrado(): void {
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- stub de teste, ver setUp().
+		$GLOBALS['submenu'][''] = array(
+			array( 'ROPA', 'read', 'v3rlgpd-ropa', 'ROPA' ),
+		);
+
+		$redirects = new LegacyRedirects( 'v3rlgpd', array( 'v3rlgpd-ropa' => '/ropa' ) );
+
+		$redirects->registerMissingPages();
+
+		self::assertSame( array(), $GLOBALS['v3r_core_test_registered_submenu_pages'] );
+	}
+
+	/**
+	 * Controle negativo por outra via: slug que coincide com uma entrada de
+	 * TOPO (`$menu`, não `$submenu`) também não ganha marcação.
+	 */
+	public function test_registerMissingPages_nao_registra_marcacao_para_slug_no_menu_de_topo(): void {
+		// O slug ANTIGO do mapa (a chave, não o destino) já existe como
+		// entrada de topo — cenário de um plugin que registrou o próprio
+		// endereço antigo como `add_menu_page()` de outro produto.
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- stub de teste, ver setUp().
+		$GLOBALS['menu'][] = array( 'GEA antigo', 'read', 'gea-charge-old', 'GEA antigo' );
+
+		$redirects = new LegacyRedirects( 'gea', array( 'gea-charge-old' => 'gea-charge-detail' ) );
+
+		$redirects->registerMissingPages();
+
+		self::assertSame( array(), $GLOBALS['v3r_core_test_registered_submenu_pages'] );
+	}
+
+	/**
+	 * Mapa com mais de um slug ausente: cada um ganha a própria marcação,
+	 * e só os ausentes — mistura os dois grupos do teste acima num só
+	 * cenário, como o mapa real de um plugin costuma ter.
+	 */
+	public function test_registerMissingPages_trata_cada_slug_do_mapa_de_forma_independente(): void {
+		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- stub de teste, ver setUp().
+		$GLOBALS['submenu'][''] = array(
+			array( 'ROPA', 'read', 'v3rlgpd-ropa', 'ROPA' ),
+		);
+
+		$redirects = new LegacyRedirects(
+			'v3rlgpd',
+			array(
+				'v3rlgpd-ropa' => '/ropa',
+				'v3rlgpd-docs' => 'https://ajuda.v3rtech.com.br/v3rlgpd',
+			)
+		);
+
+		$redirects->registerMissingPages();
+
+		self::assertCount( 1, $GLOBALS['v3r_core_test_registered_submenu_pages'] );
+		self::assertSame(
+			'v3rlgpd-docs',
+			$GLOBALS['v3r_core_test_registered_submenu_pages'][0]['menu_slug']
 		);
 	}
 }
