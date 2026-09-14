@@ -1,105 +1,74 @@
-# Retomada — V3RCore (biblioteca e pacote de tela da família)
+# Retomada — V3RCore (orquestração da migração dos plugins para as peças compartilhadas)
 
-_Escrito ao encerrar a sessão de 13/09/2026 (sessão aberta em 08/09, "GE Associados shared library migration")._
+_Escrito em 13/09/2026, ao passar a orquestração para uma sessão nova (a anterior chamava-se "V3RCore Orquestrador Migração 2" e pode ainda estar aberta, repassando resultados de agentes em voo)._
 
 ## ⚠️ Primeira coisa a fazer ao abrir
 
-**Avise a sessão do V3RHelp que ela deve falar com você, e não com a sessão anterior (encerrada).** Ela está coordenando a `V3RHelp-Code#88` com o V3RCore.
+1. **Apresente-se a cada sessão de produto** com `ListAgents` + `SendMessage` (uma mensagem por sessão): "Aqui é a nova sessão do V3RCore que orquestra a migração; a anterior foi encerrada. Continue falando comigo; me diga em que ponto você está e o que espera de mim." Sessões ativas quando este arquivo foi escrito: `v3rhelp-34`, `v3revent-5a`, `premiado-1e`, `solidario-b1`, `v3rprop-28`, `ge-associados-48`. A do V3RLicense foi fechada (ver pendências do Bruno).
+2. **Pergunte à sessão anterior** (se ainda aparecer no `ListAgents`) pelo resultado de dois agentes que ela deixou rodando: a correção **v0.7.2 do pacote de tela** e a **foto do "antes" visual do Solidário 2.28.0**. Se ela já tiver saído, confira no `Front/` se há commit local da v0.7.2 (ver abaixo) e refaça a foto do Solidário.
 
-- Nome na frota: `v3rhelp-34`; endereço `uds:/run/user/1000/cc-socks/1012325.sock` (use `SendMessage` com `to` = esse endereço; se não resolver, `ListAgents` e procure `v3rhelp`).
-- Mensagem sugerida: "Aqui é a nova sessão do V3RCore — a anterior foi encerrada. Continue a #88 falando comigo: sigo aguardando o aviso de que o pacote das fatias 1+2+3 está instalado do ZIP no dev-wp para validar o acesso por pessoa antes de publicar."
+## Papel desta sessão
 
-Canais entre sessões: sessões `local_…` do app → `mcp__ccd_session_mgmt__send_message` (ache o id com `mcp__ccd_session_mgmt__list_sessions`); sessões da frota (endereço `uds:` ou nome) → `SendMessage`. Para responder, copie o `from` da mensagem recebida.
+O Bruno pediu que a migração dos plugins para as peças compartilhadas seja **orquestrada pelo V3RCore**, em **modo autônomo até concluir**. As sessões dos produtos implementam; esta sessão orienta, decide divergências e **valida por medição antes de cada publicação**. Commit, push e publicação na biblioteca e no pacote são autorizados sem pedir a cada vez.
 
-## Onde você está
+## Versões publicadas nesta rodada
 
-Container `/mnt/trabalho/Projetos/V3RTECH/V3RCore` (a raiz **não** é repositório). Dois repositórios, ambos públicos:
-- `Code/` → `V3RTECH-DF/V3RCore-Code`, biblioteca PHP `v3rtech/v3r-core`, **v0.25.0**. Docs e gestão moram aqui (`docs/`, `dev-history/`).
-- `Front/` → `V3RTECH-DF/V3RFront-Code`, pacote de tela `@v3rtech/v3r-front`, **v0.6.0** (consumido por `github:V3RTECH-DF/V3RFront-Code#v0.6.0`, sem token).
+- `v3rtech/v3r-core` **0.26.0**: o `LegacyRedirects` passou a redirecionar endereço antigo que não está registrado como página. Antes dava 403, porque o WordPress recusa dentro do `menu.php`, antes do `admin_init`.
+- `@v3rtech/v3r-front` **v0.7.0**: checkbox, radio e `.notice` do wp-admin restaurados dentro da raiz do `cascadeFix`; cabeçalho quebra linha em tela estreita.
+- `@v3rtech/v3r-front` **v0.7.1**: tamanho de celular do checkbox, do radio e do padding do aviso (a 0.7.0 fixava o de desktop).
+- **v0.7.2 em andamento** (agente da sessão anterior, commit local no `Front/`, sem tag): `flex-shrink: 0` nos controles nativos (checkbox oval em linha flex, medido no V3RHelp e no V3REvent) e título do `FamilyHeader` quebrando linha em vez de truncar em 375 (medido no Premiado, "Config…"). **Ao receber:** rodar `npm test`/`typecheck`/`build` no `Front/`, conferir a prova no navegador descrita no relatório, `git tag -a v0.7.2`, `./sync-all.sh -f`, atualizar `Code/docs/componentes-da-familia.md` e avisar V3REvent, Premiado, V3RProp e Solidário para subir para `#v0.7.2`.
 
-**Permitido:** commit, push e publicação sem pedir a cada vez (autorização durável do Bruno, 09/09). Envio por `sync-all.sh` da raiz, nunca `git push` cru. Porta de entrada do que existe: `Code/docs/componentes-da-familia.md` — atualizar na mesma entrega (capacidade nova, versão que muda o que a peça resolve, consumidor novo).
+## Estado por produto
 
-**Seu papel:** o Bruno pediu que a implantação de componente compartilhado nos plugins seja **orquestrada pelo V3RCore**; em divergência, o V3RCore decide. As sessões dos produtos dão alô, você orienta, e **valida por medição** as fatias de permissão antes de publicarem.
+| Produto | Publicação 1 (camada + guarda) | Publicação 2 (visual) | Próximo passo |
+|---|---|---|---|
+| V3RHelp | 1.33.0 ✅ | 1.34.0 + 1.34.1 (checkbox no celular) ✅ | Issue #88 fechada. Falta a confirmação de que a recaptura do manual terminou e deixou os usuários 98/99 intactos. |
+| GE Associados | (já migrado) | 1.81.2 com v0.7.1 ✅ | Concluído (GEAssociados-Code#201 fechada). |
+| V3REvent | 1.87.0 ✅ | fatia 4 instalada no dev-wp, **bloqueada** | Check-in em branco: pedaços sob demanda importavam `./admin.js`/`./front.js`, e a query `?ver=` gerava uma segunda cópia do React. A correção (entrada fina com `import()` do app) está com o implementador. Rótulos da barra: "API" volta a "Shortcodes e API"; "Painel"/"Dashboard" seguem a opção (c), cada superfície com o rótulo de hoje, e há issue para o Bruno unificar. Depois: subir para v0.7.2, remedir (viewport criada já em 375, `matchMedia` registrado, padding do aviso) e liberar. |
+| RIT360 Premiado | 2.32.0 ✅ | fatia 4 instalada, ajustes pedidos | O aviso ainda fica entre cabeçalho e barra (tem de ficar abaixo); botões e alguns inputs não estão em Exo 2 (apurar a regra vencedora); subir para v0.7.2 (título truncado em 375). Página pública idêntica ✅. |
+| V3RProp | 1.31.0 ✅ | 1.32.0 instalada | Botão e um input fora do wrapper saem em fonte de sistema: a sessão apura por CDP (suspeita: diálogos do núcleo do WordPress impressos fora do app). Com a causa, decidir entre produto e pacote e liberar (preferência: subir para v0.7.2 antes de publicar). |
+| RIT360 Solidário | 2.28.0 ✅ | planejando | Foto do "antes" visual (em curso ou a refazer). Plano da fatia 4 com a proposta de build (preferência: um `vite.config` por raiz; a página pública tem de sair byte a byte igual). **Cor de destaque é decisão do Bruno** (teal #24ae9c do documento × laranja #F49E27 do app); variável num ponto único. |
+| V3RLicense | — (só visual) | 0.35.0 construída com v0.7.0, instalada no dev-wp | **Sessão fechada.** Reabrir, subir para v0.7.2 (ou 0.7.1), remedir (o "antes" está registrado) e liberar. Dados de teste no dev-wp: produto 81, licença 156, cliente 64 e `zz-temp-teste-64-aviso.php`. |
+| V3RLGPD | já migrado (1.79.0) | — | **Republicar** com v3r-core 0.26.0 (5 dos 7 endereços antigos dão 403 hoje, V3RLGPD-Code#119) e v3r-front v0.7.1+. Avisos acima da barra (V3RLGPD-Code#118). |
+| RIT360 Flow | já migrado (0.51.0) | — | **Republicar** com v3r-front v0.7.1+. O código não está nesta máquina (repositório `RIT-DF/RIT360-Flow-Code`). |
 
-## Estado atual
+## Pendências do Bruno
 
-- **Agrupamento do menu da família: concluído nos 9 produtos da linha principal** (`V3RCore-Code#40`, fechada) e medido com até nove anunciantes. Quatro plugins de outra classe (Campos Extras, Descontos e Multas, Google Drive Viewer, EventMaster WP) ficam **fora por decisão do Bruno**.
-- **GE Associados migrou por inteiro** (GE 1.80.0, `GEAssociados-Code#183` fechada), validado por mim nas capacidades antes e depois da conversão de permissões.
-- **Migração de cabeçalho/menu/avisos/estilo:** feita em V3RLGPD, RIT360 Flow e GE. **Em andamento:** V3RHelp (`#88`). **Issues abertas em 13/09, aguardando alô de cada sessão:** `V3REvent-Code#180`, `V3RProp-Code#67`, `RIT360-Premiado-Code#212`, `RIT360-Solidario-Code#76` (migrar o painel para as peças compartilhadas) e `V3RLicense-Code#64` (só a parte visual).
+1. **Quem republica o V3RLGPD e o Flow**: ele abre uma sessão para cada um (recomendado) ou esta sessão faz direto.
+2. **Reabrir a sessão do V3RLicense.**
+3. **Cor do Solidário** (a sessão do produto leva a ele).
 
-## Coordenações em voo
+## Regras da família decididas nesta rodada (valem para toda adoção)
 
-| Produto | Onde está | O que espera de você |
-| --- | --- | --- |
-| V3RHelp (`#88`) | fatia 1 com o implementador | Cadência decidida pelo Bruno: **publicação 1 = fatias 1+2+3, só depois da sua validação de acesso por pessoa**; publicação 2 = fatia 4 (visual). |
-| V3REvent (`#180`) | não começou | Camada inteira (roteia por fragmento, entrada única). Tem área de avisos e cascata próprias, e dois bundles (painel + público). |
-| RIT360 Premiado (`#212`) | não começou | Camada inteira. Trocar o redirecionamento próprio de seções antigas pelo `LegacyRedirects` — conferir que quem não pode ver continua recusado. |
-| V3RProp (`#67`) | não começou | **Decidido pelo Bruno: uma entrada só no menu** (vale para toda a família). Falta a forma técnica: páginas próprias ocultas (como o GE) ou SPA por fragmento. `LegacyRedirects` para os submenus aposentados. |
-| RIT360 Solidário (`#76`) | não começou | **Uma entrada só no menu, decidido.** Levantar quais submenus são rotas do app e quais são páginas próprias; `LegacyRedirects` para os aposentados. |
-| V3RLicense (`#64`) | não começou | Só visual (não embute a biblioteca em produção). Decidir `FamilyNav` com árvore montada no produto ou manter navegação própria. |
+- **Slug de tela começa com o slug do produto.** As capacidades `v3r_nav_<slug>` e as páginas ocultas são globais, e o V3RHelp 1.33.0 sem prefixo respondia `v3r_nav_dashboard` por outro plugin (V3RCore-Code#38). Onde o slug coincidiria com endereço antigo do `LegacyRedirects`, use o infixo `-tela-`.
+- **Tela sem capacidade própria resolve para "é da equipe do produto"** (papel do produto ou `manage_options`), nunca para "está logado". Senão todo cliente do WooCommerce ganha o wp-admin.
+- **Cada tela usa a regra de visão que o produto já declara** (aba e endereço antigo). O fragmento sem guarda é atalho, não regra.
+- **`access === null` só quando a biblioteca não chegou**; chave ausente no boot nega.
+- **Endereço antigo:** redireciona todo mundo, e a recusa acontece dentro do produto (opção A, contrato §7). A mudança de 403 para 302 com recusa é intencional.
+- **Área de avisos abaixo da barra de navegação** (contrato do pacote §8).
+- **Um `vite.config` por raiz com `cascadeFix`** (V3RCore-Code#47 para build com várias entradas).
+- **`--v3r-accent` com a cor do produto, com valor.** Migração não renomeia telas nem muda rótulos.
+- **Unificação não reduz:** desenho de marca do produto (GE) sobrepõe o nativo do pacote com especificidade maior, sem `!important`.
 
-## Decisões pendentes do Bruno
+## Como validar (instrumentos desta rodada)
 
-1. **`GEAssociados-Code#189` — Tesoureiro com usuário real**: o dev-wp não tem usuário nesse papel; criar ou alterar conta depende dele (opções: ele cria um usuário de teste; autoriza dar o papel a um usuário de teste existente e devolver; ou pular).
-2. **Reinstalar os plugins do dev-wp a partir dos pacotes publicados**: hoje GE, Flow e V3RLicense estão anteriores à adoção, e Premiado, Solidário, V3RHelp e V3RProp com **biblioteca antiga embutida apesar da versão nova** (copiados da árvore de trabalho). Medição de menu ali engana.
+- **Acesso por pessoa:** `Code/bin/medir-acesso.sh <produto> <pasta>`, com configuração e adaptador em `Code/bin/sondas/`. É somente leitura: identidade semeada antes do WordPress carregar, reproduz a ordem do `admin.php`. Mede capacidades, expulsão do WooCommerce, RBAC do produto, mapa e árvore da camada, cada `permission_callback` REST e o acesso direto a cada endereço. **Meça um processo por perfil.** Fotos do "antes" e do "depois" desta rodada: `/tmp/claude-1000/-mnt-trabalho-Projetos-V3RTECH-V3RCore/66b72209-7ad6-4152-bbad-029cd4aac9dd/scratchpad/` (`antes-familia/`, `depois-familia/`, `*-antes/`, `*-depois/`), e matrizes nos comentários das issues de cada produto.
+- **Visual:** agente `e2e-runner` no dev-wp como `dev-claude` (credencial `LOCALHOST_USER/LOCALHOST_PASS` no cofre, login por script). Pedir **viewport criada já na largura** e `matchMedia` registrado. Aviso de teste por mu-plugin temporário de cada produto.
+- **Sequência de cada publicação:** instalar o ZIP publicado → foto do "antes" → instalar o ZIP novo (nunca cópia de árvore) → medir → liberar → o produto publica e apaga os dados de teste.
+- **Usuários de teste compartilhados do dev-wp:** `dev-claude` (97, administrador), `claude-operador` (98, só `v3rflow_operador`), `claude-assinante` (99, só `subscriber`). Nenhuma sessão pode dar papel a eles.
 
-## Como validar uma fatia de permissão (o método que funcionou no GE)
+## Premissas que caíram nesta rodada (não repita)
 
-1. Pacote **instalado do ZIP** no dev-wp (nunca cópia de árvore); conferir `Version::CURRENT` e a peça dentro do ZIP.
-2. Script de medição **somente leitura**, administrador que **não** é a conta pessoal, identidade resolvida **dentro do processo** semeando `$GLOBALS['wp_filter']['determine_current_user']` antes do `wp-load.php` (padrão de `Code/bin/sonda-menu-familia.php`) — **nunca gerar cookie ou sessão** (regra global).
-3. Listar `current_user_can` para as capacidades do produto, as calculadas (menu, licença, `v3r_nav_root_<slug>`, `v3r_nav_<tela>`, `view_admin_dashboard`) e a coluna/submenus; **antes × depois** da mudança, com `diff`.
-4. **Controle negativo que discrimina** (ex.: capacidade inventada gravada no papel tem de sair negada) — e isolar cada ponta (no GE, regravar a sonda **depois** da conversão provou a ponte, não só a limpeza).
-5. Snapshot dos papéis antes e depois da restauração, com `diff`. Registrar o resultado na issue do produto.
+- **Sonda em CLI sem `$plugin_page` e com `PHP_SELF` do script** responde SIM ou recusa erradas no acesso direto. Gerou uma correção desnecessária no V3RHelp, já registrada.
+- **`LegacyRedirects` "medido ao vivo" no V3RLGPD** funcionava só para os slugs que coincidiam com páginas registradas.
+- **`./sync-all.sh -c` commita a árvore inteira do `Code/`**: não rode com agente editando lá (memória `sync-code-captura-arvore`).
+- **Relato de agente visual** já leu "18px no corpo" que era título de card, e padding de desktop em 375. Confira como a medida foi obtida antes de mandar corrigir.
 
-## Decisões, com o motivo
+## Issues abertas relevantes
 
-- **Todo plugin da família tem uma entrada só no menu do WordPress** (Bruno, 13/09) — menu lateral com várias entradas deixa de existir; navegação interna pela barra da família.
-
-- **Formato do anúncio de menu é contrato público** (`$GLOBALS['v3r_nav_family_menu_entries'][slug] = ['family','title']`, não muda sem MAIOR) — produto que não embute a biblioteca anuncia por escrita direta (0.25.0).
-- **`NavCapabilityGate::registerRootMenu()` é uso suportado por chamada direta** (0.24.0) — plugin com página real por tela não pode chamar `registerMenu()` e ficaria sem `view_admin_dashboard` (WooCommerce expulsa papel próprio do painel).
-- **`LegacyRedirects` ganhou o caso "slug de página do painel"** preservando parâmetros (0.23.0); o ramo de URL absoluta continua literal de propósito (não vaza parâmetro para fora do site).
-- **Limitador de eixo único: origem como identificador** é uso suportado; um prefixo por ponto de limite; identificador vazio vira teto global.
-- **Não promover** caminho de conversão de capacidade nativa → matriz, nem marcador de conversão: um consumidor só (GE).
-
-## Premissas que caíram (não repita)
-
-- **Enumerar adotantes por "quem consome a biblioteca"** deixou o V3RLicense (servidor, não cliente) de fora. A pergunta certa é "quem tem entrada no painel de um site da casa".
-- **`registerMenu()` e o ramo de parâmetros do `LegacyRedirects` pressupõem roteamento por fragmento** — descoberto pelo consumidor lendo o corpo do método, duas vezes. Página real por tela adota só declaração e guardas.
-- **`.v3r-typography` na própria raiz do `cascadeFix` não casa** — tem de ser descendente (contrato do pacote §3, corrigido).
-- **A primeira sonda do menu gerava cookie de administrador** — violava a regra global; substituída em 11/09.
-- **Busca textual não mede estrutura**: dois diagnósticos errados (CNPJ "sem validação", "quatro telas quebram com F5") e uma varredura de CI com falso positivo nasceram disso. Execute a estrutura.
-- **"Publicado" tem quatro posições**: commitado e enviado × tag empurrada × release publicada × rodando nas produções. E o `bump-version.sh` **não cria tag** — publique a tag à parte.
-- **Data de modificação não prova sobrescrita** (`rsync -a` preserva); a data de alteração (ctime) sim.
-- **Relatório de implementador não é prova**: no GE, um teste declarado como feito não existia na suíte.
-
-## Issues abertas do V3RCore, por prioridade
-
-| # | Descrição curta | Por que nesta posição |
-| --- | --- | --- |
-| 44 | Versão da biblioteca embutida no pacote não era visível | ⚠️ **Dúvida para fechar**: capacidade entregue na 0.23.0 e conferência no `v3r-release`; falta a adoção no empacotamento dos produtos (`GEAssociados-Code#186`). Pergunte ao Bruno. |
-| 43 | Cabeçalho compartilhado transborda a tela em 375px | Afeta quem usa o painel no celular, em todos os adotantes. |
-| 42 | Promover montagem de chamada REST (8 cópias, 4 defeituosas) | Defeito latente em 4 produtos, quebra silenciosa com permalink simples. |
-| 45 | Matriz de papéis não distingue "nunca semeada" de "esvaziada" | Latente; tela que apagar todos os cargos ressuscitaria os padrões. |
-| 14 / 34 / 41 | Padronizar publicação, guard de prefixação divergente, CI que não avisa | Um bloco; a primeira fatia já saiu (`v3r-release`). |
-| 38 | Identificador de tela vira endereço global sem proteção de colisão | Latente. |
-| 33 | Registro de ativação não aprende a versão nova | Interno. |
-| 16 / 31 / 37 | PDF padronizado, vocabulário de recusa do V3RSigner, atributos de bloco | Aguardando segundo consumidor ou priorização. |
-
-O que mais pesou: impacto em quem usa o painel antes de dívida interna.
-
-## Próximo passo
-
-Avisar o `v3rhelp-34` (topo deste arquivo) e aguardar o pacote das fatias 1+2+3 do V3RHelp para validar com o método acima.
-
-## Comandos úteis
-
-```bash
-cd /mnt/trabalho/Projetos/V3RTECH/V3RCore && RIT_YES=1 ./sync-all.sh -c   # envia a biblioteca (Code/, com docs e gestão)
-cd /mnt/trabalho/Projetos/V3RTECH/V3RCore && RIT_YES=1 ./sync-all.sh -f   # envia o pacote de tela (código e tag)
-cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && composer check          # phpunit + phpstan + phpcs + testes JS
-cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && bin/bump-version.sh minor  # sobe Version::CURRENT; NÃO cria tag
-cd /mnt/trabalho/Projetos/V3RTECH/V3RCore/Code && git tag -a vX.Y.Z -m "..." && cd .. && RIT_YES=1 ./sync-all.sh -t   # publica a tag
-docker exec -e V3R_PROBE_LOGIN=<usuario-de-teste> dev-wp php /caminho/sonda-menu-familia.php   # coluna do painel + anunciantes (somente leitura)
-```
-
-Token do GitHub: `source <projeto>/bin/config.sh` no mesmo comando do `gh` (para repositórios RIT-DF, use o `config.sh` de um projeto RIT).
+- V3RCore-Code#46 (cascadeFix apagava checkbox, radio e aviso; aguardando validação nos produtos, fechar quando V3REvent, Premiado e V3RProp publicarem a visual)
+- V3RCore-Code#43 (cabeçalho em 375; idem)
+- V3RCore-Code#47 (cascadeFix para várias entradas)
+- V3RCore-Code#48 (fonte embarcada em base64)
+- V3RCore-Code#38 (proteção de colisão de slug na biblioteca, depois da migração)
+- V3RLGPD-Code#118 (avisos abaixo da barra) e V3RLGPD-Code#119 (endereços antigos 403)
