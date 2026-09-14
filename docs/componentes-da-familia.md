@@ -56,11 +56,11 @@ WordPress.
 
 | Peça | O que resolve | Desde | Quem consome hoje |
 | --- | --- | --- | --- |
-| **Cabeçalho** | logo, título da tela, versão e ações, na régua da família | 0.1.0 | V3RLGPD, Flow, GE Associados |
+| **Cabeçalho** | logo, título da tela, versão e ações, na régua da família; quebra linha em tela estreita sem apagar o título | 0.1.0 (tela estreita: 0.7.0) | V3RLGPD, Flow, GE Associados |
 | **Barra de navegação** | grupos e abas, a partir da árvore que o PHP entrega | 0.1.0 | V3RLGPD, Flow, GE Associados |
-| **Área de avisos do painel** | põe os avisos do WordPress no lugar certo | 0.1.0 | V3RLGPD, Flow, GE Associados |
+| **Área de avisos do painel** | põe os avisos do WordPress no lugar certo — abaixo da barra de navegação — com o desenho do wp-admin preservado | 0.1.0 (desenho do aviso: 0.7.0) | V3RLGPD, Flow, GE Associados |
 | **Guarda de rota** | responde se a pessoa pode abrir uma rota, negando o desconhecido | 0.2.0 | V3RLGPD, Flow, V3RHelp |
-| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente | 0.6.0 | V3RLGPD (painel e gestão pública), GE Associados |
+| **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava | 0.6.0 (⚠️ use 0.7.0: a 0.6.0 apaga checkbox, radio e o desenho do aviso) | V3RLGPD (painel e gestão pública), GE Associados |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
 
