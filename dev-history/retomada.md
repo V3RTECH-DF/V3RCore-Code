@@ -30,12 +30,12 @@ O Bruno pediu que a migração dos plugins para as peças compartilhadas seja **
 | RIT360 Solidário | 2.28.0 ✅ | implementando | Foto do "antes" com a sessão anterior (`solidario-antes/`). Build decidido: **um `vite.config` só** (a página pública sai com sha256 idêntico; dois configs mudavam os chunks públicos), com guarda de build que falha se a entrada pública passar a importar o pacote ou o `index.css`. Plano 1–5 da RIT360-Solidario-Code#76 aprovado. Cor `--v3r-accent: #24ae9c`. Não instalar no dev-wp antes de a foto terminar. |
 | V3RLicense | — (só visual) | 0.35.0 construída com v0.7.0, instalada no dev-wp | **Sessão fechada.** Reabrir, subir para v0.7.2 (ou 0.7.1), remedir (o "antes" está registrado) e liberar. Dados de teste no dev-wp: produto 81, licença 156, cliente 64 e `zz-temp-teste-64-aviso.php`. |
 | V3RLGPD | já migrado (1.79.0) | — | **Republicar** com v3r-core 0.26.0 (5 dos 7 endereços antigos dão 403 hoje, V3RLGPD-Code#119) e v3r-front v0.7.1+. Avisos acima da barra (V3RLGPD-Code#118). |
-| RIT360 Flow | já migrado (0.51.0) | — | **Republicar** com v3r-front v0.7.1+. O código não está nesta máquina (repositório `RIT-DF/RIT360-Flow-Code`). |
+| RIT360 Flow | já migrado (0.51.0) | — | **Fora da migração (Bruno, 13/09):** o plugin está congelado; o Flow vira app SaaS. Não republicar. |
 
 ## Pendências do Bruno
 
-1. **Quem republica o V3RLGPD e o Flow**: ele abre uma sessão para cada um (recomendado) ou esta sessão faz direto.
-2. **Reabrir a sessão do V3RLicense.**
+1. ~~Quem republica o V3RLGPD e o Flow~~ — **decidido (13/09): o Bruno abre uma sessão para o V3RLGPD** (v3r-front v0.7.2 e v3r-core 0.26.0); esta sessão orienta por mensagem e mede antes de liberar. O Flow saiu da migração: plugin congelado, vai virar app SaaS.
+2. ~~Reabrir a sessão do V3RLicense~~ — **decidido (13/09): o Bruno reabre**; sobe para v0.7.2, esta sessão remede e libera.
 3. ~~Cor do Solidário~~ — **decidida pelo Bruno: #24ae9c** (verde-azulado do documento de identidade), em `--v3r-accent` num ponto único.
 
 ## Regras da família decididas nesta rodada (valem para toda adoção)
