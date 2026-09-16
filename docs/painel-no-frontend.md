@@ -109,7 +109,32 @@ necessárias, cada uma com seu papel:
   eles, a largura do painel passaria a seguir o conteúdo da aba ativa em vez
   de ocupar o espaço concedido.
 
-## 5. Como conferir numa adoção
+## 5. Consequência da marcação de dois nós: a correção por encolhimento passa a começar no invólucro
+
+Medido agora na adoção do V3RLGPD (`V3RLGPD-Code#122`; a do V3RCore é a
+`V3RCore-Code#52`).
+
+O mecanismo que o produto tem para hospedeiro que dimensiona por encolhimento
+— o que sobe a partir da raiz procurando o ancestral `shrink-to-fit` e escreve
+`width: 100%; place-self: stretch` nele (ver §4, segundo ponto, e o controle
+negativo do §6) — encontra, agora, o **invólucro** como primeiro nível da
+cadeia, porque é ele o pai imediato da raiz.
+
+Em hospedeiro flex com `align-items: center`, o invólucro é item flex e
+**recebe esse `style`** — que antes ia para outro nó, ou não era escrito,
+porque a raiz sozinha já preenchia o espaço.
+
+**Isso é esperado e aceito.** O critério "nenhum `style` a mais" vale para o
+DOM do **hospedeiro**, que é o que não podemos mexer; o invólucro é nó nosso,
+e escrever nele é exatamente o mecanismo que já existe para este caso — não
+uma regressão a evitar.
+
+A alternativa — fazer a correção **pular** o invólucro e começar no ancestral
+seguinte — foi **recusada**: deixaria justamente o nó que virou item flex sem
+esticar, e em outro hospedeiro o painel sairia estreito de novo; seria trocar
+um defeito latente por outro.
+
+## 6. Como conferir numa adoção
 
 Ao portar esta receita para um plugin, meça **dois pontos, dois estados**:
 
@@ -118,9 +143,11 @@ Ao portar esta receita para um plugin, meça **dois pontos, dois estados**:
    encaixotado. Os dois devem coincidir; o painel não pode destoar da faixa
    central do site.
 2. **O mesmo par, num hospedeiro dimensionado por encolhimento** (o caso que
-   motivou a correção de largura original da receita). Nada muda: mesma
-   largura, e o mesmo `style`, string idêntica antes e depois de qualquer
-   alteração.
+   motivou a correção de largura original da receita). A largura final tem
+   de ser **idêntica** à de antes da adoção — inclusive quando o `style`
+   dessa correção passa a ser escrito no invólucro em vez de em outro nó ou
+   de não ser escrito (§5): o que se exige é **nenhum `style` a mais em nó
+   do hospedeiro**, não "nenhum `style` a mais em nó nenhum".
 
 Prova por comparação, nunca por aparência de tela: medir só o painel, sem o
 vizinho, não discrimina o defeito — as duas larguras erradas também "parecem"
@@ -130,19 +157,22 @@ uma tela normal.
 hospedeiro de layout encaixotado, mas já existe correção de largura para o
 caso oposto — hospedeiro que dimensiona por encolhimento (`shrink-to-fit`),
 por exemplo um container flex em coluna com `align-items: center`. Reproduza
-essa cadeia e confirme que a mudança desta receita **não** a afeta: mesma
-largura antes e depois, e o `style` que a correção de encolhimento escreve no
-nó — string **idêntica**, caractere por caractere — antes e depois. Nenhum
-`style` a mais nem a menos em nenhum ponto do DOM do hospedeiro. Sem esse
-controle, a correção do teto de largura pode silenciosamente quebrar o
-mecanismo que já resolvia o outro sentido do problema.
+essa cadeia e confirme que a mudança desta receita **não** a quebra: a
+largura final do painel precisa ser **idêntica** à de antes. O que não pode
+acontecer é `style` a mais ou a menos em nó do **hospedeiro** — o DOM que não
+é nosso e que não podemos alterar. No invólucro (nó nosso), a correção por
+encolhimento passar a escrever `style` onde antes não escrevia — ou escrevia
+em outro nó — é esperado e não é falha deste controle: é a consequência
+descrita no §5. Sem este controle, uma regressão na correção do teto de
+largura poderia silenciosamente quebrar o mecanismo que já resolvia o outro
+sentido do problema.
 
-## 6. Quem usa hoje
+## 7. Quem usa hoje
 
 | Produto | Versão | Situação |
 | --- | --- | --- |
 | **V3REvent** | `1.89.0` | Corrigido — imprime os dois nós. |
-| **V3RLGPD** | atual | **Pendente, em implementação** (sessão aberta em 16/09, ainda não publicado). `Frontend\Gestao::shortcode()` ainda imprime nó único; mesma raiz ancorada em id que expôs o defeito no V3REvent. Latente até rodar num tema de layout encaixotado. |
+| **V3RLGPD** | `1.79.3` (16/09) | Publicado — imprime os dois nós, com a marcação desta receita. |
 
 Varredura feita em 16/09/2026 (`V3RCore-Code#52`): V3RProp e V3RHelp não têm
 painel embutido no frontend por esta receita — nenhum dos dois ancora
