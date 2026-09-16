@@ -4,7 +4,7 @@
 > existe pronto para os plugins da casa consumirem, nos **dois** repositórios da
 > família. O que não estiver aqui é que se constrói.
 >
-> Atualizada em 14/09/2026.
+> Atualizada em 16/09/2026.
 >
 > ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
 > capacidade com um consumidor só — e capacidade com nenhum.
@@ -63,6 +63,15 @@ WordPress.
 | **Correção da cascata** | impede o CSS do painel de derrotar o do plugin, e o do plugin de apagar o componente; devolve checkbox, radio e aviso do wp-admin que o reset ancorado apagava — só dentro do wp-admin, sem impor esse desenho em página pública | 0.6.0 (⚠️ use 0.7.3: a 0.6.0 apaga checkbox, radio e o desenho do aviso; a 0.7.0 encolhe esses controles e o aviso no celular; a 0.7.1 deixa checkbox e radio ovais dentro de linha flex estreita; a 0.7.0–0.7.2 pintam o checkbox com o azul do wp-admin também fora dele) | V3RLGPD (painel e gestão pública), GE Associados, V3RHelp (1.34.0, painel e embutido), V3RProp (1.32.0), V3RLicense (0.35.0), RIT360 Solidário (2.29.0), V3REvent (1.88.0), RIT360 Premiado (2.33.0) |
 
 Detalhe de todas: `Front/docs/contrato-do-pacote.md`.
+
+## Receitas da família
+
+Padrão de construção que não vive em nenhum dos dois pacotes: o produto escreve o
+código, mas a forma é da casa, e errá-la custa caro.
+
+| Receita | O que resolve | Desde | Quem segue hoje | Detalhe |
+| --- | --- | --- | --- | --- |
+| **Painel no frontend** | marcação de dois nós para embutir o painel de gestão numa página pública do site, sem que a raiz isolada apague o teto de largura que o tema concede | receita documentada em 16/09/2026 (`#52`) | V3REvent (`1.89.0`, corrigido); V3RLGPD (pendente — nó único, latente) | `painel-no-frontend.md` |
 
 ## ⚠️ O que este índice revela, e vale saber antes de decidir
 
