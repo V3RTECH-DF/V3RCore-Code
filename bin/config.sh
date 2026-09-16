@@ -16,7 +16,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"      # …/V3RTECH/V3
 PROJECT_DIR="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || dirname "$SCRIPT_DIR")"
 ROOT="$(cd "$PROJECT_DIR/.." && pwd)"                           # …/V3RCore (container)
 
-CODE_DIR="$ROOT/Code"        # repositório do código (nosso, editável)
+# CODE_DIR: repositório do código (nosso, editável). Override explícito por variável de ambiente tem
+# prioridade máxima. Sem override, se o diretório CORRENTE estiver dentro de
+# uma worktree git do MESMO repositório que a árvore principal de Code/, usa
+# essa worktree — senão build/sync empacotariam a árvore principal em
+# silêncio, mesmo com o trabalho de verdade estando na worktree
+# (v3rtech-scripts#43).
+_code_dir_default="$ROOT/Code"
+if [ -n "${CODE_DIR:-}" ]; then
+  :  # override do ambiente, respeitado como está
+elif _cd_common="$(git -C "$_code_dir_default" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+     && _pwd_common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+     && [ -n "$_cd_common" ] && [ "$_cd_common" = "$_pwd_common" ] \
+     && _pwd_top="$(git rev-parse --show-toplevel 2>/dev/null)" \
+     && [ -n "$_pwd_top" ] && [ "$_pwd_top" != "$_code_dir_default" ]; then
+  CODE_DIR="$_pwd_top"
+  echo "⚠ diretório corrente é worktree de Code/ — CODE_DIR ajustado para $CODE_DIR" >&2
+fi
+CODE_DIR="${CODE_DIR:-$_code_dir_default}"
+unset _code_dir_default _cd_common _pwd_common _pwd_top
 FRONT_DIR="$ROOT/Front"      # pacote de front da família (npm), repositório próprio
 MANUAL_DIR="$ROOT/Manual"    # clone do repo do manual (edita direto ali)
 PORTAL_DIR="$ROOT/Portal"    # site institucional do projeto
