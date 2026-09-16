@@ -167,6 +167,13 @@ descrita no §5. Sem este controle, uma regressão na correção do teto de
 largura poderia silenciosamente quebrar o mecanismo que já resolvia o outro
 sentido do problema.
 
+⚠️ **Armadilha de medição: o CSS construído tem hash no nome do arquivo**
+(`main-*.css`). Reabrir a mesma URL depois de publicar uma correção pode
+servir o bundle **anterior** vindo do cache do navegador, e a medição sai
+"não corrigido" com o código certo já instalado — aconteceu numa medição
+real. Antes de concluir qualquer coisa a partir do que o navegador exibe,
+compare o hash do CSS servido com o do arquivo presente na cópia instalada.
+
 ## 7. Quem usa hoje
 
 | Produto | Versão | Situação |
