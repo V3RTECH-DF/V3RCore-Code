@@ -24,29 +24,54 @@ shortcode deve imprimir para o painel conviver com o tema do hospedeiro.
 O shortcode imprime **dois nós, nunca um**:
 
 ```html
-<div id="meuproduto-front-wrap">
-  <div id="meuproduto-front-root" style="all: initial; display: block; box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0;">
+<div class="meuproduto-gestao-host">
+  <div id="meuproduto-front-root">
     <!-- painel React monta aqui -->
   </div>
 </div>
 ```
 
-- **O invólucro externo** (`*-front-wrap`) não recebe **nenhum** estilo
-  nosso. É simples marcação, e é o tema do hospedeiro quem decide a largura
-  dele, exatamente como decidiria para qualquer outro bloco de conteúdo da
-  página.
-- **A raiz interna** (`*-front-root`) é o isolamento de sempre — `all:
-  initial`, `display: block`, `box-sizing: border-box` — e ocupa `width:
-  100%` do que o invólucro conceder, com `max-width: 100%` e `min-width: 0`.
+```css
+/* folha de estilos do produto — nunca inline */
+#meuproduto-front-root {
+  all: initial;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+```
+
+- **O invólucro externo é identificado por classe, nunca por id**, e não
+  recebe nenhum estilo nosso. Um `id` vale especificidade **1-0-0** —
+  exatamente a que causou o defeito original (§3) — e deixaria à mão, para
+  quem mexer depois, a ferramenta de declarar largura ali e reabrir o mesmo
+  problema um nível acima; uma classe **empata** com a regra
+  `.is-layout-constrained` do WordPress em vez de **vencê-la**. É o tema do
+  hospedeiro quem decide a largura do invólucro, exatamente como decidiria
+  para qualquer outro bloco de conteúdo da página.
+- **A raiz interna mantém o `id`** — ali ele tem função: é a âncora que o
+  `cascadeFix` usa para localizar o nó. O **isolamento é declarado na folha
+  de estilos do produto, nunca inline** no atributo `style`: um `style`
+  inline vale especificidade **1-0-0-0** e venceria até os utilitários do
+  próprio painel, podendo bloquear um dia um utilitário legítimo na própria
+  raiz — com o sintoma aparecendo longe da causa. O argumento do lampejo de
+  conteúdo sem estilo não se aplica aqui: o shortcode imprime a raiz
+  **vazia**, e o conteúdo só existe quando o aplicativo monta, depois de a
+  folha já ter carregado. `style` inline na raiz continua legítimo para
+  **dado da organização** (por exemplo, a fonte escolhida pelo cliente) — o
+  que não vai inline é o isolamento.
 
 No V3REvent a marcação é versionada em código, não solta no shortcode:
 `Frontend\Gestao::root_markup()` devolve exatamente
-`<div class="v3revent-gestao-host"><div id="v3revent-front-root"></div></div>`.
-Um teste puro acompanha a função e prende a garantia central desta receita: a
-raiz isolada nunca pode voltar a ser o filho direto dimensionado pelo tema —
-o teste reprova contra a marcação antiga (nó único) e passa contra a atual.
-Vale reproduzir a mesma ideia — função nomeada que devolve a marcação, com
-teste que trava a regressão — em qualquer plugin que adotar a receita.
+`<div class="v3revent-gestao-host"><div id="v3revent-front-root"></div></div>`,
+com o isolamento declarado na folha do produto (não inline). Um teste puro
+acompanha a função e prende a garantia central desta receita: a raiz isolada
+nunca pode voltar a ser o filho direto dimensionado pelo tema — o teste
+reprova contra a marcação antiga (nó único) e passa contra a atual. Vale
+reproduzir a mesma ideia — função nomeada que devolve a marcação, com teste
+que trava a regressão — em qualquer plugin que adotar a receita.
 
 ## 3. Por quê
 
@@ -117,7 +142,7 @@ mecanismo que já resolvia o outro sentido do problema.
 | Produto | Versão | Situação |
 | --- | --- | --- |
 | **V3REvent** | `1.89.0` | Corrigido — imprime os dois nós. |
-| **V3RLGPD** | atual | **Pendente.** `Frontend\Gestao::shortcode()` ainda imprime nó único; mesma raiz ancorada em id que expôs o defeito no V3REvent. Latente até rodar num tema de layout encaixotado. |
+| **V3RLGPD** | atual | **Pendente, em implementação** (sessão aberta em 16/09, ainda não publicado). `Frontend\Gestao::shortcode()` ainda imprime nó único; mesma raiz ancorada em id que expôs o defeito no V3REvent. Latente até rodar num tema de layout encaixotado. |
 
 Varredura feita em 16/09/2026 (`V3RCore-Code#52`): V3RProp e V3RHelp não têm
 painel embutido no frontend por esta receita — nenhum dos dois ancora
