@@ -1,4 +1,4 @@
-<!-- Gerado por claude-para-antigravity.sh a partir do Claude Code em 2026-10-20. Não edite à mão: será sobrescrito. -->
+<!-- Gerado por claude-para-codex.sh a partir do Claude Code em 2026-10-25. Não edite à mão: será sobrescrito. -->
 
 # CLAUDE.md — V3RCore (container)
 
