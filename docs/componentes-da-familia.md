@@ -1,10 +1,14 @@
 # Componentes compartilhados da família
 
 > **Leia esta página antes de construir qualquer coisa.** Ela lista o que já
-> existe pronto para os plugins da casa consumirem, nos **dois** repositórios da
-> família. O que não estiver aqui é que se constrói.
+> existe pronto para os produtos da casa consumirem nos ecossistemas da família.
+> O que não estiver aqui é que se constrói.
 >
-> Atualizada em 16/09/2026.
+> A família possui duas casas irmãs conforme a plataforma do produto:
+> - **Plugins WordPress:** container `V3RCore` (`v3rtech/v3r-core` em `V3RCore/Code` + `@v3rtech/v3r-front` em `V3RCore/Front`);
+> - **Aplicações Web e Servidor Standalone (infra própria e transição Lovable):** container **`V3RLib`** (`/mnt/trabalho/Projetos/V3RTECH/V3RLib/Code`, repositório `V3RTECH-DF/V3RLib-Code`).
+>
+> Atualizada em 06/11/2026.
 >
 > ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
 > capacidade com um consumidor só — e capacidade com nenhum.
@@ -72,6 +76,61 @@ código, mas a forma é da casa, e errá-la custa caro.
 | Receita | O que resolve | Desde | Quem segue hoje | Detalhe |
 | --- | --- | --- | --- | --- |
 | **Painel no frontend** | marcação de dois nós para embutir o painel de gestão numa página pública do site, sem que a raiz isolada apague o teto de largura que o tema concede | receita documentada em 16/09/2026 (`#52`) | V3REvent (1.89.0) e V3RLGPD (1.79.3), os dois com os dois nós | `painel-no-frontend.md` |
+
+## Aplicações Web e Servidor Standalone — V3RLib
+
+Para aplicações web completas, PWAs e serviços de backend fora do WordPress (tanto em infraestrutura própria quanto em transição do Lovable), a casa unifica seus componentes canônicos no monorepo **`V3RLib`** (`/mnt/trabalho/Projetos/V3RTECH/V3RLib/Code`, repositório `V3RTECH-DF/V3RLib-Code`).
+
+A biblioteca foi instituída na issue `V3RTECH-DF/v3r-ia-Code#18` (`feat(arquitetura): varredura multi-projeto e biblioteca canonica de componentes reutilizaveis de aplicacoes`) a partir da varredura comparativa dos produtos maduros da casa (`MiwLab`, `RIT360 Financeiro`, `SocialReport`, `V3RCondo` e `V3RCore`), extraindo implementações provadas para eliminar redundâncias e telas soltas sem navegação comum.
+
+### Pacotes e distribuição
+
+| Pacote / Artefato | O que é | Como chega à aplicação |
+| --- | --- | --- |
+| **`@v3rtech/contratos`** | Schemas universais TypeScript/Zod (entidades, sessões, papéis, auditoria, IA, mensagens e LGPD) | Dependência npm versionada (`package.json`) |
+| **`@v3rtech/brasil`** | Formatação e validação nacional: CPF, CNPJ comum e alfanumérico, moeda BRL sem salto de cursor, fuso por UF, expurgo de linhas de total e remoção de EXIF/GPS | Dependência npm versionada |
+| **`@v3rtech/tema`** | Tokens de design (Tailwind CSS v4 + variáveis CSS), paleta oficial, modo claro/escuro/auto e garantia automática de contraste WCAG AA | Dependência npm versionada |
+| **`@v3rtech/ui`** | Componentes visuais canônicos React (Casca, barra superior sem sininho, modais acessíveis, avisos discretos, tela de login, leitor de manual `/manual`, diálogo de feedback e assistente de IA) | Dependência npm versionada |
+| **`@v3rtech/servidor`** | Utilitários de backend Node.js / Edge / PostgreSQL (guarda de sessão, isolamento RLS, bootstrap de 1º acesso com 2FA TOTP e conector de feedback direto com GitHub) | Dependência npm versionada |
+| **`@v3rtech/ia`** | Orquestrador agnóstico de provedores de IA (OpenAI, Anthropic, Gemini, Groq), chaves cifradas, cota da casa vs. BYOK do cliente, teste de latência ao vivo e fallback em cascata | Dependência npm versionada |
+| **`@v3rtech/mensagens`** | Construtor e disparador multi-canal (E-mail HTML responsivo e Telegram) com identidade dinâmica da organização ativa e fallback para a marca do app | Dependência npm versionada |
+| **`@v3rtech/governanca`** | Motor de conformidade e segurança: backups cifrados `.enc` sem chave no servidor, ensaio de restauração em banco temporário, aceite de termos (5 anos) e expurgo LGPD | Dependência npm versionada |
+| **`.v3rlib-lock.json`** | Sincronizador transitório de integridade para aplicações mantidas temporariamente no Lovable: mapeia e trava cópias somente-leitura com hash SHA-256 | Arquivo na raiz do código (`Code/.v3rlib-lock.json`), validado deterministicamente no rito |
+
+### Os 12 blocos canônicos
+
+| Bloco Canônico | O que resolve e cobre | Origem de referência | Pacotes |
+| --- | --- | --- | --- |
+| **1. Casca da aplicação e navegação** | Menu lateral retrátil no computador (`>= 1024px`) e gaveta no celular (`375px`), guarda global de rotas autenticadas por papel sem piscar nem entrar em loop, limpeza automática de rascunhos e telas de detalhe na troca de organização ativa, rodapé institucional abrindo Termos e Privacidade em modal sem perda de contexto de tela. | `MiwLab` + `V3RCondo` + `RIT360 Financeiro` | `@v3rtech/ui`, `@v3rtech/tema`, `@v3rtech/contratos` |
+| **2. Topo, avatar e alternância de tema** | Barra superior (`BarraSuperior`) com seletor de organização ativa, busca rápida de telas, atalho para o assistente de IA, leitor de manual, diálogo de feedback, área administrativa/superadmin, menu do avatar (perfil, 2FA, tema claro/escuro/auto e logout), sem sininho de histórico de notificações (conforme padrão oficial da casa). | `MiwLab` + `RIT360 Financeiro` | `@v3rtech/ui`, `@v3rtech/tema` |
+| **3. Tela de login** | Layout institucional em duas colunas, botão Google OAuth condicional, mensagens orientativas de sessão expirada por inatividade ou outro aparelho, preservação do e-mail digitado no celular após recarga, etapa de 2FA TOTP e validação segura no servidor. | `RIT360 Financeiro` (base) + `V3RCondo` + `MiwLab` | `@v3rtech/ui`, `@v3rtech/servidor`, `@v3rtech/contratos` |
+| **4. Primeiro acesso e segurança inicial** | Inauguração segura sem variáveis de ambiente ou por credencial provisória de ambiente (`inicializado = false`), bloqueio imediato com troca obrigatória de credencial provisória e pareamento compulsório de 2FA TOTP com chaves de contingência para superadmin (opcional/configurável para usuários comuns). Proíbe senhas fixas em seeds. | `MiwLab` + `V3RCondo` / `Katatu` | `@v3rtech/ui`, `@v3rtech/servidor`, `@v3rtech/contratos` |
+| **5. Feedback direto para GitHub Issues** | Modal global de feedback acionável de qualquer tela com captura automática de rota, aparelho, versão e anexos, além de autorização expressa para depoimentos. O conector no servidor abre diretamente a issue no repositório GitHub (`owner/repo`), mantendo fila invisível temporária no banco caso o GitHub oscile (com expurgo imediato pós-sucesso), guarda jurídica de consentimento LGPD para depoimentos e fallback por e-mail para suporte quando fora da nossa infraestrutura (sem fila interna de triagem nem tela administrativa). | `RIT360 Financeiro` + `V3RCondo` + `MiwLab` (diretiva unificada de 06/11/2026) | `@v3rtech/ui`, `@v3rtech/servidor` |
+| **6. Manual do usuário com fonte única** | Estrutura editorial escrita uma única vez na pasta `Manual/` (Markdown com `_config.yml`) que alimenta tanto a publicação estática no GitHub Pages quanto o leitor navegável integrado na rota `/manual` dentro da casca (sem duplicar `.md` dentro de `Code/`), suporte a zoom em imagens (`zoom-imagem.js/css`), busca textual instantânea e vídeos curtos de apoio. | `SocialReport` / `RIT360 Financeiro` + `MiwLab` + `V3RCondo` | `@v3rtech/ui` |
+| **7. Provedores de IA com fallback** | Cadastro de chaves de API cifradas sem exibição em tela, separação entre franquia da casa e BYOK do cliente, teste de latência ao vivo, ordenação por prioridade com queda automática em cascata caso o provedor principal falhe ou esgote cota, e filtro de bloqueio de dados pessoais sensíveis antes do envio. | `MiwLab` + `RIT360 Financeiro` + `V3RCondo` | `@v3rtech/ia`, `@v3rtech/ui`, `@v3rtech/servidor` |
+| **8. Acesso Google OAuth 2.0** | Painel administrativo para cadastro e cifragem de credenciais, cópia em um clique dos URIs de redirecionamento autorizados, botão de teste de conexão sem sair da sessão, e trava de segurança que impede vincular ou aceitar convite com conta Google cujo e-mail divirja do convite. | `MiwLab` + `SocialReport` + `RIT360 Financeiro` | `@v3rtech/ui`, `@v3rtech/servidor` |
+| **9. Mensagens com identidade visual** | Construtor centralizado de e-mails HTML responsivos e mensagens Telegram com aplicação dinâmica de logotipo, nome e cores da organização ativa (com checagem de contraste WCAG AA e fallback automático para a marca da plataforma), pré-visualização ao vivo, modo de ensaio para auditoria antes de disparos em lote e proteção contra links falsos. | `MiwLab` / `SocialReport` + `RIT360 Financeiro` / `V3RCondo` | `@v3rtech/mensagens`, `@v3rtech/servidor` |
+| **10. Governança, cópias cifradas e LGPD** | Rotina de backup com cifragem ponta a ponta sem chaves no servidor (`.enc`), ensaio de restauração em banco temporário isolado antes da validação, retenção programada de dados com modo simulação e aviso prévio, e gestão de termos de uso com bloqueio de tela até novo aceite e registro auditável por 5 anos. | `MiwLab` + `SocialReport` + `V3RCondo` / `RIT360 Financeiro` | `@v3rtech/governanca`, `@v3rtech/servidor` |
+| **11. Avisos discretos e confirmações** | Popups flutuantes discretos no canto inferior direito para notificações rápidas ("Salvo", "Copiado"), que pausam ao passar o mouse e não bloqueiam o conteúdo da tela; modais de confirmação acessíveis para ações destrutivas ou irreversíveis com foco seguro inicial no botão cancelar; e textos explicativos visíveis em botões desabilitados. | `SocialReport` + `RIT360 Financeiro` / `V3RCondo` + `MiwLab` | `@v3rtech/ui`, `@v3rtech/tema` |
+| **12. Assistente virtual com IA** | Painel de atendimento acessível pela barra superior que responde dúvidas operacionais estritamente com base no manual oficial (indicando com clareza quando a informação não consta no manual, sem alucinar), consulta dados respeitando o contexto de permissão do usuário logado, zera o contexto na troca de organização e opera em modo seguro com proposta de preenchimento para confirmação humana. | `RIT360 Financeiro` + `V3RCondo` | `@v3rtech/ui`, `@v3rtech/ia`, `@v3rtech/servidor` |
+
+### Os 7 blocos extras
+
+| Bloco Extra | O que resolve e cobre | Origem de referência | Pacotes |
+| --- | --- | --- | --- |
+| **1. Multi-tenancy e RLS** | Isolamento multi-organização estrito no banco de dados e APIs via Row-Level Security por tenant, confirmação de vínculo no aceite de convite e limpeza reativa completa de estado de tela ao alternar a organização ativa. | `MiwLab` + `RIT360 Financeiro` + `V3RCondo` | `@v3rtech/servidor`, `@v3rtech/contratos` |
+| **2. Pacote Brasil e limpeza EXIF** | Validação e formatação de CPF e CNPJ (incluindo o formato alfanumérico), moeda brasileira BRL sem saltos de cursor na digitação, manipulação de datas imunes a fusos horários, cálculo automático de fuso por UF, expurgo automático de linhas de totais em planilhas e remoção estrita de metadados GPS/EXIF de fotos enviadas antes da persistência. | `V3RCore` + `RIT360 Financeiro` + `V3RCondo` + `MiwLab` | `@v3rtech/brasil` |
+| **3. Vocabulário adaptável e contraste WCAG** | Adaptação terminológica dinâmica às preferências e convenções de cada cliente com concordância gramatical em português, além de cálculo dinâmico de contraste de luminância (WCAG 2.1 AA, `>= 4.5:1`) para logomarcas, botões e barras sobre fundos claros e escuros. | `MiwLab` | `@v3rtech/tema`, `@v3rtech/ui` |
+| **4. PWA e Push Notifications VAPID** | Suporte completo a instalação móvel/desktop (Service Worker, manifesto, ícones e splash), indicador discreto de nova versão disponível com recarga suave e disparo de notificações push nativas via protocolo VAPID direto da aplicação, sem dependência de serviços externos proprietários (Firebase). | `V3RCondo` + `RIT360 Financeiro` | `@v3rtech/ui`, `@v3rtech/servidor` |
+| **5. Verificação pública de documentos** | Emissão de comprovantes, certidões e relatórios com QR Code e código alfanumérico de validação pública, com rota pública de conferência de autenticidade acessível sem necessidade de login. | `V3RCondo` + `V3RCore` | `@v3rtech/ui`, `@v3rtech/servidor` |
+| **6. Novidades da versão e tour guiado** | Diálogo ilustrado de apresentação das novidades da versão (alimentado automaticamente pela seção correspondente do manual) e passeio guiado passo a passo pelas principais funcionalidades, acionável a qualquer momento pelo menu de perfil. | `RIT360 Financeiro` | `@v3rtech/ui` |
+| **7. Guarda de edição e anti-SSRF** | Interceptação e diálogo de confirmação para prevenir perda de alterações em formulários ao navegar ou fechar a aba, e proteção robusta no backend contra ataques SSRF na validação e busca de URLs ou webhooks externos. | `SocialReport` + `MiwLab` | `@v3rtech/ui`, `@v3rtech/servidor` |
+
+### Especificação técnica e arquitetura
+
+A especificação técnica detalhada de cada módulo, contratos TypeScript/Zod, estratégia de monorepo e o plano de entrega em 3 ondas estão documentados em:
+- `/mnt/trabalho/Projetos/V3RTECH/V3RLib/Code/docs/ARCHITECTURE.md` — Arquitetura de pacotes, dependências, matriz de reuso e modelo de governança.
+- `/mnt/trabalho/Projetos/V3RTECH/V3RLib/Code/docs/PRD.md` — Requisitos de produto, critérios de aceite dos blocos canônicos e ondas de entrega.
 
 ## ⚠️ O que este índice revela, e vale saber antes de decidir
 
