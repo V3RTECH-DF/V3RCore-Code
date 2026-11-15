@@ -126,6 +126,17 @@ A biblioteca foi instituída na issue `V3RTECH-DF/v3r-ia-Code#18` (`feat(arquite
 | **6. Novidades da versão e tour guiado** | Diálogo ilustrado de apresentação das novidades da versão (alimentado automaticamente pela seção correspondente do manual) e passeio guiado passo a passo pelas principais funcionalidades, acionável a qualquer momento pelo menu de perfil. | `RIT360 Financeiro` | `@v3rtech-df/ui` |
 | **7. Guarda de edição e anti-SSRF** | Interceptação e diálogo de confirmação para prevenir perda de alterações em formulários ao navegar ou fechar a aba, e proteção robusta no backend contra ataques SSRF na validação e busca de URLs ou webhooks externos. | `SocialReport` + `MiwLab` | `@v3rtech-df/ui`, `@v3rtech-df/servidor` |
 
+### Peças de tela prontas no `@v3rtech-df/ui`
+
+Antes de desenhar uma tabela, um cartão de indicador, um botão ou um campo de formulário num app web, use estas peças. Já vêm com o design system da casa (contraste nos dois modos, alvo de 44 px, foco visível, textos em português). O uso está no `docs/consumo.md` da V3RLib, na seção indicada.
+
+| Peça | O que resolve | Onde ler |
+| --- | --- | --- |
+| **`TabelaDados`** | Lista em tabela com ordenação pedida ao servidor, paginação por cursor, seleção por linha e em lote (com a `BarraLote`), estados de carregando, vazio e erro, e cartões no celular. | `consumo.md` §3.3 e §29 |
+| **`CartaoIndicador`** | Número de painel com comparação com a referência quando o negócio permite, e frase no lugar do número quando ainda não há dado (DS-CASA-13 e 14). | `consumo.md` §3.3 |
+| **`Botao`** | Botão geral da casa, com variantes (primário, secundário, perigo, só ícone), hover com contraste garantido e alvo de 44 px. | `consumo.md` §3.5 |
+| **Campos do kit** (`Campo`, `CampoTexto`, `CampoSelecao`, `CampoAreaTexto`, `CampoMarcar`, `CampoCor`, `CampoArquivo`, `CampoImagem`, `SeletorVarios`) | Rótulo visível acima, ajuda e erro ligados ao campo, mensagens em português sem a validação nativa do navegador; cor com normalização de hexadecimal; arquivo e imagem com botão e textos da casa; seleção múltipla com busca, etiquetas e árvore. | `consumo.md` §3.4 (seleção múltipla: issue #110) |
+
 ### Especificação técnica e arquitetura
 
 A especificação técnica detalhada de cada módulo, contratos TypeScript/Zod, estratégia de monorepo e o plano de entrega em 3 ondas estão documentados em:
