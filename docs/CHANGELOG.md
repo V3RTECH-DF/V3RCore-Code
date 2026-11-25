@@ -2,6 +2,16 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.27.1] — 2026-11-25
+
+### Corrigido
+- **O limite de tentativas voltou a bloquear em site sem cache de objeto**
+  (V3RCore-Code#58). Sem Redis ou Memcached, o WordPress devolve o contador
+  guardado como texto, e o `AttemptLimiter` o lia como zero: o limite de
+  pedidos de link por e-mail e de outras tentativas nunca disparava.
+  Afetava todo consumidor do limitador (Solidário, V3REvent, GE Associados).
+  Agora o contador em texto numérico é lido como número.
+
 ## [0.27.0] — 2026-11-25
 
 ### Adicionado

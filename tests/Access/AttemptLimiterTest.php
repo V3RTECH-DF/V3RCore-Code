@@ -31,6 +31,45 @@ final class AttemptLimiterTest extends TestCase {
 	}
 
 	/**
+	 * Sem cache de objeto persistente, o transient do WordPress volta do
+	 * banco como TEXTO ("3"), não como inteiro. O limitador lia isso como
+	 * zero e nunca bloqueava (V3RCore-Code#58). Este armazenamento imita o
+	 * WordPress real: grava qualquer coisa e devolve escalar como texto.
+	 */
+	public function testContadorGuardadoComoTextoContinuaContando(): void {
+		$interno = $this->store();
+		$comoNoBanco = new class( $interno ) implements \V3R\Core\Licensing\Storage\KeyValueStoreInterface {
+			/** @var InMemoryKeyValueStore */
+			private $interno;
+
+			public function __construct( InMemoryKeyValueStore $interno ) {
+				$this->interno = $interno;
+			}
+
+			public function get( string $key ) {
+				$value = $this->interno->get( $key );
+
+				return is_scalar( $value ) ? (string) $value : $value;
+			}
+
+			public function set( string $key, $value, int $expirationSeconds = 0 ): void {
+				$this->interno->set( $key, $value, $expirationSeconds );
+			}
+
+			public function delete( string $key ): void {
+				$this->interno->delete( $key );
+			}
+		};
+		$limiter = new AttemptLimiter( $comoNoBanco, 'v3r_test', 900, 3 );
+
+		$this->assertTrue( $limiter->registerAttempt( 'a@example.org', '10.0.0.1' ) );
+		$this->assertTrue( $limiter->registerAttempt( 'a@example.org', '10.0.0.1' ) );
+		$this->assertTrue( $limiter->registerAttempt( 'a@example.org', '10.0.0.1' ) );
+		$this->assertFalse( $limiter->registerAttempt( 'a@example.org', '10.0.0.1' ) );
+		$this->assertFalse( $limiter->registerAttempt( 'b@example.org', '10.0.0.1' ), 'a origem também acumulou' );
+	}
+
+	/**
 	 * O detalhe que o componente existe para preservar: a tentativa
 	 * RECUSADA também conta. Se o incremento voltasse para dentro do `if`
 	 * de checagem, a origem pararia de acumular assim que o e-mail

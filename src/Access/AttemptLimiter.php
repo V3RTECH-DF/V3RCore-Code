@@ -128,7 +128,13 @@ final class AttemptLimiter {
 	private function count( string $key ): int {
 		$value = $this->store->get( $key );
 
-		return is_int( $value ) ? $value : 0;
+		// Sem cache de objeto persistente, o transient volta do banco como
+		// texto ("3"). Ler isso como zero desligava o limitador (#58).
+		if ( is_int( $value ) ) {
+			return $value;
+		}
+
+		return is_string( $value ) && ctype_digit( $value ) ? (int) $value : 0;
 	}
 
 	/**
