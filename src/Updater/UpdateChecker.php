@@ -5,6 +5,7 @@ namespace V3R\Core\Updater;
 
 use V3R\Core\Licensing\HttpApiClient;
 use V3R\Core\Licensing\LicenseManager;
+use V3R\Core\Support\Logger;
 
 /**
  * Encapsula o Plugin Update Checker (YahnisElsts\PluginUpdateChecker). Esta
@@ -42,13 +43,15 @@ class UpdateChecker {
 		string $pluginFile,
 		string $productSlug,
 		LicenseManager $licenseManager,
-		UpdateGate $gate
+		UpdateGate $gate,
+		bool $freeProduct = false,
+		?Logger $logger = null
 	) {
 		$this->pluginFile     = $pluginFile;
 		$this->productSlug    = $productSlug;
 		$this->licenseManager = $licenseManager;
 		$this->gate           = $gate;
-		$this->resolver       = new UpdateMetadataResolver( $licenseManager, $gate );
+		$this->resolver       = new UpdateMetadataResolver( $licenseManager, $gate, $freeProduct, $logger );
 		$this->pucBridge      = null;
 	}
 

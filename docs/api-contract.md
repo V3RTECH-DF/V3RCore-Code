@@ -190,6 +190,38 @@ distinguir "sem novidade" de "sem direito a atualizar" para decidir o que
 mostrar na UI, mas em ambos os casos o `V3R\Core\Updater\UpdateGate` decide
 "não recebe update" e o plugin continua funcionando normalmente.
 
+### 2.4.1 `GET /update-check` sem chave — produto gratuito (V3RCore-Code#55, v0.27.0)
+
+Para produto **marcado como gratuito no servidor** (V3RLicense 0.38.0, ADR-041),
+`/update-check` aceita a consulta **sem `license_key`**: responde normalmente
+(mesmo envelope assinado de §2.4), registra o site e emite o token de download.
+
+| Campo | Modo gratuito |
+|-------|---------------|
+| `product_slug` | obrigatório |
+| `site_url` | **obrigatório** — sem ele o servidor responde `400 invalid_site_url` |
+| `plugin_version` | obrigatório |
+| `license_key` | **omitido** |
+| `version` | opcional (rollback), como em §2.4 |
+
+Produto **pago** sem chave continua `404 invalid_key`.
+
+O que o cliente faz (só com `Bootstrap::withFreeProduct()` — sem o modo, nada
+muda e `INACTIVE` continua sem rede):
+
+- A consulta nunca leva `license_key`, **mesmo que o site tenha chave salva**:
+  o modo gratuito **ignora a chave e o estado de licença** (decisão #55 — um
+  produto gratuito não tem licença que possa expirar ou ser revogada, e uma
+  chave antiga de teste não pode nem bloquear nem alterar a consulta). O
+  `UpdateGate` não é consultado.
+- Nunca chama `/activate`, `/validate` nem `/deactivate`.
+- `site_url` vazio no cliente: **não chama a rede** (o servidor recusaria com
+  400) e registra o motivo no log; equivale a "sem novidade".
+- A resposta segue a mesma disciplina de §4.3/§7.1: sem assinatura, com
+  assinatura inválida ou com payload adulterado **nunca** vira atualização;
+  qualquer erro (inclusive `invalid_key` de produto pago) equivale a "sem
+  novidade por enquanto".
+
 ### 2.5 `GET /download`
 
 Entrega o zip da versão, ou nega com motivo. Recebe **só** o token

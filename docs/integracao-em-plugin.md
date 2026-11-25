@@ -802,6 +802,67 @@ recusar um pacote cuja versão embutida diverge da esperada pelo build —
 ver `RELEASE_LIBRARY_VERSION_FILES` e `--expected-lib-version` em
 `v3r-release/docs/declaracao.md` (item 20 do §5 do contrato).
 
+## 7.6 Produto gratuito: atualizar sem chave (V3RCore-Code#55, v0.27.0)
+
+Produto que o servidor de licenças marcou como **gratuito** não tem licença
+nenhuma: o plugin só quer receber atualização automática. Para ele, `boot()`
+com tela, capability e rotas de licença seria peso morto — e, pior, o
+`UpdateGate` recusa atualização em `INACTIVE`. O modo é **opt-in**: sem
+`withFreeProduct()` o comportamento é exatamente o de §7.
+
+```php
+add_action( 'plugins_loaded', function () {
+    if ( ! class_exists( Bootstrap::class ) ) {
+        return;
+    }
+
+    $licenseConfig = meuplugin_resolve_v3r_license_config(); // §8: URL + chave pública do SERVIDOR
+    if ( null === $licenseConfig ) {
+        return;
+    }
+
+    ( new Bootstrap(
+        'v3rmural',            // product_slug — o produto precisa estar marcado como gratuito no V3RLicense
+        __FILE__,
+        $licenseConfig['api_url'],
+        $licenseConfig['public_key'],
+        '1.0.0'
+    ) )
+        ->withFreeProduct()    // sem chave, sem tela, sem capability
+        ->boot();
+} );
+```
+
+(A "chave pública" aqui é a do **servidor**, para verificar a assinatura da
+resposta — §8. Não é chave de licença; produto gratuito não tem nenhuma.)
+
+`Bootstrap::withFreeProduct( ?callable $logSink = null ): self` — chame antes
+de `boot()`. Efeitos:
+
+- **Não precisa de `withCapabilityDecider()`** nem de capability: `boot()`
+  registra só o atualizador (nenhum filtro `user_has_cap`, nenhuma rota REST
+  de licença).
+- **Nenhuma tela de licença**: `createAdminPage()` lança `LogicException` no
+  modo (não há licença a exibir). Não registre menu de licença.
+- A consulta a `/update-check` vai **sem `license_key`**, com `product_slug`,
+  `site_url` e `plugin_version` (docs/api-contract.md §2.4.1); nunca há
+  `/activate` nem `/validate`.
+- **Chave salva é ignorada**: se o site tiver um estado de licença gravado
+  (ex.: o plugin já foi pago e virou gratuito), ele não é lido, enviado,
+  alterado nem apagado.
+- `site_url` vazio: não chama a rede; o motivo vai ao `$logSink`
+  (`function( string $level, string $message, array $context ): void`;
+  padrão `error_log()`).
+- Resposta sem assinatura válida nunca vira atualização.
+
+**Pré-condição de servidor:** o produto marcado como gratuito no painel do
+V3RLicense. Produto pago sem chave recebe `invalid_key`, tratado como "sem
+novidade" — o modo não "libera" nada que o servidor não libere.
+
+**Migração do V3RAnalytics** (próximo passo, fora da #55): trocar a chave
+pública embutida (`FreeLicense::KEY`) por `withFreeProduct()` e marcar o
+produto como gratuito no V3RLicense.
+
 ## 8. Configuração de produção: URL e chave pública via constantes
 
 > **Decisão de rollout, válida para os sete plugins clientes** (V3REvent,

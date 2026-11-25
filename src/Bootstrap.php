@@ -11,6 +11,7 @@ use V3R\Core\Licensing\LicenseStorage;
 use V3R\Core\Licensing\SignatureVerifier;
 use V3R\Core\Rest\LicenseController;
 use V3R\Core\Rest\LicenseRestRouter;
+use V3R\Core\Support\Logger;
 use V3R\Core\Updater\UpdateChecker;
 use V3R\Core\Updater\UpdateGate;
 
@@ -90,6 +91,14 @@ final class Bootstrap {
 	 * @var string|null
 	 */
 	private $productName;
+
+	/**
+	 * Modo produto gratuito (V3RCore-Code#55). Falso por padrão: o
+	 * comportamento é o de sempre. Ligado por `withFreeProduct()`.
+	 *
+	 * @var bool
+	 */
+	private $freeProduct = false;
 
 	/**
 	 * @param string      $productSlug      Slug do produto no servidor de licenças (ex.: "v3rlgpd").
@@ -219,6 +228,57 @@ final class Bootstrap {
 	}
 
 	/**
+	 * Liga o MODO PRODUTO GRATUITO (V3RCore-Code#55): o plugin recebe
+	 * atualização automática SEM licença — sem chave, sem tela, sem
+	 * capability. A consulta a `/update-check` vai sem `license_key` (com
+	 * `product_slug`, `site_url`, `plugin_version`) e o servidor registra o
+	 * site; só funciona para produto marcado como gratuito no V3RLicense
+	 * (produto pago sem chave volta `invalid_key`, tratado como "sem
+	 * novidade"). docs/api-contract.md §2.4.1.
+	 *
+	 * Efeitos, todos opt-in (sem esta chamada nada muda):
+	 * - `boot()` NÃO exige `withCapabilityDecider()` e registra só o
+	 *   atualizador — nenhuma capability, nenhuma rota REST de licença;
+	 * - `createAdminPage()` recusa (não há licença a exibir);
+	 * - o modo IGNORA qualquer chave salva: a consulta nunca leva
+	 *   `license_key`, mesmo que o site tenha uma ativação antiga, e o
+	 *   estado de licença não decide nada. Nunca chama `/activate` nem
+	 *   `/validate`;
+	 * - `site_url` vazio não gera requisição: o motivo vai ao log.
+	 *
+	 * Chame antes de `boot()`. Reconstrói o atualizador com o modo ligado.
+	 *
+	 * @param callable|null $logSink `function( string $level, string $message, array $context ): void`.
+	 *                               Padrão: `error_log()` quando existir.
+	 * @return $this Fluente.
+	 */
+	public function withFreeProduct( ?callable $logSink = null ): self {
+		$this->freeProduct = true;
+
+		$sink = $logSink ?? static function ( string $level, string $message, array $context ): void {
+			if ( function_exists( 'error_log' ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[' . $level . '] ' . $message . ' ' . (string) json_encode( $context ) );
+			}
+		};
+
+		$this->updateChecker = new UpdateChecker(
+			$this->pluginFile,
+			$this->productSlug,
+			$this->licenseManager,
+			$this->updateGate,
+			true,
+			new Logger( $sink )
+		);
+
+		return $this;
+	}
+
+	public function isFreeProduct(): bool {
+		return $this->freeProduct;
+	}
+
+	/**
 	 * Liga os hooks do WordPress necessários: concessão das capabilities
 	 * de licença (Licensing\CapabilityGate, V3RCore-Code#12),
 	 * auto-atualização (Updater\UpdateChecker) e os quatro endpoints REST
@@ -242,6 +302,13 @@ final class Bootstrap {
 	 *                          issue existe para fechar.
 	 */
 	public function boot(): void {
+		if ( $this->freeProduct ) {
+			// Produto gratuito: só o atualizador (withFreeProduct()).
+			$this->updateChecker->register();
+
+			return;
+		}
+
 		if ( null === $this->capabilityGate ) {
 			throw new \LogicException(
 				'Bootstrap::boot() chamado sem Bootstrap::withCapabilityDecider() antes. ' .
@@ -271,8 +338,17 @@ final class Bootstrap {
 	 * Nome de exibição (V3RCore-Code#11): repassa `$productName` se
 	 * `withProductName()` foi chamado antes; senão `null`, e a AdminPage
 	 * cai para o `productSlug`.
+	 *
+	 * @throws \LogicException No modo produto gratuito (`withFreeProduct()`): não há licença a exibir.
 	 */
 	public function createAdminPage(): AdminPage {
+		if ( $this->freeProduct ) {
+			throw new \LogicException(
+				"Bootstrap do plugin '{$this->productSlug}' está no modo produto gratuito (withFreeProduct()): " .
+				'não há licença, logo não há tela de licença.'
+			);
+		}
+
 		return new AdminPage( $this->licenseManager, $this->updateGate, $this->manageCapability, $this->productName );
 	}
 

@@ -310,6 +310,52 @@ class LicenseManager {
 		return $this->apiClient->checkUpdate( $query );
 	}
 
+	/**
+	 * URL do site como o servidor a receberá (a mesma enviada em toda
+	 * chamada). Exposta para o modo produto gratuito poder recusar, antes
+	 * da rede, a requisição que o servidor recusaria (`site_url` vazio).
+	 */
+	public function getSiteUrl(): string {
+		return $this->currentSiteUrl();
+	}
+
+	/**
+	 * GET /update-check do MODO PRODUTO GRATUITO (docs/api-contract.md
+	 * §2.4.1, V3RCore-Code#55): a consulta vai SEM `license_key`, com
+	 * `product_slug`, `site_url` e `plugin_version` — o servidor registra o
+	 * site e emite o token de download. Nunca lê o estado de licença nem a
+	 * chave salva: o modo gratuito ignora a chave por contrato.
+	 *
+	 * `site_url` vazio não chega à rede (o servidor responderia 400
+	 * `invalid_site_url`): devolve null. A assinatura da resposta é
+	 * verificada pelo ApiClientInterface, exatamente como na consulta paga.
+	 *
+	 * @param string      $installedVersion Versão REALMENTE instalada agora (`plugin_version`).
+	 * @param string|null $requestedVersion Rollback explícito (`version`); ausente na rotina.
+	 * @return array<string, mixed>|null Envelope { payload, signature } verificado, ou null sem `site_url`.
+	 *
+	 * @throws ApiException Repassada tal como veio do ApiClientInterface.
+	 */
+	public function checkForFreeProductUpdate( string $installedVersion, ?string $requestedVersion = null ): ?array {
+		$siteUrl = $this->currentSiteUrl();
+
+		if ( '' === $siteUrl ) {
+			return null;
+		}
+
+		$query = array(
+			'product_slug'   => $this->productSlug,
+			'site_url'       => $siteUrl,
+			'plugin_version' => $installedVersion,
+		);
+
+		if ( null !== $requestedVersion ) {
+			$query['version'] = $requestedVersion;
+		}
+
+		return $this->apiClient->checkUpdate( $query );
+	}
+
 	private function currentSiteUrl(): string {
 		return ( $this->siteUrlProvider )();
 	}

@@ -5,6 +5,7 @@ namespace V3R\Core\Updater;
 
 use V3R\Core\Licensing\ApiException;
 use V3R\Core\Licensing\LicenseManager;
+use V3R\Core\Support\Logger;
 
 /**
  * Decide, para uma instalação concreta, se há atualização disponível AGORA
@@ -25,9 +26,25 @@ final class UpdateMetadataResolver {
 	/** @var UpdateGate */
 	private $gate;
 
-	public function __construct( LicenseManager $licenseManager, UpdateGate $gate ) {
+	/** @var bool */
+	private $freeProduct;
+
+	/** @var Logger */
+	private $logger;
+
+	/**
+	 * @param LicenseManager $licenseManager
+	 * @param UpdateGate     $gate
+	 * @param bool           $freeProduct Modo produto gratuito (V3RCore-Code#55): consulta o servidor SEM chave
+	 *                                    e sem passar pelo UpdateGate (que só existe para licença paga).
+	 *                                    Padrão false = comportamento anterior, idêntico.
+	 * @param Logger|null    $logger      Destino do motivo quando o modo gratuito não consulta a rede.
+	 */
+	public function __construct( LicenseManager $licenseManager, UpdateGate $gate, bool $freeProduct = false, ?Logger $logger = null ) {
 		$this->licenseManager = $licenseManager;
 		$this->gate           = $gate;
+		$this->freeProduct    = $freeProduct;
+		$this->logger         = $logger ?? new Logger();
 	}
 
 	/**
@@ -45,6 +62,10 @@ final class UpdateMetadataResolver {
 	 *                                       Ausente na checagem de rotina.
 	 */
 	public function resolve( string $installedVersion, ?string $requestedVersion = null ): UpdateAvailability {
+		if ( $this->freeProduct ) {
+			return $this->resolveFreeProduct( $installedVersion, $requestedVersion );
+		}
+
 		$state = $this->licenseManager->getState();
 
 		if ( ! $this->gate->canUpdate( $state ) ) {
@@ -68,6 +89,44 @@ final class UpdateMetadataResolver {
 
 		if ( null === $response ) {
 			// Nunca houve ativação neste site: não há chave para perguntar.
+			return UpdateAvailability::none();
+		}
+
+		$payload = isset( $response['payload'] ) && is_array( $response['payload'] ) ? $response['payload'] : array();
+
+		if ( empty( $payload['update_available'] ) ) {
+			return UpdateAvailability::none();
+		}
+
+		return UpdateAvailability::fromPayload( $payload );
+	}
+
+	/**
+	 * Modo produto gratuito (docs/api-contract.md §2.4.1): não há licença,
+	 * logo não há gate nem estado — o servidor é quem sabe se o produto é
+	 * mesmo gratuito (produto pago sem chave volta 404 `invalid_key`, que
+	 * aqui, como em qualquer falha, equivale a "sem novidade"). A resposta
+	 * só vira atualização se vier assinada e válida (a verificação é do
+	 * ApiClientInterface).
+	 */
+	private function resolveFreeProduct( string $installedVersion, ?string $requestedVersion ): UpdateAvailability {
+		if ( '' === $this->licenseManager->getSiteUrl() ) {
+			// O servidor recusaria (400 invalid_site_url): nem mandamos.
+			$this->logger->warning(
+				'v3r-core: consulta de atualização do produto gratuito não enviada — site_url vazio.',
+				array( 'product_slug' => $this->licenseManager->getProductSlug() )
+			);
+
+			return UpdateAvailability::none();
+		}
+
+		try {
+			$response = $this->licenseManager->checkForFreeProductUpdate( $installedVersion, $requestedVersion );
+		} catch ( ApiException $exception ) {
+			return UpdateAvailability::none();
+		}
+
+		if ( null === $response ) {
 			return UpdateAvailability::none();
 		}
 

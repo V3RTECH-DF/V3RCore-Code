@@ -8,7 +8,7 @@
 > - **Plugins WordPress:** container `V3RCore` (`v3rtech/v3r-core` em `V3RCore/Code` + `@v3rtech/v3r-front` em `V3RCore/Front`);
 > - **Aplicações Web e Servidor Standalone (infra própria e transição Lovable):** container **`V3RLib`** (`/mnt/trabalho/Projetos/V3RTECH/V3RLib/Code`, repositório `V3RTECH-DF/V3RLib-Code`).
 >
-> Atualizada em 06/11/2026.
+> Atualizada em 25/11/2026.
 >
 > ⚠️ A coluna **quem consome** é a mais informativa desta página: ela revela
 > capacidade com um consumidor só — e capacidade com nenhum.
@@ -44,7 +44,7 @@ WordPress.
 
 | Capacidade | O que resolve | Desde | Quem consome hoje | Detalhe |
 | --- | --- | --- | --- | --- |
-| **Licença e atualização** | o plugin valida a licença e se atualiza sozinho | 0.1.0 | os 9 | `api-contract.md`, `integracao-em-plugin.md` |
+| **Licença e atualização** | o plugin valida a licença e se atualiza sozinho. **Modo produto gratuito** (`Bootstrap::withFreeProduct()`): produto marcado como gratuito no V3RLicense se atualiza **sem chave, sem tela e sem capability de licença** (o site é registrado pelo servidor); opt-in, sem o modo nada muda | 0.1.0 (modo gratuito: 0.27.0, `#55`) | os 9; modo gratuito: V3RMural (previsto; V3RAnalytics migra depois, hoje com chave pública embutida) | `api-contract.md` §2.4.1, `integracao-em-plugin.md` §7.6 |
 | **Documentos** | valida e formata CNPJ e CPF, inclusive o alfanumérico | 0.10.0 | Flow, GE Associados | `documentos-cnpj-cpf.md` |
 | **Sugestão de e-mail** | corrige o domínio digitado errado enquanto a pessoa escreve | 0.9.0 | V3REvent | `sugestao-de-dominio-de-email.md` |
 | **Ativo de front** | distribui script/estilo da biblioteca para a tela do plugin | 0.9.0 | V3REvent | `sugestao-de-dominio-de-email.md` |

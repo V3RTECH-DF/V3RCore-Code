@@ -2,6 +2,23 @@
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/); versionamento [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.27.0] — 2026-11-25
+
+### Adicionado
+- **Modo produto gratuito: plugin se atualiza sem chave de licença**
+  (V3RCore-Code#55). `Bootstrap::withFreeProduct()` liga, opcionalmente, um
+  modo em que o plugin recebe atualização automática sem licença, sem tela
+  de licença e sem capability de licença — pensado para produto marcado como
+  gratuito no servidor de licenças (V3RLicense 0.38.0), que registra o site
+  na consulta. No modo, a biblioteca nunca envia chave (mesmo havendo uma
+  salva), nunca tenta ativar nem validar, não consulta site com endereço
+  vazio (registra o motivo no log) e só aceita atualização cuja resposta
+  venha assinada pelo servidor. `boot()` dispensa `withCapabilityDecider()`
+  e `createAdminPage()` recusa no modo. Sem chamar `withFreeProduct()` nada
+  muda. Primeiro consumidor previsto: V3RMural; o V3RAnalytics migra da
+  chave pública embutida em seguida. Ver `integracao-em-plugin.md` §7.6 e
+  `api-contract.md` §2.4.1.
+
 ## [0.26.0] — 2026-09-13
 
 ### Corrigido
